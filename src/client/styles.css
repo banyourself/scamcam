@@ -1,50 +1,88 @@
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+@import "@fontsource/big-shoulders-stencil-display/700";
+@import "@fontsource/big-shoulders-stencil-display/800";
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  --color-background: oklch(0.985 0.003 250);
-  --color-foreground: oklch(0.22 0.02 255);
-  --color-muted: oklch(0.94 0.008 250);
-  --color-muted-foreground: oklch(0.45 0.02 255);
-  --color-border: oklch(0.88 0.01 250);
-  --color-card: oklch(1 0 0);
-  --color-primary: oklch(0.55 0.15 200);
-  --color-primary-foreground: oklch(0.99 0 0);
-  --color-ring: oklch(0.6 0.15 200);
-  --color-warning: oklch(0.72 0.15 75);
-  --color-danger: oklch(0.58 0.2 25);
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-display: "Big Shoulders Stencil Display", "Arial Narrow", Impact, sans-serif;
+
+  --color-bg: #f3f1ea;
+  --color-panel: #fffdf7;
+  --color-panel-2: #ece8dc;
+  --color-rule: #d3cdbd;
+  --color-rule-strong: #8f8873;
+  --color-ink: #17191a;
+  --color-ink-soft: #3f4447;
+  --color-ink-faint: #5f6468;
+  --color-accent: #8a5a00;
+  --color-accent-strong: #6b4500;
+  --color-accent-ink: #fffaf0;
+  --color-focus: #8a5a00;
+  --color-redact: #17191a;
+
+  --color-level-safe: #1d6b45;
+  --color-level-unknown: #4d5a62;
+  --color-level-suspicious: #855c00;
+  --color-level-high: #a33f12;
+  --color-level-malicious: #a3171b;
 }
 
 @layer base {
   .dark {
-    --color-background: oklch(0.17 0.02 255);
-    --color-foreground: oklch(0.95 0.01 250);
-    --color-muted: oklch(0.24 0.02 255);
-    --color-muted-foreground: oklch(0.72 0.02 250);
-    --color-border: oklch(0.32 0.02 255);
-    --color-card: oklch(0.21 0.02 255);
-    --color-primary: oklch(0.78 0.13 195);
-    --color-primary-foreground: oklch(0.18 0.02 255);
-    --color-ring: oklch(0.78 0.13 195);
+    --color-bg: #0b0d0c;
+    --color-panel: #121514;
+    --color-panel-2: #181c1a;
+    --color-rule: #29302c;
+    --color-rule-strong: #4a544e;
+    --color-ink: #e7ece8;
+    --color-ink-soft: #b4beb7;
+    --color-ink-faint: #8a958e;
+    --color-accent: #f2b33d;
+    --color-accent-strong: #ffc65c;
+    --color-accent-ink: #1a1203;
+    --color-focus: #f2b33d;
+    --color-redact: #e7ece8;
+
+    --color-level-safe: #5ccf95;
+    --color-level-unknown: #a3afb6;
+    --color-level-suspicious: #f2c94c;
+    --color-level-high: #ff9150;
+    --color-level-malicious: #ff6b63;
   }
 
   html {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   body {
     min-height: 100dvh;
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
+    background-image: repeating-linear-gradient(to bottom, transparent 0 3px, rgb(0 0 0 / 0.018) 3px 4px);
+  }
+
+  .dark body {
+    background-image: repeating-linear-gradient(to bottom, transparent 0 3px, rgb(255 255 255 / 0.016) 3px 4px);
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-ring);
-    outline-offset: 2px;
+    outline: 2px solid var(--color-focus);
+    outline-offset: 3px;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -52,7 +90,190 @@
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+@layer components {
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+  }
+
+  .display {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 0.95;
+    text-transform: uppercase;
+  }
+
+  .viewfinder {
+    --corner: var(--color-accent);
+    --arm: 22px;
+    position: relative;
+    background:
+      linear-gradient(var(--corner) 0 0) top left / var(--arm) 2px,
+      linear-gradient(var(--corner) 0 0) top left / 2px var(--arm),
+      linear-gradient(var(--corner) 0 0) top right / var(--arm) 2px,
+      linear-gradient(var(--corner) 0 0) top right / 2px var(--arm),
+      linear-gradient(var(--corner) 0 0) bottom left / var(--arm) 2px,
+      linear-gradient(var(--corner) 0 0) bottom left / 2px var(--arm),
+      linear-gradient(var(--corner) 0 0) bottom right / var(--arm) 2px,
+      linear-gradient(var(--corner) 0 0) bottom right / 2px var(--arm),
+      var(--color-panel);
+    background-repeat: no-repeat;
+  }
+
+  .stamp {
+    display: inline-block;
+    border: 3px double currentColor;
+    border-radius: 4px;
+    padding: 0.35rem 0.75rem 0.25rem;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.6rem;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    text-transform: uppercase;
+    transform: rotate(-3deg);
+  }
+
+  .evidence-tag {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0.75rem 0.2rem 1.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-accent-ink);
+    background: var(--color-accent);
+    clip-path: polygon(0.7rem 0, 100% 0, 100% 100%, 0.7rem 100%, 0 50%);
+  }
+
+  .evidence-tag::before {
+    content: "";
+    position: absolute;
+    left: 0.55rem;
+    top: 50%;
+    width: 0.38rem;
+    height: 0.38rem;
+    margin-top: -0.19rem;
+    border-radius: 999px;
+    background: var(--color-bg);
+  }
+
+  .redact {
+    display: inline-block;
+    min-width: 4ch;
+    border-radius: 2px;
+    background: var(--color-redact);
+    color: transparent;
+    user-select: none;
+  }
+
+  .rule-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-ink-faint);
+  }
+
+  .rule-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--color-rule);
+  }
+
+  .prose-doc {
+    max-width: 68ch;
+    line-height: 1.7;
+    color: var(--color-ink-soft);
+  }
+
+  .prose-doc h2 {
+    margin-top: 2.25rem;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--color-ink);
+  }
+
+  .prose-doc h3 {
+    margin-top: 1.5rem;
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+
+  .prose-doc p,
+  .prose-doc ul,
+  .prose-doc ol {
+    margin-top: 0.85rem;
+  }
+
+  .prose-doc ul {
+    list-style: square;
+    padding-left: 1.25rem;
+  }
+
+  .prose-doc ol {
+    list-style: decimal;
+    padding-left: 1.4rem;
+  }
+
+  .prose-doc li + li {
+    margin-top: 0.35rem;
+  }
+
+  .prose-doc a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .prose-doc strong {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+
+  .prose-doc table {
+    width: 100%;
+    margin-top: 1rem;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+  }
+
+  .prose-doc th,
+  .prose-doc td {
+    border-bottom: 1px solid var(--color-rule);
+    padding: 0.55rem 0.5rem;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .prose-doc th {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-ink-faint);
   }
 }

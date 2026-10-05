@@ -17,9 +17,13 @@
     "cf-typegen": "wrangler types --strict-vars=false",
     "check": "npm run typecheck && npm test && npm run build",
     "test:worker": "vitest run",
-    "test:config": "node --test \"test/node/*.test.ts\""
+    "test:config": "node --test \"test/node/*.test.ts\"",
+    "test:a11y": "vite build && node scripts/a11y.ts"
   },
   "dependencies": {
+    "@fontsource/big-shoulders-stencil-display": "5.3.0",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/ibm-plex-sans": "5.3.0",
     "@hono/zod-openapi": "1.6.3",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
@@ -37,6 +41,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
+    "axe-core": "4.13.0",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2",
     "vite": "8.3.2",

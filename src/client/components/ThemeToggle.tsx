@@ -16,7 +16,7 @@ export function ThemeToggle() {
         setTheme(next);
       }}
     >
-      {next === "light" ? "Light theme" : "Dark theme"}
+      {next === "light" ? "Light" : "Dark"}
     </Button>
   );
 }

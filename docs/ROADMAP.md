@@ -7,8 +7,8 @@ until the current one is evaluated.
 |---|---|---|
 | 0. Planning | Done | Requirements, free-tier and license research, architecture, threat model, data model, retention, costs, legal and naming risks |
 | 1. Foundation | Done locally | Repository, React and TypeScript, Worker with Hono, D1 migrations, security headers, error handling, rate limiting, Turnstile helper, scheduled cleanup, logging, CI, Codespaces |
-| 2. Website | Next | Design system, landing page, scan form, report layout, accessibility pass, Privacy, Terms, Acceptable Use, Cookie, Accessibility, Security, Vulnerability Disclosure, and Contact pages |
-| 3. Detection | Planned | Safe Browsing v5, URLhaus, Phishing.Database, RDAP, DNS, Public Suffix List, URL and message analysis, gaming impersonation rules, evidence correlation, structured reports |
+| 2. Website | Done locally | Evidence-room design system, landing page with gaming scam guide, scan panel with live in-browser link and redaction preview, report layout, How it works, draft Privacy, Terms, Acceptable Use, and Cookie pages, Accessibility, Security, Vulnerability Disclosure, and Contact pages, automated WCAG 2.2 AA audit |
+| 3. Detection | Next | Safe Browsing v5, URLhaus, Phishing.Database, RDAP, DNS, Public Suffix List, URL and message analysis, gaming impersonation rules, evidence correlation, structured reports |
 | 4. Optimization | Planned | Caching under each provider's rules, safe deduplication, benchmarks, optional Workers AI for inconclusive cases |
 | 5. Security and compliance | Planned | Security testing, privacy verification, rate-limit tests, legal review of drafts, disclosure process test, cleanup and recovery test |
 | 6. Deployment | Needs approval | Create D1 in Cloudflare, set secrets, deploy, attach `scamcam.kevinle.tech`, verify the personal site is unaffected, trademark check |

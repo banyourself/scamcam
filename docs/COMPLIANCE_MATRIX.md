@@ -31,9 +31,9 @@ labeling software "malicious" can be a statement of fact. So reports:
 
 ## Name and trademark
 
-- No exact US registration for "ScamCam" was found in the sources reachable on 2026-10-05, but USPTO search itself
-  was not reachable and must be done manually at tmsearch.uspto.gov ("SCAMCAM" and "SCAM CAM").
+- USPTO Trademark Search, wordmark "ScamCam", run by Kevin on 2026-10-05: **no results**, live or dead. Still to run:
+  "SCAM CAM" (with a space) and a design-mark search if a logo is adopted.
 - A 2024 startup called ScamCam (Amsterdam Law Hub listing, LinkedIn; Tracxn lists Vilnius) works on scam protection
   for travelers. Same field, different market. Main naming risk.
 - "Scam-Cam Technologies" (CCTV) and "SCRAM CAM" (offender monitoring) are in unrelated classes.
-- Assessment: low to moderate risk for a US noncommercial site. Decide before Stage 6.
+- Assessment: low risk in the US after the USPTO search; the EU startup remains the main overlap. Decide before Stage 6.
