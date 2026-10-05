@@ -23,9 +23,21 @@ Re-check terms before enabling each integration and at least yearly.
 | Google Web Risk | | Billing | Paid | | | Full URL | **Not used**: commercial product |
 | NVD, CISA KEV, OSV.dev, FIRST EPSS, GitHub Security Advisories | Vulnerability context for gaming mods (later) | Optional key (NVD) | NVD about 5 per 30 seconds without a key | NVD notice; GHSA CC-BY 4.0 | | Package names only | **Deferred** to a later phase |
 
-## Adapter contract (Stage 3)
+## How sources plug in
 
-Every source is an adapter with the same shape: a name, the evidence types it can provide, a timeout, a daily
-budget, a cache policy, and a `lookup` function that returns typed evidence or a typed "unavailable" result. The
-engine can drop, replace, or add a source without changing the report code. Results are evidence, never the final
-verdict on their own.
+Each source is its own module in `src/engine` with a lookup function, a timeout, and a typed result that always
+includes "unavailable". The scan orchestrator turns results into evidence, so a source can be added, replaced, or
+removed without changing the report code. Results are evidence, never the final verdict on their own. A shared
+adapter interface with per-source cache policies arrives with caching in Stage 4.
+
+## Implementation status (Stage 3)
+
+| Source | Status | Notes |
+|---|---|---|
+| Public Suffix List (`tldts` 7.4.16) | Working | Bundled; refreshed when the package is updated |
+| Google Safe Browsing v5 | Built, needs a key | Tested against Google's published canonicalization examples and a fake server. Live use needs `SAFE_BROWSING_API_KEY` and is capped by `SAFE_BROWSING_DAILY_LIMIT`. Reports show "Advisory provided by Google" and hedged wording |
+| URLhaus host lookup | Built, needs a key | Sends only the hostname. Needs `URLHAUS_AUTH_KEY`; capped by `URLHAUS_DAILY_LIMIT`. Matches on shared hosts (free hosting, chat file hosts) are shown as context, never as confirmation |
+| RDAP | Working | IANA bootstrap cached for 12 hours per Worker instance; one lookup per registrable domain; 404 means not registered; 429 and errors show as "did not respond" |
+| Cloudflare DNS over HTTPS | Working | One A-record lookup per hostname |
+| Phishing.Database | Deferred to Stage 4 | Needs a daily sync into D1 that fits the free write and CPU limits |
+| Everything marked Not used or Deferred above | Unchanged | |

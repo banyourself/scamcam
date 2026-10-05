@@ -41,7 +41,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: axe-core WCAG 2.2 AA audit of every page in both themes
+      - name: Use Cloudflare's public Turnstile test keys
+        run: cp .dev.vars.example .dev.vars
+      - name: axe-core WCAG 2.2 AA audit of every page and a real scan in both themes
         run: npm run test:a11y
         env:
           CHROME_PATH: /usr/bin/google-chrome

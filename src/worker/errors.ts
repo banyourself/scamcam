@@ -16,6 +16,10 @@ const publicMessages: Partial<Record<number, { code: string; message: string }>>
   503: { code: "unavailable", message: "ScamCam is temporarily unavailable. Try again later." },
 };
 
+export function errorBody(c: Context<AppEnv>, code: string, message: string) {
+  return { error: { code, message, requestId: c.get("requestId") ?? "" } };
+}
+
 export function apiError(
   c: Context<AppEnv>,
   status: ContentfulStatusCode,

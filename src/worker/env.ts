@@ -1,9 +1,8 @@
-export interface AppBindings extends Env {
-  TURNSTILE_SECRET_KEY?: string;
-}
+export type AppBindings = Env;
 
 export interface AppVariables {
   requestId: string;
+  fetcher: typeof fetch;
 }
 
 export interface AppEnv {

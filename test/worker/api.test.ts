@@ -12,14 +12,15 @@ async function call(path: string, init: RequestInit = {}, app = createApp()) {
 }
 
 describe("health endpoint", () => {
-  it("reports that the API is running without claiming scanning works yet", async () => {
+  it("reports that the API is running and gives the public Turnstile site key", async () => {
     const response = await call("/api/v1/health");
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       status: "ok",
       version: env.APP_VERSION,
       environment: env.APP_ENV,
-      scanning: "not_yet_available",
+      scanning: "available",
+      turnstileSiteKey: env.TURNSTILE_SITE_KEY,
     });
   });
 

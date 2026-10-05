@@ -63,8 +63,9 @@ export function HowItWorksPage() {
 
       <h2>Status</h2>
       <p>
-        ScamCam is being built in public stages. The checks described here arrive in the detection stage. Until then
-        the check button stays off rather than showing made-up results.
+        ScamCam is being built in public stages. The link and message checks, domain age, and DNS lookups work now.
+        Google Safe Browsing and URLhaus are added when their free keys are connected; until then every report says
+        that they were not checked.
       </p>
     </DocumentPage>
   );

@@ -2,7 +2,7 @@ export const riskLevels = ["no_known_threat", "unknown", "suspicious", "high_ris
 
 export type RiskLevel = (typeof riskLevels)[number];
 export type EvidenceSignal = "raises_risk" | "lowers_risk" | "neutral";
-export type UncheckedReason = "unavailable" | "over_budget" | "not_applicable" | "skipped";
+export type UncheckedReason = "unavailable" | "over_budget" | "not_applicable" | "skipped" | "not_configured";
 
 export interface Evidence {
   id: string;
@@ -52,6 +52,7 @@ export const uncheckedReasons: Record<UncheckedReason, string> = {
   over_budget: "was skipped because today's free limit was reached",
   not_applicable: "does not apply to this kind of input",
   skipped: "was not needed",
+  not_configured: "is not connected yet",
 };
 
 export const googleAdvisoryUrl = "https://developers.google.com/safe-browsing/v4/advisory";

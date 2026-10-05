@@ -14,7 +14,7 @@ export const EvidenceSchema = z.object({
 
 export const UncheckedSourceSchema = z.object({
   name: z.string(),
-  reason: z.enum(["unavailable", "over_budget", "not_applicable", "skipped"]),
+  reason: z.enum(["unavailable", "over_budget", "not_applicable", "skipped", "not_configured"]),
 });
 
 export const ScanReportSchema = z.object({

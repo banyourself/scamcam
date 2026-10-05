@@ -16,7 +16,8 @@ buckets, or secrets are touched.
 | 1. Sign in | `npx wrangler login` | Grants wrangler access to the account |
 | 2. Create the database | `npx wrangler d1 create scamcam` and put the returned ID in `wrangler.jsonc` | New D1 database |
 | 3. Apply migrations | `npx wrangler d1 migrations apply scamcam --remote` | Tables in that database |
-| 4. Turnstile | Create a widget for `scamcam.kevinle.tech` in the dashboard, then `npx wrangler secret put TURNSTILE_SECRET_KEY` | New widget and secret |
+| 4. Turnstile | Create a widget for `scamcam.kevinle.tech` in the dashboard, set its site key as `TURNSTILE_SITE_KEY` in `wrangler.jsonc`, then `npx wrangler secret put TURNSTILE_SECRET_KEY` | New widget and secret |
+| 4b. Threat intelligence keys | `npx wrangler secret put SAFE_BROWSING_API_KEY` and `npx wrangler secret put URLHAUS_AUTH_KEY` (both optional; reports say which sources were not connected) | Secrets |
 | 5. Production settings | Set `APP_ENV` to `production` for the deployed environment | Config only |
 | 6. Deploy | `npm run build && npx wrangler deploy` | New Worker |
 | 7. Attach the domain | Add `"routes": [{ "pattern": "scamcam.kevinle.tech", "custom_domain": true }]` and deploy again | One DNS record and one certificate |

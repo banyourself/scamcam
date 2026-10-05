@@ -8,10 +8,16 @@ import { rateLimitApi } from "./middleware/rate-limit";
 import { requestLogger } from "./middleware/request-logger";
 import { secureApiHeaders } from "./middleware/security-headers";
 import { healthRoutes } from "./routes/health";
+import { scanRoutes } from "./routes/scan";
 
 export const maxRequestBytes = 16 * 1024;
 
-export function createApp(): OpenAPIHono<AppEnv> {
+export interface AppOptions {
+  fetcher?: typeof fetch;
+}
+
+export function createApp(options: AppOptions = {}): OpenAPIHono<AppEnv> {
+  const fetcher = options.fetcher ?? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
   const app = new OpenAPIHono<AppEnv>({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -27,8 +33,13 @@ export function createApp(): OpenAPIHono<AppEnv> {
   app.use("/api/*", csrf());
   app.use("/api/*", bodyLimit({ maxSize: maxRequestBytes, onError: (c) => apiError(c, 413) }));
   app.use("/api/*", rateLimitApi);
+  app.use("/api/*", async (c, next) => {
+    c.set("fetcher", fetcher);
+    await next();
+  });
 
   app.route("/api/v1", healthRoutes);
+  app.route("/api/v1", scanRoutes);
   app.doc31("/api/v1/openapi.json", {
     openapi: "3.1.0",
     info: { title: "ScamCam API", version: "1.0.0", description: "Free, noncommercial scam and phishing checks." },

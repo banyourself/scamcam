@@ -25,7 +25,7 @@ A clean result never means a link is guaranteed safe.
 
 ## Status
 
-Stages 0 to 2 are done: plan, foundation, and the website design. Scanning is not available yet. See
+Stages 0 to 3 are done: plan, foundation, website, and detection. Checking works locally; it is not deployed yet. See
 [docs/BUILD_STATE.md](docs/BUILD_STATE.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Stack

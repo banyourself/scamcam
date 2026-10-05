@@ -1,6 +1,6 @@
 import { cleanupBatchSize, cleanupMaxBatchesPerTable, expiresAfter, nowInSeconds, retentionSeconds } from "../retention";
 
-export const retentionTables = ["error_events", "maintenance_runs"] as const;
+export const retentionTables = ["error_events", "maintenance_runs", "provider_usage"] as const;
 export type RetentionTable = (typeof retentionTables)[number];
 export type MaintenanceTask = "daily" | "weekly";
 
@@ -32,7 +32,7 @@ export async function finishMaintenanceRun(
 
 export async function deleteExpiredRows(db: D1Database, table: RetentionTable, now = nowInSeconds()): Promise<number> {
   const statement = db
-    .prepare(`DELETE FROM ${table} WHERE id IN (SELECT id FROM ${table} WHERE expires_at <= ?1 LIMIT ?2)`)
+    .prepare(`DELETE FROM ${table} WHERE rowid IN (SELECT rowid FROM ${table} WHERE expires_at <= ?1 LIMIT ?2)`)
     .bind(now, cleanupBatchSize);
   let deleted = 0;
   for (let batch = 0; batch < cleanupMaxBatchesPerTable; batch += 1) {

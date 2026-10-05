@@ -30,10 +30,11 @@ proof, rate limits on purpose-built endpoints, and anything on `kevinle.tech` ou
 | Transport | HTTPS only through Cloudflare, HSTS on every response |
 | Browser | Strict CSP with no inline scripts or styles, `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`, a restrictive `Permissions-Policy`, COOP and CORP same-origin |
 | API | Zod validation, JSON-only errors with no internal details, 16 KB body limit, cross-site form posts rejected, no CORS, `Cache-Control: no-store` |
-| Abuse | Per-client rate limit (60 requests per minute) through the Workers rate limiting binding, Turnstile verification that fails closed when it is not configured |
+| Abuse | Per-client rate limits (60 API requests and 10 scans per minute) through the Workers rate limiting binding, Turnstile verification that fails closed when it is not configured |
 | Errors | Users see a generic message and a request ID; the database records only the error type and route for 7 days |
 | Secrets | Never committed; `wrangler secret` in production and an ignored `.dev.vars` locally; Gitleaks runs in CI |
 | Dependencies | Exact versions with a lockfile, `npm audit` in CI, Dependabot weekly |
-| Data | No raw URLs, messages, or IP addresses are stored (see `docs/RETENTION_POLICY.md`) |
+| Data | No raw URLs, messages, or IP addresses are stored (see `docs/RETENTION_POLICY.md`); a test scans every table after a scan to prove it |
+| Scanning | Turnstile required for every scan (fails closed when missing or unreachable), 10 scans per minute per visitor, submitted links are never fetched, outbound calls go only to fixed provider hosts with timeouts, input limited to 4,000 characters, the report is validated against its schema before it is returned, and only domain names or hash prefixes leave ScamCam |
 
 The threat model is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#threat-model).

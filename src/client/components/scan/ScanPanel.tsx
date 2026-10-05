@@ -1,10 +1,15 @@
-import { useDeferredValue, useId, useMemo, useState } from "react";
+import { useDeferredValue, useId, useMemo, useState, type FormEvent } from "react";
 import { extractInput, maxInputLength } from "../../../shared/extract";
+import type { ScanReport } from "../../../shared/report";
+import { TurnstileWidget } from "@/components/scan/TurnstileWidget";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { ApiHealth } from "@/hooks/useApiHealth";
 
-function statusLine(health: ApiHealth): { label: string; tone: "standby" | "offline" | "live" } {
+function statusLine(health: ApiHealth, busy: boolean): { label: string; tone: "standby" | "offline" | "live" } {
+  if (busy) {
+    return { label: "Checking", tone: "standby" };
+  }
   if (health.state === "checking") {
     return { label: "Connecting", tone: "standby" };
   }
@@ -30,20 +35,74 @@ function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
-export function ScanPanel({ health }: { health: ApiHealth }) {
+async function readError(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { error?: { message?: string } };
+    if (body.error?.message) {
+      return body.error.message;
+    }
+  } catch {
+    return "Something went wrong. Try again in a minute.";
+  }
+  return "Something went wrong. Try again in a minute.";
+}
+
+export interface ScanPanelProps {
+  health: ApiHealth;
+  onReport: (report: ScanReport) => void;
+}
+
+export function ScanPanel({ health, onReport }: ScanPanelProps) {
   const inputId = useId();
   const hintId = useId();
   const previewId = useId();
   const [text, setText] = useState("");
+  const [token, setToken] = useState<string | null>(null);
+  const [resetKey, setResetKey] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const deferred = useDeferredValue(text);
   const extracted = useMemo(() => extractInput(deferred), [deferred]);
-  const status = statusLine(health);
+  const status = statusLine(health, busy);
+  const siteKey = health.state === "online" ? health.health.turnstileSiteKey : null;
   const canScan = health.state === "online" && health.health.scanning === "available";
   const hidden = [
     extracted.redactions.emails && plural(extracted.redactions.emails, "email"),
     extracted.redactions.phoneNumbers && plural(extracted.redactions.phoneNumbers, "phone number"),
     extracted.redactions.codes && plural(extracted.redactions.codes, "code"),
   ].filter(Boolean);
+  const waitingForCheck = Boolean(siteKey) && !token;
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!canScan || busy || text.trim().length === 0) {
+      return;
+    }
+    if (waitingForCheck) {
+      setError("Wait for the security check to finish, then try again.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/v1/scans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ content: text, ...(token ? { turnstileToken: token } : {}) }),
+      });
+      if (!response.ok) {
+        setError(await readError(response));
+        return;
+      }
+      onReport((await response.json()) as ScanReport);
+    } catch {
+      setError("ScamCam could not be reached. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+      setToken(null);
+      setResetKey((key) => key + 1);
+    }
+  }
 
   return (
     <div className="viewfinder p-5 sm:p-7">
@@ -57,13 +116,7 @@ export function ScanPanel({ health }: { health: ApiHealth }) {
         <span aria-hidden="true">Evidence intake / CAM 01</span>
       </div>
 
-      <form
-        className="mt-4 flex flex-col gap-3"
-        aria-describedby={hintId}
-        onSubmit={(event) => {
-          event.preventDefault();
-        }}
-      >
+      <form className="mt-4 flex flex-col gap-3" aria-describedby={hintId} aria-busy={busy} onSubmit={(event) => void submit(event)}>
         <label htmlFor={inputId} className="text-sm font-medium text-ink">
           Paste the link or message you are unsure about
         </label>
@@ -87,7 +140,7 @@ export function ScanPanel({ health }: { health: ApiHealth }) {
 
         <div id={previewId} className="border border-dashed border-rule bg-panel-2 px-4 py-3 text-sm" aria-live="polite">
           {extracted.links.length === 0 && hidden.length === 0 ? (
-            <p className="text-ink-faint">As you type, ScamCam shows what it would check. Nothing leaves your browser yet.</p>
+            <p className="text-ink-faint">As you type, ScamCam shows what it will check. Nothing is sent until you press Check it.</p>
           ) : (
             <div className="space-y-2">
               {extracted.links.length > 0 && (
@@ -116,12 +169,27 @@ export function ScanPanel({ health }: { health: ApiHealth }) {
           )}
         </div>
 
+        {canScan && siteKey && (
+          <TurnstileWidget
+            siteKey={siteKey}
+            resetKey={resetKey}
+            onToken={(value) => setToken(value)}
+            onUnavailable={() => setError("The security check could not load. Turn off blockers for challenges.cloudflare.com or try again later.")}
+          />
+        )}
+
         <div className="flex flex-wrap items-center gap-3 pt-1">
-          <Button type="submit" disabled={!canScan || text.trim().length === 0}>
-            Check it
+          <Button type="submit" disabled={!canScan || busy || text.trim().length === 0 || waitingForCheck}>
+            {busy ? "Checking" : "Check it"}
           </Button>
-          {!canScan && <p className="text-sm text-ink-soft">Checking is not open yet. ScamCam is still being built.</p>}
+          {!canScan && health.state !== "checking" && <p className="text-sm text-ink-soft">Checking is not available right now.</p>}
+          {canScan && waitingForCheck && text.trim().length > 0 && <p className="text-sm text-ink-soft">Waiting for the security check.</p>}
         </div>
+        {error && (
+          <p role="alert" className="border-l-4 border-level-malicious bg-panel-2 px-4 py-3 text-sm text-ink">
+            {error}
+          </p>
+        )}
       </form>
     </div>
   );

@@ -5,6 +5,7 @@ const DAY = 24 * HOUR;
 export const retentionSeconds = {
   errorEvent: 7 * DAY,
   maintenanceRun: 90 * DAY,
+  providerUsage: 35 * DAY,
 } as const;
 
 export const cleanupBatchSize = 500;

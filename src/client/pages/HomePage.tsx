@@ -1,3 +1,6 @@
+import { useEffect, useRef, useState } from "react";
+import type { ScanReport } from "../../shared/report";
+import { ReportView } from "@/components/report/ReportView";
 import { ScanPanel } from "@/components/scan/ScanPanel";
 import { useApiHealth } from "@/hooks/useApiHealth";
 import { Link, useDocumentTitle } from "@/router";
@@ -50,6 +53,15 @@ const reportParts = [
 export function HomePage() {
   useDocumentTitle("ScamCam");
   const health = useApiHealth();
+  const [report, setReport] = useState<ScanReport | null>(null);
+  const reportSection = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (report && reportSection.current) {
+      reportSection.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      reportSection.current.focus({ preventScroll: true });
+    }
+  }, [report]);
 
   return (
     <>
@@ -79,8 +91,14 @@ export function HomePage() {
             </div>
           </dl>
         </div>
-        <ScanPanel health={health} />
+        <ScanPanel health={health} onReport={setReport} />
       </section>
+
+      {report && (
+        <section ref={reportSection} tabIndex={-1} aria-label="Report" className="mx-auto mt-12 max-w-4xl scroll-mt-6 px-4 focus:outline-none">
+          <ReportView report={report} />
+        </section>
+      )}
 
       <section aria-labelledby="report-parts" className="mx-auto mt-20 max-w-6xl px-4">
         <h2 id="report-parts" className="rule-label">

@@ -22,6 +22,11 @@
       "name": "API_RATE_LIMITER",
       "namespace_id": "1001",
       "simple": { "limit": 60, "period": 60 }
+    },
+    {
+      "name": "SCAN_RATE_LIMITER",
+      "namespace_id": "1002",
+      "simple": { "limit": 10, "period": 60 }
     }
   ],
   "triggers": {
@@ -30,7 +35,10 @@
   "vars": {
     "APP_ENV": "development",
     "APP_VERSION": "0.1.0",
-    "STORAGE_SOFT_LIMIT_BYTES": "80000000"
+    "STORAGE_SOFT_LIMIT_BYTES": "80000000",
+    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+    "SAFE_BROWSING_DAILY_LIMIT": "8000",
+    "URLHAUS_DAILY_LIMIT": "5000"
   },
   "observability": {
     "enabled": true,

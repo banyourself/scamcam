@@ -16,9 +16,23 @@ documentation checked on 2026-10-05; re-check before launch.
 | KV | 100,000 reads and 1,000 writes per day | That operation fails | Not used yet |
 | Workers AI | 10,000 neurons per day | Calls fail; not billed on Free | Optional, inconclusive cases only, Stage 4 |
 | Turnstile | Unlimited challenges, 20 widgets | n/a | One widget |
-| Rate limiting binding | No plan restriction or price found | | 60 requests per minute per client |
+| Rate limiting binding | No plan restriction or price found | | 60 API requests and 10 scans per minute per client |
 | GitHub Actions | 2,000 minutes per month for private repos on Free (3,000 on Pro) | Blocked if no payment method | About 3 minutes per push |
 | GitHub Codespaces | 120 core hours and 15 GB-month (180 and 20 on Pro) | Blocked if no payment method | Optional |
+
+## Cost of one scan (Stage 3)
+
+| Resource | Per scan | Free limit and headroom |
+|---|---|---|
+| Worker requests | 1 (`POST /api/v1/scans`), plus 1 health check per page load | 100,000 per day |
+| Subrequests | At most 12: Turnstile 1, Safe Browsing 1 (all links in one call), URLhaus up to 3, RDAP up to 3 (plus the IANA bootstrap once per 12 hours per instance), DNS up to 3 | 50 per request |
+| D1 reads | 1 (the `writes_paused` flag) | 5 million per day |
+| D1 writes | Up to 4 (1 Safe Browsing count, up to 3 URLhaus counts), only when those keys are set | 100,000 per day, so about 25,000 fully checked scans a day |
+| Safe Browsing calls | 1, capped by `SAFE_BROWSING_DAILY_LIMIT` (8,000) | Google Cloud quota |
+| URLhaus calls | Up to 3, capped by `URLHAUS_DAILY_LIMIT` (5,000) | Fair use |
+| CPU | About 0.8 ms of local analysis measured in Node | 10 ms per request on Free; verify after deployment |
+
+Per-visitor limits: 60 API requests and 10 scans per minute. Turnstile is required for every scan.
 
 ## Billing risks and controls
 

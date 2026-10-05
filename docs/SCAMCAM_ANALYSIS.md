@@ -1,7 +1,7 @@
 # ScamCam Contextual Threat Analysis (SCTA)
 
-SCTA is ScamCam's experimental method for judging a whole interaction, not only a link. This document is the design;
-implementation starts in Stage 3 and every technique must earn its place on a benchmark.
+SCTA is ScamCam's experimental method for judging a whole interaction, not only a link. The first version was built in
+Stage 3 (`src/engine`); every technique must keep earning its place on a benchmark.
 
 ## Questions SCTA answers
 
@@ -67,3 +67,60 @@ different indicators (for example `steamcommunity.com.evil.example` must not bec
 - Metrics: precision, recall, false-positive rate, false-negative rate, median and p95 latency, provider calls per
   scan, storage growth, evidence quality (share of verdicts with at least two independent signals), and cost.
 - Targets are set after the first run and recorded here. False positives on legitimate gaming domains must be 0.
+
+## As built in Stage 3
+
+Code lives in `src/engine`, which has no Worker-specific code so the future browser extension and Discord app can
+reuse it.
+
+| File | Role |
+|---|---|
+| `url-analysis.ts` | Parses each link with the WHATWG URL parser, finds the registrable domain with the Public Suffix List (`tldts`), and produces domain signals |
+| `brands.ts` | Official domains for Steam, Discord, Roblox, Minecraft, Microsoft, Epic, Riot, Twitch, Blizzard, PlayStation, and Nintendo; well-known community sites; shorteners; IP loggers; free hosts; user-upload hosts |
+| `confusables.ts`, `punycode.ts` | Look-alike skeletons (Cyrillic, Greek, Armenian letters, digit swaps, rn, vv, cl), edit distance, script mixing, RFC 3492 punycode decoding |
+| `message-rules.ts` | 18 rules in 10 scam families, with leetspeak folding and negated clauses ignored ("never share your password") |
+| `safe-browsing.ts` | Safe Browsing v5 `hashes:search`: Google's canonicalization, host and path expressions, SHA-256, 4-byte prefixes, local full-hash matching |
+| `rdap.ts`, `dns.ts`, `urlhaus.ts` | Domain age and hold status, existence, and malware host lookups |
+| `verdict.ts`, `scan.ts` | Scoring, verdict, confidence, summary, recommendations, and the report |
+
+### Scoring
+
+Each signal has a strength: weak 1, moderate 2, strong 4, critical 6. The score is the message score plus the highest
+single link score, so pasting many links does not inflate it.
+
+| Level | Rule |
+|---|---|
+| Confirmed malicious | URLhaus lists the exact link, or a non-shared host, as serving malware right now |
+| High risk | A Google Safe Browsing match, or a score of 6 or more |
+| Suspicious | A score of 3 or more |
+| No known threat detected | Score of 2 or less and either every link is official, Safe Browsing checked the other links with no match, or there were no links and no scam patterns |
+| Unknown | Everything else, for example an ordinary domain when Safe Browsing is not connected |
+
+A Safe Browsing match alone is never "confirmed", because Google's terms require hedged wording. Confidence rises
+when signals come from two or more independent sources and drops one step when an official domain and a strong
+warning disagree (the report then shows "Sources disagree").
+
+### Benchmark results (2026-10-05)
+
+`test/client/benchmark.test.ts` runs 69 labeled cases (36 scams, 33 safe) with every outside source switched off, so
+it measures the built-in rules alone.
+
+| Run | Precision | Recall | False positives | False negatives |
+|---|---|---|---|---|
+| First run | 1.000 | 0.944 | 0 | 2 (the @ trick was hidden by email redaction; raw IP links were not extracted) |
+| After fixing link extraction | 1.000 | 1.000 | 0 | 0 |
+
+Before the first run, the scoring was adjusted on these same kinds of cases (user-upload hosts, gift card payments,
+vote scams, hand-over-items, the cl look-alike, negated safety advice). **This set is a tuning set, not an independent
+evaluation.** Stage 4 adds a held-out set built from real, public indicators (URLhaus and Phishing.Database entries
+for positives, popular gaming and general domains for negatives) and tracks the false positive rate on it.
+
+Local analysis takes about 0.8 ms per case in Node. Production CPU time on the Workers Free plan (10 ms limit per
+request) must be measured after deployment with Workers observability.
+
+### Known limits
+
+- Links that redirect (shorteners, official redirectors such as Steam's link filter) are not followed, by design.
+- New scam domains with no look-alike name and no message context are "unknown" until a list or Safe Browsing knows them.
+- Message rules are English only.
+- The official domain lists are hand-maintained and must be reviewed when platforms add domains.

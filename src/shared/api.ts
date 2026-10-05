@@ -6,6 +6,7 @@ export const HealthResponseSchema = z
     version: z.string(),
     environment: z.string(),
     scanning: z.enum(["available", "not_yet_available", "paused"]),
+    turnstileSiteKey: z.string().nullable(),
   })
   .openapi("HealthResponse");
 

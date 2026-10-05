@@ -102,7 +102,7 @@ async function waitForDebugger(): Promise<string> {
 }
 
 async function waitFor(cdp: Cdp, condition: string): Promise<void> {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
     try {
       if (await cdp.evaluate<boolean>(`Boolean(${condition})`)) {
         return;
@@ -116,41 +116,83 @@ async function waitFor(cdp: Cdp, condition: string): Promise<void> {
   throw new Error(`Timed out waiting for: ${condition}. Page state: ${state}`);
 }
 
+async function checkPage(cdp: Cdp, label: string, expectNotFound: boolean): Promise<string[]> {
+  const failures: string[] = [];
+  await cdp.evaluate("document.fonts.ready.then(() => new Promise((r) => setTimeout(r, 150)))");
+  await cdp.evaluate(axeSource);
+  const violations = await cdp.evaluate<AxeViolation[]>(
+    `axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] } }).then((r) => r.violations.map((v) => ({ id: v.id, impact: v.impact, help: v.help, nodes: v.nodes.map((n) => ({ target: n.target })) })))`,
+  );
+  const overflow = await cdp.evaluate<number>("document.documentElement.scrollWidth - window.innerWidth");
+  const title = await cdp.evaluate<string>("document.title");
+  if ((title === "Page not found | ScamCam") !== expectNotFound) {
+    failures.push(`${label}: rendered the wrong page (${title})`);
+  }
+  for (const violation of violations) {
+    failures.push(`${label}: ${violation.id} (${violation.impact}) ${violation.help} at ${violation.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(", ")}`);
+  }
+  if (overflow > 0) {
+    failures.push(`${label}: page scrolls sideways by ${overflow}px`);
+  }
+  console.log(`${failures.length > 0 ? "FAIL" : "pass"}  ${label}`);
+  return failures;
+}
+
+async function openWithTheme(cdp: Cdp, base: string, route: string, theme: string): Promise<void> {
+  await cdp.send("Page.navigate", { url: base + route });
+  await waitFor(cdp, `location.pathname === ${JSON.stringify(route)} && document.readyState === "complete"`);
+  await cdp.evaluate(`localStorage.setItem("scamcam-theme", "${theme}")`);
+  await cdp.send("Page.reload", {});
+  await waitFor(
+    cdp,
+    `location.pathname === ${JSON.stringify(route)} && document.readyState === "complete" && ` +
+      `document.documentElement.classList.contains("dark") === ${theme === "dark"} && ` +
+      `(document.querySelector("main h1")?.textContent ?? "").length > 0 && !window.axe`,
+  );
+}
+
 async function audit(cdp: Cdp, base: string, routes: string[]): Promise<string[]> {
   const failures: string[] = [];
   for (const viewport of viewports) {
     await cdp.send("Emulation.setDeviceMetricsOverride", { ...viewport, deviceScaleFactor: 1 });
     for (const theme of themes) {
       for (const route of routes) {
-        await cdp.send("Page.navigate", { url: base + route });
-        await waitFor(cdp, `location.pathname === ${JSON.stringify(route)} && document.readyState === "complete"`);
-        await cdp.evaluate(`localStorage.setItem("scamcam-theme", "${theme}")`);
-        await cdp.send("Page.reload", {});
-        await waitFor(
-          cdp,
-          `location.pathname === ${JSON.stringify(route)} && document.readyState === "complete" && ` +
-            `document.documentElement.classList.contains("dark") === ${theme === "dark"} && ` +
-            `(document.querySelector("main h1")?.textContent ?? "").length > 0 && !window.axe`,
-        );
-        await cdp.evaluate("document.fonts.ready.then(() => new Promise((r) => setTimeout(r, 150)))");
-        await cdp.evaluate(axeSource);
-        const violations = await cdp.evaluate<AxeViolation[]>(
-          `axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] } }).then((r) => r.violations.map((v) => ({ id: v.id, impact: v.impact, help: v.help, nodes: v.nodes.map((n) => ({ target: n.target })) })))`,
-        );
-        const overflow = await cdp.evaluate<number>("document.documentElement.scrollWidth - window.innerWidth");
-        const title = await cdp.evaluate<string>("document.title");
-        const label = `${route} ${theme} ${viewport.width}px`;
-        if ((title === "Page not found | ScamCam") !== (route === "/missing-page")) {
-          failures.push(`${label}: rendered the wrong page (${title})`);
-        }
-        for (const violation of violations) {
-          failures.push(`${label}: ${violation.id} (${violation.impact}) ${violation.help} at ${violation.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(", ")}`);
-        }
-        if (overflow > 0) {
-          failures.push(`${label}: page scrolls sideways by ${overflow}px`);
-        }
-        console.log(`${failures.some((failure) => failure.startsWith(label)) ? "FAIL" : "pass"}  ${label}`);
+        await openWithTheme(cdp, base, route, theme);
+        failures.push(...(await checkPage(cdp, `${route} ${theme} ${viewport.width}px`, route === "/missing-page")));
       }
+    }
+  }
+  return failures;
+}
+
+const scanMessage = "send me your 2fa code so i can verify the trade";
+
+async function auditReportFlow(cdp: Cdp, base: string): Promise<string[]> {
+  const failures: string[] = [];
+  for (const viewport of viewports) {
+    await cdp.send("Emulation.setDeviceMetricsOverride", { ...viewport, deviceScaleFactor: 1 });
+    for (const theme of themes) {
+      const label = `/ (report) ${theme} ${viewport.width}px`;
+      await openWithTheme(cdp, base, "/", theme);
+      await cdp.evaluate(
+        `(() => { const box = document.querySelector("textarea"); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(box, ${JSON.stringify(scanMessage)}); box.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+      );
+      try {
+        await waitFor(cdp, `!document.querySelector("form button[type=submit]").disabled`);
+        await cdp.evaluate(`document.querySelector("form button[type=submit]").click()`);
+        await waitFor(cdp, `document.querySelector("section[aria-label=Report] #report-heading") || document.querySelector("[role=alert]")`);
+      } catch (error) {
+        failures.push(`${label}: the scan did not finish (${error instanceof Error ? error.message.slice(0, 120) : "unknown"})`);
+        console.log(`FAIL  ${label}`);
+        continue;
+      }
+      const alert = await cdp.evaluate<string>(`document.querySelector("[role=alert]")?.textContent ?? ""`);
+      if (alert) {
+        failures.push(`${label}: the scan showed an error (${alert})`);
+        console.log(`FAIL  ${label}`);
+        continue;
+      }
+      failures.push(...(await checkPage(cdp, label, false)));
     }
   }
   return failures;
@@ -178,7 +220,10 @@ async function auditProductionBuild(): Promise<string[]> {
   process.env.NODE_ENV = "production";
   const server = await preview({ preview: { port: 4174, strictPort: true, host: "127.0.0.1" }, logLevel: "error" });
   try {
-    return await withChrome((cdp) => audit(cdp, "http://127.0.0.1:4174", publicRoutes));
+    return await withChrome(async (cdp) => [
+      ...(await audit(cdp, "http://127.0.0.1:4174", publicRoutes)),
+      ...(await auditReportFlow(cdp, "http://127.0.0.1:4174")),
+    ]);
   } finally {
     await new Promise<void>((resolve) => server.httpServer.close(() => resolve()));
   }

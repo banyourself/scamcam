@@ -47,8 +47,13 @@ export function PrivacyPage() {
           </tr>
           <tr>
             <td>A scrambled fingerprint of a link (a hash)</td>
-            <td>To ask Google Safe Browsing without sending the link, and to reuse results for public scam sites</td>
-            <td>Only for as long as the source allows</td>
+            <td>To ask Google Safe Browsing without sending the link. Only the first 4 bytes of the fingerprint are sent</td>
+            <td>Not stored</td>
+          </tr>
+          <tr>
+            <td>The name of the website in a link, such as example.com</td>
+            <td>To look up how old the domain is (domain registries), whether it exists (Cloudflare DNS), and whether it is known for malware (URLhaus)</td>
+            <td>Not stored by ScamCam</td>
           </tr>
           <tr>
             <td>Your IP address</td>
@@ -83,7 +88,8 @@ export function PrivacyPage() {
           <strong>Google Safe Browsing</strong> receives only short scrambled fingerprints, never the link itself.
         </li>
         <li>
-          <strong>Domain registries and DNS</strong> receive only the domain name, for example <em>example.com</em>.
+          <strong>Domain registries, Cloudflare DNS, and URLhaus (abuse.ch)</strong> receive only the website name, for
+          example <em>login.example.com</em>, never the rest of the link or your message.
         </li>
         <li>
           <strong>Workers AI</strong> (Cloudflare), if used, receives the message with personal details hidden and does

@@ -39,6 +39,17 @@ describe("extractInput", () => {
     expect(result.redactedText).toHaveLength(maxInputLength);
   });
 
+  it("keeps the @ trick and raw IP links intact as links", () => {
+    expect(extractInput("go to https://steamcommunity.com@steam-login.example/openid now").links).toEqual([
+      "https://steamcommunity.com@steam-login.example/openid",
+    ]);
+    expect(extractInput("login at http://185.12.34.56/steam/login.php or 203.0.113.9").links).toEqual([
+      "http://185.12.34.56/steam/login.php",
+      "203.0.113.9",
+    ]);
+    expect(extractInput("my ip is 203.0.113.9").redactions.phoneNumbers).toBe(0);
+  });
+
   it("returns nothing for plain text", () => {
     expect(extractInput("gg wp, see you tomorrow").links).toEqual([]);
   });

@@ -7,9 +7,10 @@ Browser ──HTTPS──> Cloudflare edge ──> one Worker "scamcam"
                                          ├── static assets (React SPA, _headers, security.txt)  free, unlimited
                                          └── /api/*  Hono app (Zod, OpenAPI)
                                                ├── D1 "scamcam"     short-lived operational data only
-                                               ├── Rate limiting binding
-                                               └── (Stage 3) passive lookups: Safe Browsing hash prefixes,
-                                                   RDAP, DNS over HTTPS, cached blocklists
+                                               ├── Rate limiting bindings (API and scans)
+                                               └── POST /api/v1/scans -> src/engine: passive lookups only
+                                                   (Turnstile, Safe Browsing hash prefixes, URLhaus host,
+                                                   RDAP domain, DNS hostname)
 Cron triggers ──> same Worker scheduled() ──> daily cleanup, weekly maintenance
 ```
 
@@ -22,10 +23,11 @@ Cloudflare does not count against the Workers request quota.
 |---|---|
 | `src/client` | React app: `App.tsx`, `router.tsx`, `pages`, `components` (`layout`, `scan`, `report`, `ui`), `hooks`, `lib` |
 | `src/shared` | Types, labels, link extraction and redaction (`extract.ts`) shared by the site and the API; Zod schemas in `*-schema.ts` and `api.ts` so the site never bundles Zod |
-| `src/worker` | Worker entry (`index.ts`), Hono app (`app.ts`), `routes`, `middleware`, `security`, `repositories`, `maintenance` |
+| `src/engine` | The analysis engine with no Worker-specific code: URL and message analysis, Safe Browsing, RDAP, DNS, URLhaus, verdicts (see `SCAMCAM_ANALYSIS.md`) |
+| `src/worker` | Worker entry (`index.ts`), Hono app (`app.ts`), `routes` (health, scans), `middleware`, `security`, `repositories`, `maintenance` |
 | `migrations` | Versioned D1 schema |
 | `public` | `_headers`, `.well-known/security.txt`, `robots.txt`, icon |
-| `test/worker` | Tests that run inside workerd with a real local D1 |
+| `test/worker`, `test/engine` | Tests that run inside workerd with a real local D1 and a fake network |
 | `test/client` | Site logic and server-rendered component tests |
 | `test/node` | Configuration checks (cron parity, security.txt expiry, CSP, no em dashes) |
 | `scripts/a11y.ts` | axe-core WCAG 2.2 AA audit in headless Chrome |
@@ -41,6 +43,8 @@ Cloudflare does not count against the Workers request quota.
 | Zod 4 | Validation at every boundary, including third-party API responses | Valibot (smaller, but would duplicate the schemas used for OpenAPI) |
 | D1 | Free, SQL, migrations, 7-day Time Travel. Repositories isolate SQL so PostgreSQL stays possible | KV only (no queries), external Postgres (cost, another vendor) |
 | Workers rate limiting binding | No storage writes per request, no cost found in the docs | D1 counters (a write per request), WAF rule (Free plan allows one IP rule) |
+| `tldts` for the Public Suffix List | MIT, maintained, fast, includes private suffixes such as pages.dev | `psl` (slower releases), a hand-made suffix list (wrong for multi-part endings) |
+| Own punycode decoder and Safe Browsing canonicalizer | Small, tested against RFC 3492 vectors and Google's published examples, no `nodejs_compat` needed | `punycode` package or Node compatibility mode |
 | Turnstile | Free, privacy-focused, no cookie banner needed when used for security | reCAPTCHA (tracking concerns), hCaptcha |
 | Tailwind CSS 4 + shadcn-style components | Utility CSS with no runtime, accessible primitives copied into the repo rather than a component dependency | A component library dependency |
 | `@cloudflare/vitest-plugin` | Official replacement for `vitest-pool-workers`; tests run in the real runtime with D1 | Mocked bindings (misses runtime behavior) |

@@ -23,10 +23,11 @@ history, screenshots, cookies other than strictly necessary security cookies fro
 | Party | Receives | When |
 |---|---|---|
 | Cloudflare | All traffic (host and edge), Turnstile signals | Always |
-| Google Safe Browsing | 4-byte SHA-256 prefixes of URL expressions, never the URL | Stage 3 |
-| abuse.ch URLhaus | Nothing per scan; ScamCam downloads the list and matches locally | Stage 3 |
-| Domain registries (RDAP) | The domain name only | Stage 3, cached |
-| DNS over HTTPS resolver | The domain name only | Stage 3 |
+| Google Safe Browsing | 4-byte SHA-256 prefixes of URL expressions, never the URL | Every scan with links, when a key is set |
+| abuse.ch URLhaus | The hostname only (for example `login.example.com`) | Up to 3 hosts per scan, when a key is set |
+| Domain registries (RDAP) | The registrable domain only (for example `example.com`) | Up to 3 per scan |
+| Cloudflare DNS over HTTPS | The hostname only | Up to 3 per scan |
+| Cloudflare Turnstile | The Turnstile token and the visitor's IP address | Every scan |
 | Workers AI | Redacted message text, only for inconclusive cases, never stored or used for training per Cloudflare's data use policy | Stage 4, optional |
 
 ## Children

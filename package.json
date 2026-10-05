@@ -14,7 +14,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run && node --test \"test/node/*.test.ts\"",
     "db:migrate:local": "wrangler d1 migrations apply scamcam --local",
-    "cf-typegen": "wrangler types --strict-vars=false",
+    "cf-typegen": "wrangler types --strict-vars=false --env-file .dev.vars.example",
     "check": "npm run typecheck && npm test && npm run build",
     "test:worker": "vitest run",
     "test:config": "node --test \"test/node/*.test.ts\"",
@@ -31,6 +31,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tailwind-merge": "3.7.0",
+    "tldts": "7.4.16",
     "zod": "4.6.5"
   },
   "devDependencies": {

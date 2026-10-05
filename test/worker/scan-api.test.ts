@@ -1,0 +1,119 @@
+import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
+import { beforeEach, describe, expect, it } from "vitest";
+import { resetRdapCache } from "../../src/engine/rdap";
+import { ScanReportSchema } from "../../src/shared/report-schema";
+import { createApp } from "../../src/worker/app";
+import { fakeNetwork, type FakeNetworkOptions } from "../engine/fake-network";
+
+const origin = "https://scamcam.kevinle.tech";
+let nextAddress = 1;
+
+async function scan(body: unknown, network: FakeNetworkOptions = {}, bindings: Partial<typeof env> = {}, ip = `198.51.100.${nextAddress++}`) {
+  const fake = fakeNetwork(network);
+  const app = createApp({ fetcher: fake.fetcher });
+  const ctx = createExecutionContext();
+  const response = await app.fetch(
+    new Request(`${origin}/api/v1/scans`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: origin, "CF-Connecting-IP": ip },
+      body: JSON.stringify(body),
+    }),
+    { ...env, ...bindings },
+    ctx,
+  );
+  await waitOnExecutionContext(ctx);
+  return { response, fake };
+}
+
+beforeEach(async () => {
+  resetRdapCache();
+  await env.DB.prepare("DELETE FROM provider_usage").run();
+});
+
+describe("POST /api/v1/scans", () => {
+  it("returns a valid report after the bot check passes", async () => {
+    const { response, fake } = await scan({ content: "steamcommunlty.example/tradeoffer/new", turnstileToken: "token" });
+    expect(response.status).toBe(200);
+    const report = await response.json();
+    expect(ScanReportSchema.safeParse(report).success).toBe(true);
+    const siteverify = fake.requests.find((request) => request.url.includes("challenges.cloudflare.com"));
+    expect(siteverify?.body).toContain(`secret=${env.TURNSTILE_SECRET_KEY}`);
+    expect(siteverify?.body).toContain("response=token");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("stores nothing that was submitted", async () => {
+    await scan({ content: "send me your password at https://steam-login.example/secret-path-123", turnstileToken: "token" });
+    const tables = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE '_cf%' AND name NOT LIKE 'sqlite%' AND name != 'd1_migrations'").all<{ name: string }>();
+    for (const { name } of tables.results) {
+      const rows = await env.DB.prepare(`SELECT * FROM ${name}`).all();
+      const dump = JSON.stringify(rows.results);
+      expect(dump).not.toContain("steam-login");
+      expect(dump).not.toContain("secret-path");
+      expect(dump).not.toContain("password");
+    }
+  });
+
+  it("refuses requests without a passing bot check", async () => {
+    const missing = await scan({ content: "hello" });
+    expect(missing.response.status).toBe(403);
+    expect((await missing.response.json<{ error: { code: string } }>()).error.code).toBe("bot_check_failed");
+    expect(missing.fake.requests).toEqual([]);
+    const rejected = await scan({ content: "hello", turnstileToken: "token" }, { turnstile: { success: false } });
+    expect(rejected.response.status).toBe(403);
+  });
+
+  it("fails closed when the bot check is unreachable or not configured", async () => {
+    expect((await scan({ content: "hello", turnstileToken: "token" }, { down: true })).response.status).toBe(503);
+    expect((await scan({ content: "hello", turnstileToken: "token" }, {}, { TURNSTILE_SECRET_KEY: "" })).response.status).toBe(503);
+  });
+
+  it("checks the hostname on Turnstile tokens in production", async () => {
+    const wrongHost = await scan({ content: "hello", turnstileToken: "token" }, { turnstile: { success: true, hostname: "evil.example" } }, { APP_ENV: "production" });
+    expect(wrongHost.response.status).toBe(403);
+    const rightHost = await scan({ content: "hello", turnstileToken: "token" }, {}, { APP_ENV: "production" });
+    expect(rightHost.response.status).toBe(200);
+  });
+
+  it("rejects empty, oversized, and malformed input without details", async () => {
+    for (const body of [{ content: "   ", turnstileToken: "t" }, { content: "x".repeat(4001), turnstileToken: "t" }, { text: "hi" }, { content: 5 }]) {
+      const { response } = await scan(body);
+      expect(response.status).toBe(400);
+      const payload = await response.json<{ error: { code: string; message: string } }>();
+      expect(payload.error.code).toBe("invalid_request");
+      expect(JSON.stringify(payload)).not.toMatch(/zod|issues|expected/i);
+    }
+  });
+
+  it("counts calls to quota-limited providers and stops at the daily limit", async () => {
+    const bindings = { SAFE_BROWSING_API_KEY: "test-key", SAFE_BROWSING_DAILY_LIMIT: "1" };
+    const first = await scan({ content: "https://www.example.org/", turnstileToken: "t" }, { safeBrowsing: () => ({}) }, bindings);
+    expect((await first.response.json<{ usesGoogleSafeBrowsing: boolean }>()).usesGoogleSafeBrowsing).toBe(true);
+    const second = await scan({ content: "https://www.example.org/", turnstileToken: "t" }, { safeBrowsing: () => ({}) }, bindings);
+    const report = await second.response.json<{ notChecked: { name: string; reason: string }[] }>();
+    expect(report.notChecked).toContainEqual({ name: "Google Safe Browsing", reason: "over_budget" });
+    const usage = await env.DB.prepare("SELECT calls FROM provider_usage WHERE provider = 'safe_browsing'").first<{ calls: number }>();
+    expect(usage?.calls).toBe(2);
+  });
+
+  it("limits how many checks one visitor can run per minute", async () => {
+    const statuses: number[] = [];
+    let last: Response | null = null;
+    for (let attempt = 0; attempt < 14; attempt += 1) {
+      const { response } = await scan({ content: "hello there", turnstileToken: "t" }, {}, {}, "192.0.2.77");
+      statuses.push(response.status);
+      last = response;
+    }
+    expect(statuses.slice(0, 10).every((status) => status === 200)).toBe(true);
+    expect(statuses).toContain(429);
+    expect(last?.headers.get("Retry-After")).toBe("60");
+  });
+
+  it("is documented in the OpenAPI file", async () => {
+    const app = createApp();
+    const ctx = createExecutionContext();
+    const response = await app.fetch(new Request(`${origin}/api/v1/openapi.json`), env, ctx);
+    const doc = await response.json<{ paths: Record<string, unknown> }>();
+    expect(Object.keys(doc.paths)).toContain("/api/v1/scans");
+  });
+});
