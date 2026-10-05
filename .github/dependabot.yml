@@ -9,6 +9,11 @@ updates:
         patterns: ["wrangler", "@cloudflare/*"]
       frontend:
         patterns: ["react", "react-dom", "@types/react*", "vite", "@vitejs/*", "tailwindcss", "@tailwindcss/*"]
+    ignore:
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 5
   - package-ecosystem: github-actions
     directory: /

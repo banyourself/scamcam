@@ -49,6 +49,8 @@ Cloudflare does not count against the Workers request quota.
 | Tailwind CSS 4 + shadcn-style components | Utility CSS with no runtime, accessible primitives copied into the repo rather than a component dependency | A component library dependency |
 | `@cloudflare/vitest-plugin` | Official replacement for `vitest-pool-workers`; tests run in the real runtime with D1 | Mocked bindings (misses runtime behavior) |
 | TypeScript 7 | Current stable compiler; strict settings | TypeScript 5.x |
+| Vitest 4, held at the major version | `@cloudflare/vitest-plugin` 1.3.6 supports only `vitest` `^4.1.0`; Dependabot ignores Vitest major updates until the plugin supports the next one, then both move together | Vitest 5 (`npm ci` fails with a peer dependency conflict) |
+| `@types/node` 24 | Matches Node 24, the minimum version and the one CI and the dev container use, so code cannot rely on newer Node APIs by accident; Dependabot ignores its major updates | Newer `@types/node` majors |
 | No Docker, Redis, VMs, Python, Go, or microservices | Nothing in Phase 1 requires them | |
 
 Dependency checklist results (maintained, free, noncommercial use allowed, no known vulnerabilities, no lock-in
