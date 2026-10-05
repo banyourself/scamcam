@@ -1,7 +1,9 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { createServer, preview } from "vite";
 
 interface AxeViolation {
@@ -19,7 +21,7 @@ const viewports = [
   { width: 320, height: 720, mobile: true },
 ];
 const axeSource = readFileSync(new URL("../node_modules/axe-core/axe.min.js", import.meta.url), "utf8");
-const debugPort = 9341;
+const chromeStartSeconds = 60;
 
 function chromePath(): string {
   const candidates = [
@@ -52,6 +54,12 @@ class Cdp {
         this.pending.delete(message.id);
       }
     });
+    socket.addEventListener("close", () => {
+      for (const settle of this.pending.values()) {
+        settle(Promise.reject(new Error("Chrome closed the DevTools connection")));
+      }
+      this.pending.clear();
+    });
   }
 
   static async connect(url: string): Promise<Cdp> {
@@ -64,6 +72,9 @@ class Cdp {
   }
 
   send<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+    if (this.socket.readyState !== WebSocket.OPEN) {
+      return Promise.reject(new Error("The DevTools connection is closed"));
+    }
     const id = (this.nextId += 1);
     this.socket.send(JSON.stringify({ id, method, params }));
     return new Promise((resolve) => this.pending.set(id, resolve as (value: unknown) => void));
@@ -86,19 +97,29 @@ class Cdp {
   }
 }
 
-async function waitForDebugger(): Promise<string> {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    try {
-      const targets = (await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json()) as { type: string; webSocketDebuggerUrl: string }[];
-      const page = targets.find((target) => target.type === "page");
-      if (page) {
-        return page.webSocketDebuggerUrl;
-      }
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
+async function findPageTarget(profile: string): Promise<string | undefined> {
+  const port = readFileSync(join(profile, "DevToolsActivePort"), "utf8").split("\n")[0]?.trim() ?? "";
+  if (!/^\d+$/.test(port)) {
+    return undefined;
   }
-  throw new Error("Chrome did not start");
+  const response = await fetch(`http://127.0.0.1:${port}/json`, { signal: AbortSignal.timeout(2000) });
+  const targets = (await response.json()) as { type: string; webSocketDebuggerUrl: string }[];
+  return targets.find((target) => target.type === "page")?.webSocketDebuggerUrl;
+}
+
+async function waitForChrome(chrome: ChildProcess, profile: string, output: () => string): Promise<string> {
+  const deadline = Date.now() + chromeStartSeconds * 1000;
+  while (Date.now() < deadline) {
+    if (chrome.exitCode !== null || chrome.signalCode !== null) {
+      throw new Error(`Chrome exited (${chrome.exitCode ?? chrome.signalCode}) before it was ready. Its last output:\n${output()}`);
+    }
+    const page = await findPageTarget(profile).catch(() => undefined);
+    if (page) {
+      return page;
+    }
+    await sleep(200);
+  }
+  throw new Error(`Chrome did not start within ${chromeStartSeconds} seconds. Its last output:\n${output()}`);
 }
 
 async function waitFor(cdp: Cdp, condition: string): Promise<void> {
@@ -108,9 +129,9 @@ async function waitFor(cdp: Cdp, condition: string): Promise<void> {
         return;
       }
     } catch {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleep(50);
     }
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await sleep(50);
   }
   const state = await cdp.evaluate<string>("JSON.stringify({ path: location.pathname, ready: document.readyState, dark: document.documentElement.className, h1: document.querySelector('main h1')?.textContent ?? null, axe: typeof window.axe, root: document.getElementById('root')?.innerHTML.length ?? -1, body: document.body.innerHTML.slice(0, 120) })").catch((error: unknown) => String(error));
   throw new Error(`Timed out waiting for: ${condition}. Page state: ${state}`);
@@ -202,17 +223,25 @@ async function withChrome<T>(run: (cdp: Cdp) => Promise<T>): Promise<T> {
   const profile = mkdtempSync(join(tmpdir(), "scamcam-a11y-"));
   const chrome: ChildProcess = spawn(
     chromePath(),
-    ["--headless=new", `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, "--no-first-run", "--disable-gpu", "about:blank"],
-    { stdio: "ignore" },
+    ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--disable-gpu", "about:blank"],
+    { stdio: ["ignore", "ignore", "pipe"] },
   );
-  const cdp = await Cdp.connect(await waitForDebugger());
+  let output = "";
+  chrome.stderr?.on("data", (chunk: Buffer) => {
+    output = (output + chunk.toString()).slice(-2000);
+  });
+  const exited = new Promise((resolve) => chrome.once("exit", resolve));
+  let cdp: Cdp | undefined;
   try {
+    cdp = await Cdp.connect(await waitForChrome(chrome, profile, () => output));
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
     return await run(cdp);
   } finally {
-    cdp.close();
+    cdp?.close();
     chrome.kill();
+    await Promise.race([exited, sleep(5000)]);
+    await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }).catch(() => undefined);
   }
 }
 
