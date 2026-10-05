@@ -7,6 +7,7 @@ import {
   searchSafeBrowsing,
   urlExpressions,
 } from "../../src/engine/safe-browsing";
+import { fromHex, protobufResponse } from "./safe-browsing-wire";
 
 const googleVectors: [string, string][] = [
   ["http://host/%25%32%35", "http://host/%25"],
@@ -133,9 +134,9 @@ describe("Safe Browsing lookup", () => {
     const matched = await fullHashBase64("phish.example/");
     const fetcher: typeof fetch = async (input) => {
       requested.push(String(input));
-      return Response.json({
+      return protobufResponse({
         fullHashes: [{ fullHash: matched, fullHashDetails: [{ threatType: "SOCIAL_ENGINEERING" }] }],
-        cacheDuration: "300s",
+        cacheSeconds: 300,
       });
     };
     const result = await searchSafeBrowsing(["https://phish.example/login?u=1", "https://fine.example/"], "test-key", fetcher);
@@ -158,7 +159,7 @@ describe("Safe Browsing lookup", () => {
   it("ignores canary and frame-only matches", async () => {
     const matched = await fullHashBase64("phish.example/");
     const fetcher: typeof fetch = async () =>
-      Response.json({
+      protobufResponse({
         fullHashes: [
           { fullHash: matched, fullHashDetails: [{ threatType: "SOCIAL_ENGINEERING", attributes: ["CANARY"] }, { threatType: "MALWARE", attributes: ["FRAME_ONLY"] }] },
         ],
@@ -169,7 +170,9 @@ describe("Safe Browsing lookup", () => {
 
   it("reports errors and bad responses as unavailable", async () => {
     expect((await searchSafeBrowsing(["https://a.example/"], "key", async () => new Response("no", { status: 429 }))).status).toBe("unavailable");
-    expect((await searchSafeBrowsing(["https://a.example/"], "key", async () => Response.json({ fullHashes: "nope" }))).status).toBe("unavailable");
+    expect((await searchSafeBrowsing(["https://a.example/"], "key", async () => Response.json({ fullHashes: [] }))).status).toBe("unavailable");
+    expect((await searchSafeBrowsing(["https://a.example/"], "key", async () => protobufResponse(fromHex("0a260a20efbd")))).status).toBe("unavailable");
+    expect((await searchSafeBrowsing(["https://a.example/"], "key", async () => protobufResponse(new Uint8Array(1_000_001)))).status).toBe("unavailable");
     expect(
       (
         await searchSafeBrowsing(["https://a.example/"], "key", async () => {
@@ -177,5 +180,33 @@ describe("Safe Browsing lookup", () => {
         })
       ).status,
     ).toBe("unavailable");
+  });
+
+  it("keeps every threat type for one hash and puts phishing first", async () => {
+    const matched = await fullHashBase64("phish.example/");
+    const fetcher: typeof fetch = async () =>
+      protobufResponse({ fullHashes: [{ fullHash: matched, fullHashDetails: [{ threatType: "MALWARE" }, { threatType: "SOCIAL_ENGINEERING" }] }] });
+    const result = await searchSafeBrowsing(["https://phish.example/"], "key", fetcher);
+    expect(result.status === "ok" && result.threats.get("https://phish.example/")).toEqual(["SOCIAL_ENGINEERING", "MALWARE"]);
+  });
+
+  it("does not cache when the cache duration is out of range", async () => {
+    const fetcher: typeof fetch = async () => protobufResponse({ cacheSeconds: 90_000 });
+    const result = await searchSafeBrowsing(["https://fine.example/"], "key", fetcher);
+    expect(result).toEqual({ status: "ok", threats: new Map(), cacheSeconds: 0 });
+  });
+});
+
+const liveAnswers: [string, string, string[]][] = [
+  ["phishing", "0a260a20efbd4c3ab44f327eb13ca942ad7c7f0ab47ec260a4d0b8051684a01b2ef3522012020802120308ac02", ["SOCIAL_ENGINEERING"]],
+  ["malware", "0a2a0a205b0b89750c78f233fee25c6be32d928fcd805a8c5455c2110d29353c2f517fee1202080412020801120308ac02", ["MALWARE", "POTENTIALLY_HARMFUL_APPLICATION"]],
+  ["unwanted", "0a260a202ff4daef217fd40017d7eabc506029e73e12eb9409c98626d9c6f20af466cc4b12020803120308ac02", ["UNWANTED_SOFTWARE"]],
+];
+
+describe("Safe Browsing live answers recorded on 2026-10-05", () => {
+  it.each(liveAnswers)("reads Google's answer for its %s test page", async (page, answer, expected) => {
+    const link = `https://testsafebrowsing.appspot.com/s/${page}.html`;
+    const result = await searchSafeBrowsing([link], "key", async () => protobufResponse(fromHex(answer)));
+    expect(result).toEqual({ status: "ok", threats: new Map([[link, expected]]), cacheSeconds: 300 });
   });
 });

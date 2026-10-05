@@ -35,8 +35,8 @@ adapter interface with per-source cache policies arrives with caching in Stage 4
 | Source | Status | Notes |
 |---|---|---|
 | Public Suffix List (`tldts` 7.4.16) | Working | Bundled; refreshed when the package is updated |
-| Google Safe Browsing v5 | Built, needs a key | Tested against Google's published canonicalization examples and a fake server. Live use needs `SAFE_BROWSING_API_KEY` and is capped by `SAFE_BROWSING_DAILY_LIMIT`. Reports show "Advisory provided by Google" and hedged wording |
-| URLhaus host lookup | Built, needs a key | Sends only the hostname. Needs `URLHAUS_AUTH_KEY`; capped by `URLHAUS_DAILY_LIMIT`. Matches on shared hosts (free hosting, chat file hosts) are shown as context, never as confirmation |
+| Google Safe Browsing v5 | Working locally with a live key (2026-10-05) | Google's phishing, malware, and unwanted software test pages are flagged live, and Google's full hashes equal ScamCam's own hashes of them. `hashes:search` answers only in binary Protocol Buffers (`application/x-protobuf`); a JSON request is refused with "Unsupported Output Format". `src/engine/protobuf.ts` decodes the answer. Capped by `SAFE_BROWSING_DAILY_LIMIT`. Reports show "Advisory provided by Google" and hedged wording |
+| URLhaus host lookup | Working locally with a live key (2026-10-05) | Sends only the hostname. Live lookups of clean hosts return "no results"; a live match has not been seen yet. Capped by `URLHAUS_DAILY_LIMIT`. Matches on shared hosts (free hosting, chat file hosts) are shown as context, never as confirmation |
 | RDAP | Working | IANA bootstrap cached for 12 hours per Worker instance; one lookup per registrable domain; 404 means not registered; 429 and errors show as "did not respond" |
 | Cloudflare DNS over HTTPS | Working | One A-record lookup per hostname |
 | Phishing.Database | Deferred to Stage 4 | Needs a daily sync into D1 that fits the free write and CPU limits |

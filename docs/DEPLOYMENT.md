@@ -6,8 +6,11 @@
 
 One Cloudflare Worker named `scamcam`, serving the static site and `/api/*`, attached to `scamcam.kevinle.tech` as a
 Worker Custom Domain. Cloudflare creates the DNS record and certificate for that hostname only. It fails if the
-hostname already has a CNAME, so check first that `scamcam` is unused. No other DNS records, Pages projects, R2
-buckets, or secrets are touched.
+hostname already has a CNAME, so check first that `scamcam` is unused (Kevin confirmed on 2026-10-05 that it is not in
+the DNS). No other DNS records, Pages projects, R2 buckets, or secrets are touched.
+
+Kevin signs in with `npx wrangler login` and types every secret into `npx wrangler secret put` himself, so no secret
+passes through anyone else.
 
 ## One-time setup (needs approval)
 
@@ -17,7 +20,7 @@ buckets, or secrets are touched.
 | 2. Create the database | `npx wrangler d1 create scamcam` and put the returned ID in `wrangler.jsonc` | New D1 database |
 | 3. Apply migrations | `npx wrangler d1 migrations apply scamcam --remote` | Tables in that database |
 | 4. Turnstile | Create a widget for `scamcam.kevinle.tech` in the dashboard, set its site key as `TURNSTILE_SITE_KEY` in `wrangler.jsonc`, then `npx wrangler secret put TURNSTILE_SECRET_KEY` | New widget and secret |
-| 4b. Threat intelligence keys | `npx wrangler secret put SAFE_BROWSING_API_KEY` and `npx wrangler secret put URLHAUS_AUTH_KEY` (both optional; reports say which sources were not connected) | Secrets |
+| 4b. Threat intelligence keys | `npx wrangler secret put SAFE_BROWSING_API_KEY` and `npx wrangler secret put URLHAUS_AUTH_KEY` (the keys already work locally; reports say which sources were not connected) | Secrets |
 | 5. Production settings | Set `APP_ENV` to `production` for the deployed environment | Config only |
 | 6. Deploy | `npm run build && npx wrangler deploy` | New Worker |
 | 7. Attach the domain | Add `"routes": [{ "pattern": "scamcam.kevinle.tech", "custom_domain": true }]` and deploy again | One DNS record and one certificate |

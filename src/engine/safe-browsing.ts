@@ -1,5 +1,5 @@
 import { getDomain } from "tldts";
-import { z } from "zod";
+import { readMessage, readPackedVarints, type WireField } from "./protobuf";
 
 export const safeBrowsingEndpoint = "https://safebrowsing.googleapis.com/v5/hashes:search";
 
@@ -219,19 +219,81 @@ async function sha256(text: string): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
 }
 
-const SearchResponseSchema = z.object({
-  fullHashes: z
-    .array(
-      z.object({
-        fullHash: z.string(),
-        fullHashDetails: z.array(z.object({ threatType: z.string(), attributes: z.array(z.string()).optional() })).optional(),
-      }),
-    )
-    .optional(),
-  cacheDuration: z.string().optional(),
-});
+const threatTypeNames = new Map<bigint, string>([
+  [1n, "MALWARE"],
+  [2n, "SOCIAL_ENGINEERING"],
+  [3n, "UNWANTED_SOFTWARE"],
+  [4n, "POTENTIALLY_HARMFUL_APPLICATION"],
+]);
 
-const ignoredAttributes = new Set(["CANARY", "FRAME_ONLY", "THREAT_ATTRIBUTE_UNSPECIFIED"]);
+const threatPriority = ["SOCIAL_ENGINEERING", "MALWARE", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"];
+
+const maxResponseBytes = 1_000_000;
+
+const maxCacheSeconds = 86_400n;
+
+function enumValues(fields: WireField[], field: number): bigint[] {
+  return fields
+    .filter((item) => item.field === field)
+    .flatMap((item) => (typeof item.value === "bigint" ? [item.value] : readPackedVarints(item.value)));
+}
+
+function decodeThreatType(detail: Uint8Array): string | undefined {
+  const fields = readMessage(detail);
+  const [type] = enumValues(fields, 1);
+  if (type === undefined || type === 0n || enumValues(fields, 2).length > 0) {
+    return undefined;
+  }
+  return threatTypeNames.get(type) ?? `THREAT_TYPE_${type}`;
+}
+
+function decodeFullHash(bytes: Uint8Array): { hash: string; types: string[] } | undefined {
+  let hash: Uint8Array | undefined;
+  const types: string[] = [];
+  for (const { field, value } of readMessage(bytes)) {
+    if (!(value instanceof Uint8Array)) {
+      continue;
+    }
+    if (field === 1) {
+      hash = value;
+    } else if (field === 2) {
+      const type = decodeThreatType(value);
+      if (type) {
+        types.push(type);
+      }
+    }
+  }
+  return hash?.length === 32 ? { hash: hex(hash), types } : undefined;
+}
+
+function decodeCacheSeconds(duration: Uint8Array): number {
+  const seconds = readMessage(duration).find((item) => item.field === 1)?.value;
+  return typeof seconds === "bigint" && seconds <= maxCacheSeconds ? Number(seconds) : 0;
+}
+
+function decodeSearchResponse(bytes: Uint8Array): { threatsByHash: Map<string, string[]>; cacheSeconds: number } {
+  const threatsByHash = new Map<string, string[]>();
+  let cacheSeconds = 0;
+  for (const { field, value } of readMessage(bytes)) {
+    if (!(value instanceof Uint8Array)) {
+      continue;
+    }
+    if (field === 1) {
+      const entry = decodeFullHash(value);
+      if (entry && entry.types.length > 0) {
+        threatsByHash.set(entry.hash, [...(threatsByHash.get(entry.hash) ?? []), ...entry.types]);
+      }
+    } else if (field === 2) {
+      cacheSeconds = decodeCacheSeconds(value);
+    }
+  }
+  return { threatsByHash, cacheSeconds };
+}
+
+function byPriority(first: string, second: string): number {
+  const rank = (type: string) => (threatPriority.includes(type) ? threatPriority.indexOf(type) : threatPriority.length);
+  return rank(first) - rank(second);
+}
 
 export type SafeBrowsingResult =
   | { status: "ok"; threats: Map<string, string[]>; cacheSeconds: number }
@@ -260,44 +322,28 @@ export async function searchSafeBrowsing(links: string[], apiKey: string, fetche
   for (const prefix of [...prefixes].slice(0, 1000)) {
     query.append("hashPrefixes", prefix);
   }
-  let payload: unknown;
+  let decoded: { threatsByHash: Map<string, string[]>; cacheSeconds: number };
   try {
     const response = await fetcher(`${safeBrowsingEndpoint}?${query}`, { signal: AbortSignal.timeout(4000) });
-    if (!response.ok) {
+    if (!response.ok || !(response.headers.get("content-type") ?? "").includes("protobuf")) {
       return { status: "unavailable" };
     }
-    payload = await response.json();
+    const body = new Uint8Array(await response.arrayBuffer());
+    if (body.length > maxResponseBytes) {
+      return { status: "unavailable" };
+    }
+    decoded = decodeSearchResponse(body);
   } catch {
     return { status: "unavailable" };
   }
-  const parsed = SearchResponseSchema.safeParse(payload);
-  if (!parsed.success) {
-    return { status: "unavailable" };
-  }
-  const threatsByHash = new Map<string, string[]>();
-  for (const entry of parsed.data.fullHashes ?? []) {
-    let decoded: string;
-    try {
-      decoded = hex(Uint8Array.from(atob(entry.fullHash), (char) => char.charCodeAt(0)));
-    } catch {
-      continue;
-    }
-    const types = (entry.fullHashDetails ?? [])
-      .filter((detail) => !(detail.attributes ?? []).some((attribute) => ignoredAttributes.has(attribute)))
-      .map((detail) => detail.threatType);
-    if (types.length > 0) {
-      threatsByHash.set(decoded, types);
-    }
-  }
   const threats = new Map<string, string[]>();
   for (const [link, hashes] of hashesByLink) {
-    const found = [...new Set(hashes.flatMap((hash) => threatsByHash.get(hash) ?? []))];
+    const found = [...new Set(hashes.flatMap((hash) => decoded.threatsByHash.get(hash) ?? []))].sort(byPriority);
     if (found.length > 0) {
       threats.set(link, found);
     }
   }
-  const cacheSeconds = Number.parseFloat((parsed.data.cacheDuration ?? "0s").replace(/s$/, "")) || 0;
-  return { status: "ok", threats, cacheSeconds };
+  return { status: "ok", threats, cacheSeconds: decoded.cacheSeconds };
 }
 
 export const threatDescriptions: Record<string, string> = {

@@ -2,12 +2,13 @@ import { dohEndpoint } from "../../src/engine/dns";
 import { rdapBootstrapUrl } from "../../src/engine/rdap";
 import { safeBrowsingEndpoint } from "../../src/engine/safe-browsing";
 import { urlhausHostEndpoint } from "../../src/engine/urlhaus";
+import { protobufResponse, type SearchResponseFixture } from "./safe-browsing-wire";
 
 export interface FakeNetworkOptions {
   registeredDaysAgo?: number | "missing";
   rdapStatus?: string[];
   dnsStatus?: number;
-  safeBrowsing?: (prefixes: string[]) => unknown;
+  safeBrowsing?: (prefixes: string[]) => SearchResponseFixture;
   urlhaus?: unknown;
   turnstile?: unknown;
   down?: boolean;
@@ -56,7 +57,7 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
     }
     if (url.startsWith(safeBrowsingEndpoint)) {
       const prefixes = new URL(url).searchParams.getAll("hashPrefixes");
-      return json(options.safeBrowsing ? options.safeBrowsing(prefixes) : {});
+      return protobufResponse(options.safeBrowsing ? options.safeBrowsing(prefixes) : {});
     }
     if (url === urlhausHostEndpoint) {
       return json(options.urlhaus ?? { query_status: "no_results" });
