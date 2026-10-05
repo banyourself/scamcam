@@ -55,6 +55,7 @@ Run all checks with `npm run check`.
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Design, technology decisions, and threat model |
 | [ROADMAP.md](docs/ROADMAP.md) | Stages and phases |
 | [BUILD_STATE.md](docs/BUILD_STATE.md) | What exists, what works, test results |
+| [COMPLETED_WORK.md](docs/COMPLETED_WORK.md) | Everything completed so far, stage by stage |
 | [SECURITY.md](SECURITY.md) | Reporting vulnerabilities and security controls |
 | [PRIVACY_DESIGN.md](docs/PRIVACY_DESIGN.md) | What data is processed and why |
 | [COMPLIANCE_MATRIX.md](docs/COMPLIANCE_MATRIX.md) | Laws and standards that may apply |
