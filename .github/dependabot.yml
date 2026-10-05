@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      cloudflare:
+        patterns: ["wrangler", "@cloudflare/*"]
+      frontend:
+        patterns: ["react", "react-dom", "@types/react*", "vite", "@vitejs/*", "tailwindcss", "@tailwindcss/*"]
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -1,0 +1,46 @@
+# Privacy design
+
+ScamCam processes content that can be private (messages from friends, links with tokens in them) and is used by
+teenagers. The design goal is to keep nothing that is not needed.
+
+## What is processed
+
+| Data | Why | Stored? |
+|---|---|---|
+| Submitted message text | To find links and scam patterns | No. Processed in memory and discarded |
+| Submitted URL | To check its domain and reputation | Not raw. Only a keyed hash or the registrable domain when an indicator must be cached (Stage 3+) |
+| IP address | Rate limiting, Turnstile | Not by ScamCam. Passed to the Cloudflare rate limiter and Turnstile, which do not store it for us |
+| Request metadata | Debugging | Worker logs keep method, route, status, duration, and a request ID for 3 days. No IP, no URL, no query |
+| Error type and route | Reliability | `error_events` for 7 days |
+
+## What is never collected
+
+Accounts, names, emails (unless someone emails a report), analytics, advertising IDs, fingerprints, browsing
+history, screenshots, cookies other than strictly necessary security cookies from Cloudflare.
+
+## Third parties
+
+| Party | Receives | When |
+|---|---|---|
+| Cloudflare | All traffic (host and edge), Turnstile signals | Always |
+| Google Safe Browsing | 4-byte SHA-256 prefixes of URL expressions, never the URL | Stage 3 |
+| abuse.ch URLhaus | Nothing per scan; ScamCam downloads the list and matches locally | Stage 3 |
+| Domain registries (RDAP) | The domain name only | Stage 3, cached |
+| DNS over HTTPS resolver | The domain name only | Stage 3 |
+| Workers AI | Redacted message text, only for inconclusive cases, never stored or used for training per Cloudflare's data use policy | Stage 4, optional |
+
+## Children
+
+Gaming audiences include minors. Rules that apply from day one:
+
+- No accounts, chat, profiles, public posts, or user-generated content.
+- A warning beside the input not to paste passwords, login codes, or personal details.
+- Server-side redaction of emails, phone numbers, and long digit runs before any optional AI step (Stage 3).
+- IP use limited to security (COPPA's internal-operations purpose).
+- A plain-language privacy summary on the Privacy page (Stage 2).
+
+## Caching rules
+
+- Never put private messages or secret-bearing URLs into shared caches.
+- Cache only public indicators (registrable domain reputation, provider results) under each provider's terms.
+- Normalize conservatively so distinct indicators are not merged (`SCAMCAM_ANALYSIS.md`).

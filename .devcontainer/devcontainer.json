@@ -1,0 +1,17 @@
+{
+  "name": "ScamCam",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:24",
+  "postCreateCommand": "npm ci && cp -n .dev.vars.example .dev.vars && npm run db:migrate:local",
+  "forwardPorts": [5173],
+  "portsAttributes": {
+    "5173": { "label": "ScamCam", "onAutoForward": "notify" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["bradlc.vscode-tailwindcss"]
+    }
+  },
+  "hostRequirements": {
+    "cpus": 2
+  }
+}

@@ -1,0 +1,54 @@
+import { z } from "zod";
+
+const verifyEndpoint = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+const maxTokenLength = 2048;
+
+const SiteverifyResponseSchema = z.object({
+  success: z.boolean(),
+  hostname: z.string().optional(),
+  "error-codes": z.array(z.string()).optional(),
+});
+
+export type TurnstileOutcome =
+  | { ok: true }
+  | { ok: false; reason: "missing_token" | "not_configured" | "rejected" | "unreachable" };
+
+export interface TurnstileOptions {
+  token: string | undefined;
+  secret: string | undefined;
+  remoteIp: string;
+  expectedHostname: string | null;
+  fetcher?: typeof fetch;
+}
+
+export async function verifyTurnstileToken(options: TurnstileOptions): Promise<TurnstileOutcome> {
+  if (!options.secret) {
+    return { ok: false, reason: "not_configured" };
+  }
+  if (!options.token || options.token.length > maxTokenLength) {
+    return { ok: false, reason: "missing_token" };
+  }
+  const form = new FormData();
+  form.set("secret", options.secret);
+  form.set("response", options.token);
+  form.set("remoteip", options.remoteIp);
+  let payload: unknown;
+  try {
+    const response = await (options.fetcher ?? fetch)(verifyEndpoint, {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(5000),
+    });
+    payload = await response.json();
+  } catch {
+    return { ok: false, reason: "unreachable" };
+  }
+  const parsed = SiteverifyResponseSchema.safeParse(payload);
+  if (!parsed.success || !parsed.data.success) {
+    return { ok: false, reason: "rejected" };
+  }
+  if (options.expectedHostname && parsed.data.hostname !== options.expectedHostname) {
+    return { ok: false, reason: "rejected" };
+  }
+  return { ok: true };
+}
