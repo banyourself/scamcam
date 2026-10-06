@@ -437,7 +437,11 @@ async function checkScreenshots(): Promise<string[]> {
       if (url.origin !== base && url.origin !== turnstileOrigin) {
         failures.push(`reading a screenshot contacted ${url.origin}`);
       }
-      if (request.method !== "GET") {
+      const bodySize = request.postData?.length ?? 0;
+      if (bodySize > 50_000) {
+        failures.push(`reading a screenshot sent ${bodySize} bytes to ${url.origin}${url.pathname.slice(0, 40)}`);
+      }
+      if (request.method !== "GET" && url.origin !== turnstileOrigin && !(url.origin === base && url.pathname.startsWith("/cdn-cgi/challenge-platform/"))) {
         failures.push(`reading a screenshot sent a ${request.method} to ${url.pathname}`);
       }
     }
