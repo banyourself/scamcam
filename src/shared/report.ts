@@ -2,7 +2,7 @@ export const riskLevels = ["no_known_threat", "unknown", "suspicious", "high_ris
 
 export type RiskLevel = (typeof riskLevels)[number];
 export type EvidenceSignal = "raises_risk" | "lowers_risk" | "neutral";
-export type UncheckedReason = "unavailable" | "over_budget" | "not_applicable" | "skipped" | "not_configured";
+export type UncheckedReason = "unavailable" | "over_budget" | "not_applicable" | "skipped" | "not_configured" | "out_of_date";
 
 export interface Evidence {
   id: string;
@@ -53,6 +53,7 @@ export const uncheckedReasons: Record<UncheckedReason, string> = {
   not_applicable: "does not apply to this kind of input",
   skipped: "was not needed",
   not_configured: "is not connected yet",
+  out_of_date: "was not used because its copy is out of date",
 };
 
 export const googleAdvisoryUrl = "https://developers.google.com/safe-browsing/v4/advisory";

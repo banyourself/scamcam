@@ -1,4 +1,5 @@
 import { dohEndpoint } from "../../src/engine/dns";
+import type { DomainListLookup, DomainListResult } from "../../src/engine/domain-list";
 import { rdapBootstrapUrl } from "../../src/engine/rdap";
 import { safeBrowsingEndpoint } from "../../src/engine/safe-browsing";
 import { urlhausHostEndpoint } from "../../src/engine/urlhaus";
@@ -71,3 +72,17 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
 }
 
 export const allowAllBudgets = async () => true;
+
+export function listOf(names: string[], asked: string[][] = []): DomainListLookup {
+  const listed = new Set(names);
+  return {
+    async lookup(requested: string[]): Promise<DomainListResult> {
+      asked.push(requested);
+      return { status: "ok", listed: new Set(requested.filter((name) => listed.has(name))), syncedAt: 0 };
+    },
+  };
+}
+
+export function listInState(status: "stale" | "not_configured" | "unavailable"): DomainListLookup {
+  return { lookup: async () => ({ status }) };
+}

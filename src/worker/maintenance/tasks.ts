@@ -11,7 +11,9 @@ import {
   type MaintenanceTask,
 } from "../repositories/maintenance";
 import type { AppBindings } from "../env";
+import { domainListStatus } from "../repositories/domain-lists";
 import { logEvent } from "../logging";
+import { nowInSeconds } from "../retention";
 
 export const cronSchedule = {
   daily: "17 3 * * *",
@@ -54,7 +56,13 @@ export async function runWeeklyMaintenance(env: AppBindings): Promise<Record<str
     missingExpiry[table] = await countRowsMissingExpiry(env.DB, table);
   }
   const storage = await checkStorage(env);
-  return { rows, missingExpiry, storage };
+  const phishingDatabase = await domainListStatus(env.DB, "phishing_database");
+  const lists = {
+    phishing_database: phishingDatabase
+      ? { version: phishingDatabase.version, entries: phishingDatabase.entries, ageHours: Math.floor((nowInSeconds() - phishingDatabase.syncedAt) / 3600) }
+      : null,
+  };
+  return { rows, missingExpiry, storage, lists };
 }
 
 export async function runMaintenance(task: MaintenanceTask, env: AppBindings): Promise<void> {

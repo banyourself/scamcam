@@ -1,12 +1,13 @@
 import { extractInput } from "../shared/extract";
 import type { Evidence, ScanReport, UncheckedSource } from "../shared/report";
-import { freeHostingSuffixes, urlShorteners } from "./brands";
+import { freeHostingSuffixes, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
 import { memoryLookups, type Lookups } from "./cache";
 import { isPrivateAddress, lookupDns, type DnsResult } from "./dns";
+import { candidateNames, type DomainListLookup, type DomainListResult } from "./domain-list";
 import { analyzeMessage } from "./message-rules";
 import { lookupRdap, type RdapResult } from "./rdap";
 import { searchSafeBrowsing, threatDescriptions, type SafeBrowsingResult } from "./safe-browsing";
-import { sourceNames, strengthPoints, type Signal } from "./signals";
+import { phishingDatabaseUrl, sourceNames, strengthPoints, type Signal } from "./signals";
 import { analyzeLink, type AnalyzedLink } from "./url-analysis";
 import { lookupUrlhausHost, sameUrl, type UrlhausResult } from "./urlhaus";
 import { decideVerdict } from "./verdict";
@@ -19,10 +20,12 @@ export interface ScanOptions {
   urlhausKey?: string | undefined;
   takeBudget: (provider: BudgetedProvider) => Promise<boolean>;
   lookups?: Lookups;
+  phishingList?: DomainListLookup;
   now?: Date;
 }
 
 const maxNetworkLinks = 3;
+const maxListedLinks = 10;
 const maxEvidence = 14;
 const day = 24 * 60 * 60 * 1000;
 
@@ -136,6 +139,49 @@ function urlhausSignals(link: AnalyzedLink, result: UrlhausResult): Signal[] {
     return [{ ...base, id: `urlhaus-online-${host}`, direction: "raises", strength: "critical", confirms: true, title: `URLhaus lists ${link.displayHostname} as serving malware right now`, detail: `abuse.ch's URLhaus project has ${result.total} malware reports for this site, and ${result.onlineUrls.length} are still online.` }];
   }
   return [{ ...base, id: `urlhaus-past-${host}`, direction: "raises", strength: "moderate", title: `${link.displayHostname} has spread malware before`, detail: `URLhaus has ${result.total} past malware reports for this site. None are online now.` }];
+}
+
+function isBroadName(name: string): boolean {
+  return (
+    urlShorteners.has(name) ||
+    userContentHosts.includes(name) ||
+    freeHostingSuffixes.some((suffix) => name === suffix) ||
+    Boolean(officialBrandFor(name))
+  );
+}
+
+function phishingListSignals(link: AnalyzedLink, names: string[], result: DomainListResult): Signal[] {
+  if (result.status !== "ok") {
+    return [];
+  }
+  const matched = names.find((name) => result.listed.has(name));
+  if (!matched) {
+    return [];
+  }
+  const shown = matched === link.hostname ? (link.displayHostname ?? matched) : matched;
+  const base = { source: sourceNames.phishingDatabase, sourceUrl: phishingDatabaseUrl, link: link.hostname! };
+  if (isBroadName(matched)) {
+    return [
+      {
+        ...base,
+        id: `pdb-shared-${matched}`,
+        direction: "context",
+        strength: "weak",
+        title: `${shown} appears on a community phishing list`,
+        detail: "Phishing.Database lists this service, but anyone can publish there, so it says little about this exact link.",
+      },
+    ];
+  }
+  return [
+    {
+      ...base,
+      id: `pdb-${matched}`,
+      direction: "raises",
+      strength: "strong",
+      title: `Phishing.Database lists ${shown} as a phishing site`,
+      detail: "Phishing.Database is a free community list of phishing sites. Lists like this can contain mistakes, so ScamCam treats it as a warning sign, not proof.",
+    },
+  ];
 }
 
 function toEvidence(signal: Signal, checkedAt: string): Evidence {
@@ -254,6 +300,28 @@ export async function scanContent(content: string, options: ScanOptions): Promis
         }
       })(),
     );
+  }
+  const listedLinks = readable.filter((link) => !link.officialBrand).slice(0, maxListedLinks);
+  if (listedLinks.length > 0) {
+    if (!options.phishingList) {
+      notChecked.push({ name: sourceNames.phishingDatabase, reason: "not_configured" });
+    } else {
+      const list = options.phishingList;
+      tasks.push(
+        (async () => {
+          const namesByLink = new Map(listedLinks.map((link) => [link, candidateNames(link.hostname!, link.registrableDomain)]));
+          const result = await list.lookup([...new Set([...namesByLink.values()].flat())]);
+          if (result.status === "stale") {
+            notChecked.push({ name: sourceNames.phishingDatabase, reason: "out_of_date" });
+          } else if (result.status !== "ok") {
+            notChecked.push({ name: sourceNames.phishingDatabase, reason: result.status });
+          }
+          for (const [link, names] of namesByLink) {
+            attach(link, phishingListSignals(link, names, result));
+          }
+        })(),
+      );
+    }
   }
   await Promise.all(tasks);
 

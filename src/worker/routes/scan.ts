@@ -7,6 +7,7 @@ import type { AppBindings, AppEnv } from "../env";
 import { errorBody } from "../errors";
 import { clientAddress } from "../middleware/rate-limit";
 import { writesArePaused } from "../repositories/app-state";
+import { d1DomainList } from "../repositories/domain-lists";
 import { recordProviderCall } from "../repositories/provider-usage";
 import { verifyTurnstileToken } from "../security/turnstile";
 
@@ -80,6 +81,7 @@ export const scanRoutes = new OpenAPIHono<AppEnv>().openapi(scanRoute, async (c)
     urlhausKey: c.env.URLHAUS_AUTH_KEY,
     takeBudget: budgetTaker(c.env),
     lookups: c.get("lookups"),
+    phishingList: d1DomainList(c.env.DB, "phishing_database", c.get("lookups")),
   });
   return c.json(ScanReportSchema.parse(report), 200);
 });

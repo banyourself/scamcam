@@ -38,4 +38,7 @@ export const sourceNames = {
   rdap: "RDAP registry data",
   dns: "DNS lookup (Cloudflare 1.1.1.1)",
   urlhaus: "URLhaus (abuse.ch)",
+  phishingDatabase: "Phishing.Database (community list)",
 } as const;
+
+export const phishingDatabaseUrl = "https://github.com/Phishing-Database/Phishing.Database";
