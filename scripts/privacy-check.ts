@@ -40,6 +40,7 @@ const notes: string[] = [];
 const turnstileOrigin = "https://challenges.cloudflare.com";
 const qrCard = readFileSync(new URL("../test/fixtures/qr-card.png", import.meta.url)).toString("base64");
 const qrCardLink = "https://www.linkedin.com/in/kevin-example/";
+const screenshotTraces = [qrCard.slice(4000, 4064), "kevin-example", "cybersecurity club", "steam-trade-probe", "discord-gift-probe"];
 const probe = "privacy probe 7q4: send me your 2fa code at steam-trade-probe.example/probe-path-7q4 so i can verify the trade";
 const probeMarkers = ["privacy probe", "7q4", "steam-trade-probe", "probe-path", "2fa code"];
 const allowedStorageKeys = new Set(["scamcam-theme"]);
@@ -476,9 +477,12 @@ async function checkScreenshots(): Promise<string[]> {
       if (url.origin !== base && url.origin !== turnstileOrigin) {
         failures.push(`reading a screenshot contacted ${url.origin}`);
       }
-      const bodySize = request.postData?.length ?? 0;
-      if (bodySize > 50_000) {
-        failures.push(`reading a screenshot sent ${bodySize} bytes to ${url.origin}${url.pathname.slice(0, 40)}`);
+      const body = request.postData ?? "";
+      if (body.length > 50_000 && url.origin !== turnstileOrigin) {
+        failures.push(`reading a screenshot sent ${body.length} bytes to ${url.origin}${url.pathname.slice(0, 40)}`);
+      }
+      if (screenshotTraces.some((trace) => body.includes(trace) || request.url.includes(trace))) {
+        failures.push(`reading a screenshot sent its content to ${url.origin}${url.pathname.slice(0, 40)}`);
       }
       if (request.method !== "GET" && url.origin !== turnstileOrigin && !(url.origin === base && url.pathname.startsWith("/cdn-cgi/challenge-platform/"))) {
         failures.push(`reading a screenshot sent a ${request.method} to ${url.pathname}`);
