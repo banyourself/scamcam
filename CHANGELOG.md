@@ -18,6 +18,8 @@ state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 - Screenshots: the area of a decoded QR code is painted over before reading text, so its pattern no longer turns into
   stray letters; links wrapped onto two lines are joined; `https:/` is repaired. The AI's "QR code login takeover"
   guess is ignored when ScamCam decoded the QR code itself.
+- An advisory published on 2026-10-06 for `sharp` 0.35.4 (pulled in by Cloudflare's local tooling, never shipped to
+  the site) is fixed with an npm override to 0.35.5, so `npm audit` reports 0 vulnerabilities again.
 - Verified: 517 Vitest tests in 30 files and 14 Node tests pass. The browser check now reads a generated QR code
   card, finds no stray text, scans it, and confirms it is not called a QR code scam.
 
