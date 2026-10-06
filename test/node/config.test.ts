@@ -94,8 +94,11 @@ test("static pages send a strict content security policy", () => {
   for (const required of ["default-src 'self'", "object-src 'none'", "frame-ancestors 'none'", "base-uri 'none'"]) {
     assert.ok(headers.includes(required), `missing ${required}`);
   }
+  const scriptSources = /script-src ([^;]+);/.exec(headers)?.[1]?.split(" ") ?? [];
   assert.ok(!headers.includes("unsafe-inline"));
-  assert.ok(!headers.includes("unsafe-eval"));
+  assert.ok(!scriptSources.includes("'unsafe-eval'"));
+  assert.deepEqual(scriptSources.filter((source) => source.includes("unsafe")), ["'wasm-unsafe-eval'"]);
+  assert.match(headers, /worker-src 'self';/);
 });
 
 const emDash = String.fromCharCode(0x2014);
@@ -155,3 +158,16 @@ test("every GitHub Action is pinned to a full commit", () => {
     }
   }
 });
+
+test("the self-hosted OCR files match the installed package versions", () => {
+  const ocr = read("src/shared/ocr.ts");
+  const version = /ocrVersion = "([^"]+)"/.exec(ocr)?.[1];
+  const installed = JSON.parse(read("node_modules/tesseract.js/package.json")) as { version: string };
+  const declared = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
+  assert.equal(version, installed.version);
+  assert.equal(declared.dependencies["tesseract.js"], installed.version);
+  for (const source of [...ocr.matchAll(/: "((?:tesseract|jsqr|@tesseract)[^"]+)"/g)].map((match) => match[1]!)) {
+    assert.ok(read(`node_modules/${source}`).length > 0, `${source} is missing`);
+  }
+});
+

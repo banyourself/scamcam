@@ -58,7 +58,7 @@ const pageHeaders: [string, (value: string) => boolean][] = [
     (value) =>
       ["default-src 'self'", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'", "form-action 'self'"].every((part) => value.includes(part)) &&
       !value.includes("unsafe-inline") &&
-      !value.includes("unsafe-eval"),
+      !(/script-src ([^;]+)/.exec(value)?.[1] ?? "").split(" ").includes("'unsafe-eval'"),
   ],
   ["permissions-policy", (value) => ["camera=()", "microphone=()", "geolocation=()", "payment=()"].every((part) => value.includes(part))],
   ["cross-origin-opener-policy", (value) => value === "same-origin"],
@@ -296,7 +296,7 @@ function checkBundle(): string[] {
   const failures: string[] = [];
   const values = secretValues();
   const patterns: [string, RegExp][] = [
-    ["a Google API key", /AIza[0-9A-Za-z_-]{35}/],
+    ["a Google API key", /(?<![A-Za-z0-9+/_-])AIza[0-9A-Za-z_-]{35}(?![A-Za-z0-9_-])/],
     ["a private key", /-----BEGIN [A-Z ]*PRIVATE KEY-----/],
     ["a GitHub token", /\bgh[pousr]_[A-Za-z0-9]{36,}\b/],
     ["a Slack token", /\bxox[abprs]-[A-Za-z0-9-]{10,}/],
@@ -337,6 +337,108 @@ function checkBundle(): string[] {
   }
   console.log(`${failures.length > 0 ? "FAIL" : "pass"}  secret scan of ${files.length} built files against ${values.length} local secret values and ${patterns.length} key patterns`);
   return failures;
+}
+
+const screenshotScript = `(() => {
+  window.__violations = [];
+  document.addEventListener("securitypolicyviolation", (event) => window.__violations.push(event.violatedDirective + " " + event.blockedURI));
+  window.__paste = async (kind) => {
+    let file;
+    if (kind === "light" || kind === "dark") {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1100;
+      canvas.height = 260;
+      const context = canvas.getContext("2d");
+      context.fillStyle = kind === "light" ? "#ffffff" : "#1e1f22";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = kind === "light" ? "#111111" : "#dbdee1";
+      context.font = "40px Arial, sans-serif";
+      context.fillText(kind === "light" ? "hey bro send me your 2fa code" : "free nitro gift for you", 40, 100);
+      context.fillText(kind === "light" ? "verify at steam-trade-probe.example" : "claim at discord-gift-probe.example", 40, 180);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      file = new File([blob], "shot.png", { type: "image/png" });
+    } else if (kind === "svg") {
+      file = new File(['<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><text>hi</text></svg>'], "shot.svg", { type: "image/svg+xml" });
+    } else {
+      file = new File(["<script>alert(1)</script> not really a picture"], "shot.png", { type: "image/png" });
+    }
+    const data = new DataTransfer();
+    data.items.add(file);
+    const box = document.querySelector("textarea");
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(box, "");
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  };
+})()`;
+
+async function checkScreenshots(): Promise<string[]> {
+  return withChrome(async (cdp) => {
+    const failures: string[] = [];
+    const requests: SeenRequest[] = [];
+    cdp.on("Network.requestWillBeSent", (params) => {
+      requests.push(params.request as SeenRequest);
+    });
+    const workers: string[] = [];
+    cdp.on("Target.attachedToTarget", (params) => {
+      const sessionId = params.sessionId as string;
+      workers.push((params.targetInfo as { url: string }).url);
+      void cdp.send("Network.enable", {}, sessionId).then(() => cdp.send("Runtime.runIfWaitingForDebugger", {}, sessionId));
+    });
+    await cdp.send("Network.enable");
+    await cdp.send("Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
+    await openPage(cdp, base, "/");
+    await cdp.evaluate(screenshotScript);
+    const box = `document.querySelector("textarea").value.toLowerCase()`;
+    for (const [kind, expected] of [
+      ["light", "steam-trade-probe.example"],
+      ["dark", "discord-gift-probe.example"],
+    ] as const) {
+      await cdp.evaluate(`window.__paste(${JSON.stringify(kind)})`);
+      try {
+        await waitFor(cdp, `${box}.includes(${JSON.stringify(expected)})`);
+      } catch {
+        const value = await cdp.evaluate<string>(`${box}.slice(0, 200)`);
+        const alert = await cdp.evaluate<string>(`document.querySelector("[role=alert]")?.textContent ?? ""`);
+        failures.push(`the ${kind} screenshot was not read (box: ${JSON.stringify(value)}, alert: ${JSON.stringify(alert)})`);
+      }
+    }
+    for (const kind of ["svg", "fake"]) {
+      await cdp.evaluate(`window.__paste(${JSON.stringify(kind)})`);
+      await waitFor(cdp, `document.querySelector("[role=alert]")?.textContent?.includes("Only PNG, JPEG, WebP, and GIF")`).catch(() => failures.push(`the ${kind} file was not refused`));
+      if ((await cdp.evaluate<string>(box)) !== "") {
+        failures.push(`the ${kind} file put text in the box`);
+      }
+    }
+    const violations = await cdp.evaluate<string[]>("window.__violations");
+    if (violations.length > 0) {
+      failures.push(`content security policy violations: ${violations.join(", ")}`);
+    }
+    const storage = await cdp.evaluate<{ databases: number; caches: number; local: string[] }>(
+      `(async () => ({ databases: (await indexedDB.databases()).length, caches: (await caches.keys()).length, local: Object.keys(localStorage) }))()`,
+    );
+    if (storage.databases > 0 || storage.caches > 0 || storage.local.some((key) => key !== "scamcam-theme")) {
+      failures.push("reading a screenshot stored something in the browser");
+    }
+    for (const request of requests) {
+      if (/^(data|blob):/.test(request.url)) {
+        continue;
+      }
+      const url = new URL(request.url);
+      if (url.origin !== base && url.origin !== turnstileOrigin) {
+        failures.push(`reading a screenshot contacted ${url.origin}`);
+      }
+      if (request.method !== "GET") {
+        failures.push(`reading a screenshot sent a ${request.method} to ${url.pathname}`);
+      }
+    }
+    if (!workers.some((url) => url.endsWith("/ocr/7.0.0/worker.min.js"))) {
+      failures.push(`the OCR worker was not seen (${workers.join(", ") || "no workers"})`);
+    }
+    const ocrFetches = requests.filter((request) => request.url.includes("/ocr/")).map((request) => new URL(request.url).pathname);
+    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  screenshots read on the device (light and dark), SVG and fake images refused, nothing uploaded or stored`);
+    console.log(`      OCR files fetched: ${[...new Set(ocrFetches)].join(", ") || "none seen"}`);
+    return failures;
+  });
 }
 
 async function checkLiveApi(): Promise<string[]> {
@@ -387,7 +489,7 @@ async function main(): Promise<void> {
   const failures = checkBundle();
   const server = await preview({ preview: { port, strictPort: true, host: "127.0.0.1", cors: false }, logLevel: "error" });
   try {
-    failures.push(...(await checkHeaders()), ...(await checkBrowser()));
+    failures.push(...(await checkHeaders()), ...(await checkBrowser()), ...(await checkScreenshots()));
   } finally {
     await new Promise<void>((resolve) => server.httpServer.close(() => resolve()));
   }

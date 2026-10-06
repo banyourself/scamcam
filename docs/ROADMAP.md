@@ -12,6 +12,7 @@ until the current one is evaluated.
 | 4. Optimization | Done locally | Caching under each provider's rules, safe deduplication, paused failing sources and registry back-off, Phishing.Database sync (ready, switched on at deployment), a free Workers AI step for messages the rules cannot decide, performance and AI benchmarks; the held-out domain benchmark waits for permission to download the list |
 | 5. Security and compliance | Done locally | Security review against the OWASP API Top 10 and ASVS with 11 findings fixed, Workers Free plan limits (CPU and subrequests) measured and enforced by tests, privacy checks in a real browser and in the Worker, IPv6 and concurrency rate-limit tests, monitoring alerts, cleanup limits, a recovery runbook and backup drill, policy drafts reviewed with questions for a lawyer, disclosure contact checked (see `SECURITY_REVIEW.md` and `RECOVERY.md`) |
 | 6. Deployment | Done, live on 2026-10-05 | D1 created, Worker deployed to `scamcam.kevinle.tech`, secrets set by Kevin, Phishing.Database sync on, policies published, live checks passing, personal site unaffected (see `BUILD_STATE.md`) |
+| 7. Screenshots | Done, live on 2026-10-06 | Screenshots are read in the visitor's browser (Tesseract.js for text, jsQR for QR codes) and never uploaded; strict file checks against fake images and decompression bombs; security review in `SECURITY_REVIEW.md` |
 
 ## After launch
 

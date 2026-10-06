@@ -68,12 +68,12 @@ export class Cdp {
     this.listeners.set(method, [...(this.listeners.get(method) ?? []), listener]);
   }
 
-  send<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+  send<T>(method: string, params: Record<string, unknown> = {}, sessionId?: string): Promise<T> {
     if (this.socket.readyState !== WebSocket.OPEN) {
       return Promise.reject(new Error("The DevTools connection is closed"));
     }
     const id = (this.nextId += 1);
-    this.socket.send(JSON.stringify({ id, method, params }));
+    this.socket.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
     return new Promise((resolve) => this.pending.set(id, resolve as (value: unknown) => void));
   }
 

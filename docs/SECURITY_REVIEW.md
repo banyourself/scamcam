@@ -99,3 +99,39 @@ source is reported as not checked instead of going over its free quota.
 - A manual screen reader review.
 - No lawyer has reviewed the policy pages; the open questions were researched instead (`COMPLIANCE_MATRIX.md`).
 - An independent penetration test, if ScamCam grows.
+
+## Stage 7: screenshot reading (2026-10-06)
+
+Visitors can add a screenshot by pasting it, dropping it, or picking a file. The browser reads its text with
+Tesseract.js and any QR code with jsQR, shows the text for review, and the visitor then scans it like a typed message.
+
+### Design decisions that remove attack surface
+
+- **No upload and no new API.** Images never leave the visitor's device. The Worker still accepts only the same
+  text request, with the same 16 KB body limit, 4,000-character input limit, strict fields, rate limits, and
+  Turnstile check. There is no image endpoint to abuse, and no server code ever parses an image.
+- **The browser's own decoder.** Images are decoded only by the browser (`createImageBitmap`), which is sandboxed
+  and hardened. The OCR engine and the QR reader never see the original file, only pixels drawn on a canvas.
+- **Text only.** Read text goes into the text box as plain text, never as HTML, and then through the normal
+  pipeline: hidden-character removal, email, phone, and code redaction, the checker guard, and the usual rules.
+
+### Threats checked
+
+| Threat | Protection | Test |
+|---|---|---|
+| A file that pretends to be an image (HTML, a program, a ZIP, a PDF) | The first bytes must be a real PNG, JPEG, WebP, or GIF signature; the file name and claimed type are ignored | `test/client/image-check.test.ts`; the browser check pastes HTML labeled `image/png` and sees it refused |
+| An SVG with a script | SVG is not accepted at all | Unit test and browser check |
+| A decompression bomb (a small file that decodes to a huge image) | Width and height are read from the file header before decoding: at most 16,384 pixels a side and 40 megapixels, and the decoded size is checked again | Unit tests for PNG, GIF, WebP, and JPEG headers that claim huge sizes |
+| Malformed or truncated headers | The header reader stops at the end of the data and refuses anything it cannot read; 500 random inputs never make it throw | Unit tests |
+| A file too large to handle | 10 MB limit before anything is read | Unit test |
+| A slow or stuck read | OCR runs in a separate worker with 90-second limits for starting and reading, and the worker is shut down after every image | Code review |
+| A compromised or swapped OCR file | Tesseract.js, its WebAssembly core, the English model, and jsQR are pinned to exact versions, installed with lockfile integrity hashes and registry signatures, and served from ScamCam itself under a versioned path; a config test checks that the served version matches the installed one | `test/node/config.test.ts`, `npm audit signatures` |
+| Loosening the content security policy | Only `'wasm-unsafe-eval'` was added, which allows compiling WebAssembly but not running JavaScript from strings, plus `worker-src 'self'`. `'unsafe-inline'` and `'unsafe-eval'` stay banned | Config test; the browser check records no policy violations |
+| Leaking the image or its hidden details | No upload, no storage: the model is not cached in IndexedDB (`cacheMethod: "none"`), and photo metadata such as location never leaves the device | The browser check watches the page and the OCR worker: only GET requests to ScamCam's own files, nothing stored |
+| Instructions hidden in a screenshot to steer the AI check | Read text is treated exactly like typed text, so the checker guard and the AI rules apply | Existing injection tests |
+
+### Licenses
+
+Tesseract.js, tesseract.js-core, and jsQR are Apache 2.0, and their license texts are served with the files under
+`/ocr/7.0.0/licenses/`. The English model comes from the `@tesseract.js-data/eng` package (MIT), built from
+Tesseract's Apache 2.0 `tessdata`.

@@ -1,10 +1,12 @@
-import { useDeferredValue, useId, useMemo, useState, type FormEvent } from "react";
+import { useDeferredValue, useId, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent } from "react";
 import { extractInput, maxInputLength } from "../../../shared/extract";
 import type { ScanReport } from "../../../shared/report";
 import { TurnstileWidget } from "@/components/scan/TurnstileWidget";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { ApiHealth } from "@/hooks/useApiHealth";
+import { acceptedImageTypes, ScreenshotError } from "@/lib/image-check";
+import { cleanReadText, combineWithReadText } from "@/lib/screenshot-text";
 
 function statusLine(health: ApiHealth, busy: boolean): { label: string; tone: "standby" | "offline" | "live" } {
   if (busy) {
@@ -61,6 +63,9 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
   const [resetKey, setResetKey] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [reading, setReading] = useState<number | null>(null);
+  const [readNote, setReadNote] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
   const deferred = useDeferredValue(text);
   const extracted = useMemo(() => extractInput(deferred), [deferred]);
   const status = statusLine(health, busy);
@@ -72,6 +77,52 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
     extracted.redactions.codes && plural(extracted.redactions.codes, "code"),
   ].filter(Boolean);
   const waitingForCheck = Boolean(siteKey) && !token;
+
+  async function readImage(file: File) {
+    if (reading !== null) {
+      return;
+    }
+    setReading(0);
+    setError("");
+    setReadNote("");
+    try {
+      const { readScreenshot } = await import("@/lib/screenshot");
+      const result = await readScreenshot(file, (share) => setReading(share));
+      if (cleanReadText(result.text).length === 0 && result.qrTexts.length === 0) {
+        setError("No text was found in that screenshot. Crop it to the message, or type the text instead.");
+        return;
+      }
+      setText((current) => combineWithReadText(current, result.text, result.qrTexts));
+      setReadNote("Read from your screenshot on this device. Check the text and fix any mistakes, then press Check it.");
+    } catch (problem) {
+      setError(problem instanceof ScreenshotError ? problem.message : "This screenshot could not be read. Try again, or type the text instead.");
+    } finally {
+      setReading(null);
+      if (fileInput.current) {
+        fileInput.current.value = "";
+      }
+    }
+  }
+
+  function imageFrom(files: FileList | null | undefined): File | undefined {
+    return files ? [...files].find((file) => file.type.startsWith("image/")) : undefined;
+  }
+
+  function pasted(event: ClipboardEvent<HTMLTextAreaElement>) {
+    const image = imageFrom(event.clipboardData?.files);
+    if (image) {
+      event.preventDefault();
+      void readImage(image);
+    }
+  }
+
+  function dropped(event: DragEvent<HTMLFormElement>) {
+    const image = imageFrom(event.dataTransfer?.files);
+    if (image) {
+      event.preventDefault();
+      void readImage(image);
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -116,9 +167,20 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
         <span aria-hidden="true">Evidence intake / CAM 01</span>
       </div>
 
-      <form className="mt-4 flex flex-col gap-3" aria-describedby={hintId} aria-busy={busy} onSubmit={(event) => void submit(event)}>
+      <form
+        className="mt-4 flex flex-col gap-3"
+        aria-describedby={hintId}
+        aria-busy={busy || reading !== null}
+        onSubmit={(event) => void submit(event)}
+        onDragOver={(event) => {
+          if (event.dataTransfer?.types.includes("Files")) {
+            event.preventDefault();
+          }
+        }}
+        onDrop={dropped}
+      >
         <label htmlFor={inputId} className="text-sm font-medium text-ink">
-          Paste the link or message you are unsure about
+          Paste the link or message you are unsure about, or a screenshot of it
         </label>
         <Textarea
           id={inputId}
@@ -126,15 +188,44 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
           value={text}
           maxLength={maxInputLength}
           onChange={(event) => setText(event.target.value)}
+          onPaste={pasted}
           aria-describedby={`${hintId} ${previewId}`}
           spellCheck={false}
           autoComplete="off"
           placeholder={"hey bro i accidentally reported your account, talk to the staff here: discord-appeals.example/report"}
         />
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-faint">
-          <p id={hintId}>Never paste passwords, login codes, or your real name or address. ScamCam never needs them.</p>
+          <p id={hintId}>
+            Never paste passwords, login codes, or your real name or address. ScamCam never needs them. Screenshots are read on
+            your device and never uploaded.
+          </p>
           <p className="font-mono" aria-hidden="true">
             {text.length}/{maxInputLength}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="outline" size="sm" disabled={reading !== null || busy} onClick={() => fileInput.current?.click()}>
+            {reading === null ? "Read a screenshot" : "Reading"}
+          </Button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept={acceptedImageTypes}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                void readImage(file);
+              }
+            }}
+          />
+          <p className="text-xs text-ink-soft" aria-live="polite">
+            {reading !== null
+              ? `Reading the screenshot on this device: ${Math.round(reading * 100)}%`
+              : readNote || "Or paste a screenshot into the box, or drop one here."}
           </p>
         </div>
 

@@ -13,6 +13,12 @@ export function HowItWorksPage() {
       <h2>Evidence before AI</h2>
       <ol>
         <li>
+          <strong>Read screenshots on your device.</strong> If you add a screenshot, your browser reads its text and any QR code
+          itself, using the open source tools Tesseract.js and jsQR (Apache 2.0,{" "}
+          <a href="/ocr/7.0.0/licenses/tesseract.js.txt">license</a>). The image is never uploaded. You see the text first and
+          can fix any misread words before anything is checked.
+        </li>
+        <li>
           <strong>Look at the link itself.</strong> ScamCam finds the real domain (the part someone actually registered),
           decodes look-alike characters, and compares it with the domains Steam, Discord, Roblox, and Minecraft really use.
         </li>

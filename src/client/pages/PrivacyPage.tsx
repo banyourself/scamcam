@@ -13,6 +13,7 @@ export function PrivacyPage() {
       <ul>
         <li>No accounts, ads, analytics, or tracking.</li>
         <li>What you paste is checked and then thrown away. It is not saved.</li>
+        <li>Screenshots are read on your own device and are never uploaded.</li>
         <li>ScamCam does not save your IP address.</li>
         <li>Nothing is sold or shared for marketing, ever.</li>
       </ul>
@@ -48,6 +49,11 @@ export function PrivacyPage() {
             <td>The link or message you submit</td>
             <td>To check it</td>
             <td>Not stored. Emails, phone numbers, and long codes are hidden before any check.</td>
+          </tr>
+          <tr>
+            <td>A screenshot you add</td>
+            <td>Your browser reads its text and any QR code, on your device</td>
+            <td>Never uploaded or stored. The text it reads is shown to you first, then checked like a typed message. Hidden photo details, such as where a photo was taken, never leave your device</td>
           </tr>
           <tr>
             <td>The message with emails, phone numbers, long codes, links, and invisible characters removed (names and usernames stay)</td>

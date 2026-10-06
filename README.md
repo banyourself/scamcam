@@ -7,14 +7,14 @@ Live at https://scamcam.kevinle.tech since October 5, 2026.
 
 ## What it will do
 
-Paste a suspicious link or message and get a plain-language report that shows:
+Paste a suspicious link or message, or a screenshot of it, and get a plain-language report that shows:
 
 - the risk level (confirmed malicious, high risk, suspicious, unknown, or no known threat detected),
 - the evidence behind it and which independent source said what,
 - how sure ScamCam is, and what it could not check,
 - what to do next.
 
-A clean result never means a link is guaranteed safe.
+A clean result never means a link is guaranteed safe. Screenshots are read on the visitor's device and never uploaded.
 
 ## Principles
 
