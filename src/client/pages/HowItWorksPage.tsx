@@ -1,5 +1,6 @@
 import { DocumentPage } from "@/components/layout/DocumentPage";
 import { RiskMeter } from "@/components/report/RiskMeter";
+import { ocrBase } from "../../shared/ocr";
 import { riskExplanations, riskLabels, riskLevels } from "../../shared/report";
 
 export function HowItWorksPage() {
@@ -15,7 +16,7 @@ export function HowItWorksPage() {
         <li>
           <strong>Read screenshots on your device.</strong> If you add a screenshot, your browser reads its text and any QR code
           itself, using the open source tools Tesseract.js and jsQR (Apache 2.0,{" "}
-          <a href="/ocr/7.0.0/licenses/tesseract.js.txt">license</a>). The image is never uploaded. You see the text first and
+          <a href={`${ocrBase}/licenses/tesseract.js.txt`}>license</a>). The image is never uploaded. You see the text first and
           can fix any misread words before anything is checked.
         </li>
         <li>

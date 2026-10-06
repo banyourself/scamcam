@@ -5,9 +5,9 @@ Re-check terms before enabling each integration and at least yearly.
 
 | Source | Use in ScamCam | Auth | Limits | Attribution | Caching | Privacy | Decision |
 |---|---|---|---|---|---|---|---|
-| Tesseract.js 7.0.0 and tesseract.js-core 7.0.0 | Reading text from screenshots in the visitor's browser | None | Runs on the device | Apache 2.0 license text served at `/ocr/7.0.0/licenses/` | Served by ScamCam with a one-year immutable cache | The image never leaves the device | **Stage 7** |
+| Tesseract.js 7.0.0 and tesseract.js-core 7.0.0 | Reading text from screenshots in the visitor's browser | None | Runs on the device | Apache 2.0 license text served at `/ocr/7.0.0-2/licenses/` | Served by ScamCam with a one-year immutable cache | The image never leaves the device | **Stage 7** |
 | English model (`@tesseract.js-data/eng` 1.0.0, `4.0.0_best_int`) | Language data for Tesseract | None | 2.95 MB, downloaded once | MIT package of Tesseract's Apache 2.0 `tessdata` | Same as above | Local only | **Stage 7** |
-| jsQR 1.4.0 | Reading QR codes in screenshots | None | Runs on the device | Apache 2.0 license text served at `/ocr/7.0.0/licenses/` | Bundled | Local only | **Stage 7** |
+| jsQR 1.4.0 | Reading QR codes in screenshots | None | Runs on the device | Apache 2.0 license text served at `/ocr/7.0.0-2/licenses/` | Bundled | Local only | **Stage 7** |
 | Public Suffix List via `tldts` | Registrable domain, lookalike checks | None | Local | MPL-2.0 notice (list), MIT (`tldts`) | Bundled, refreshed with releases | Local only | **MVP** |
 | Google Safe Browsing v5 `hashes:search` | Known phishing, malware, unwanted software | Free Google Cloud API key | Per Cloud Console quota (no published number) | Warnings must say "Advisory provided by Google" and link to Google's advisory page | Must honor `cacheDuration`; never show a warning after the cache expires | Only 4-byte hash prefixes leave ScamCam | **MVP** (noncommercial terms fit) |
 | Cloudflare DNS over HTTPS (JSON) | NS, MX, A records, resolution failures | None | Not published | None | Respect TTL | Domain only; Cloudflare deletes logs within 25 hours | **MVP** |

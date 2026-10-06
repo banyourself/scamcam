@@ -133,5 +133,5 @@ Tesseract.js and any QR code with jsQR, shows the text for review, and the visit
 ### Licenses
 
 Tesseract.js, tesseract.js-core, and jsQR are Apache 2.0, and their license texts are served with the files under
-`/ocr/7.0.0/licenses/`. The English model comes from the `@tesseract.js-data/eng` package (MIT), built from
+`/ocr/7.0.0-2/licenses/`. The English model comes from the `@tesseract.js-data/eng` package (MIT), built from
 Tesseract's Apache 2.0 `tessdata`.

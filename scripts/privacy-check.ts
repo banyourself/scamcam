@@ -3,6 +3,7 @@ import { basename, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { parseArgs } from "node:util";
 import { preview } from "vite";
+import { ocrBase } from "../src/shared/ocr.ts";
 import { openPage, publicRoutes, submitScan, waitFor, withChrome } from "./browser.ts";
 
 interface SeenRequest {
@@ -440,7 +441,7 @@ async function checkScreenshots(): Promise<string[]> {
         failures.push(`reading a screenshot sent a ${request.method} to ${url.pathname}`);
       }
     }
-    if (!workers.some((url) => url.endsWith("/ocr/7.0.0/worker.min.js"))) {
+    if (!workers.some((url) => url.endsWith(`${ocrBase}/worker.min.js`))) {
       failures.push(`the OCR worker was not seen (${workers.join(", ") || "no workers"})`);
     }
     const ocrFetches = requests.filter((request) => request.url.includes("/ocr/")).map((request) => new URL(request.url).pathname);

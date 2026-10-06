@@ -1,5 +1,6 @@
 export const ocrVersion = "7.0.0";
-export const ocrBase = `/ocr/${ocrVersion}`;
+export const ocrRevision = 2;
+export const ocrBase = `/ocr/${ocrVersion}-${ocrRevision}`;
 
 export const ocrFiles = {
   "worker.min.js": "tesseract.js/dist/worker.min.js",
