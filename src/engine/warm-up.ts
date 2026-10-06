@@ -1,7 +1,9 @@
 import { extractInput } from "../shared/extract";
 import { ScanReportSchema } from "../shared/report-schema";
+import { brandsNamedIn } from "./brands";
 import { aimsAtCheckers } from "./injection";
-import { analyzeMessage } from "./message-rules";
+import { analyzeMessage, normalizeMessage } from "./message-rules";
+import { unwrapRedirect } from "./redirects";
 import { canonicalizeUrl, urlExpressions } from "./safe-browsing";
 import { analyzeLink } from "./url-analysis";
 
@@ -38,8 +40,12 @@ export function warmUp(): void {
     const extracted = extractInput(sample);
     analyzeMessage(extracted.redactedText);
     aimsAtCheckers(extracted.redactedText);
+    brandsNamedIn(normalizeMessage(extracted.redactedText));
     for (const link of extracted.links) {
-      analyzeLink(link);
+      const analyzed = analyzeLink(link);
+      if (analyzed.href) {
+        unwrapRedirect(analyzed.href);
+      }
       const canonical = canonicalizeUrl(link);
       if (canonical) {
         urlExpressions(canonical);

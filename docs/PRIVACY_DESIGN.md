@@ -27,6 +27,7 @@ history, screenshots, cookies other than strictly necessary security cookies fro
 | abuse.ch URLhaus | The hostname only (for example `login.example.com`) | Up to 3 hosts per scan, when a key is set |
 | Domain registries (RDAP) | The registrable domain only (for example `example.com`) | Up to 3 per scan |
 | Cloudflare DNS over HTTPS | The hostname only | Up to 3 per scan |
+| Cloudflare 1.1.1.2 security DNS | The hostname only | Up to 3 per scan |
 | Cloudflare Turnstile | The Turnstile token and the visitor's IP address | Every scan |
 | Workers AI | The message with emails, phone numbers, long codes, and invisible characters removed and links replaced by `[link]`; names and usernames stay | Only when the rules cannot decide and the message does not try to instruct checkers; Cloudflare says it does not store this content or use it to train models |
 | Phishing.Database (GitHub) | Nothing from users. A daily GitHub Actions job downloads the public list | After deployment |
@@ -50,3 +51,5 @@ Gaming audiences include minors. Rules that apply from day one:
   the names that were looked up. Values hold only the provider's answer. Safe Browsing answers are kept per hash
   prefix in memory only.
 - AI answers (one label) are kept only in the Worker's memory, for an hour, under a hash of the cleaned message.
+- The `Scanner` Durable Object keeps the same kinds of answers in its memory only, under the same hashed keys and
+  expiry rules. It writes nothing to its storage.

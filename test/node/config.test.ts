@@ -19,6 +19,8 @@ const wrangler = JSON.parse(stripJsonComments(read("wrangler.jsonc"))) as {
   vars: Record<string, string>;
   ratelimits: unknown[];
   d1_databases: { binding: string; database_name: string }[];
+  durable_objects?: { bindings: { name: string; class_name: string }[] };
+  migrations?: { tag: string; new_sqlite_classes?: string[] }[];
   env?: Record<string, WranglerEnvironment>;
 };
 
@@ -31,6 +33,8 @@ interface WranglerEnvironment {
   ratelimits?: unknown[];
   d1_databases?: { binding: string; database_name: string }[];
   ai?: { binding: string };
+  durable_objects?: { bindings: { name: string; class_name: string }[] };
+  migrations?: { tag: string; new_sqlite_classes?: string[] }[];
   triggers?: { crons: string[] };
   observability?: unknown;
 }
@@ -73,10 +77,18 @@ test("production deploys only to scamcam.kevinle.tech and matches the developmen
   assert.deepEqual(production.triggers, wrangler.triggers);
   assert.deepEqual(production.observability, wrangler.observability);
   assert.deepEqual(production.ai, { binding: "AI" });
+  assert.deepEqual(production.durable_objects, wrangler.durable_objects);
+  assert.deepEqual(production.migrations, wrangler.migrations);
   assert.deepEqual(
     production.d1_databases?.map(({ binding, database_name }) => ({ binding, database_name })),
     wrangler.d1_databases.map(({ binding, database_name }) => ({ binding, database_name })),
   );
+});
+
+test("scans run in a SQLite-backed Durable Object, the only kind the Workers Free plan allows", () => {
+  assert.deepEqual(wrangler.durable_objects, { bindings: [{ name: "SCANNER", class_name: "Scanner" }] });
+  assert.deepEqual(wrangler.migrations, [{ tag: "v1", new_sqlite_classes: ["Scanner"] }]);
+  assert.match(read("src/worker/index.ts"), /export \{ Scanner \} from "\.\/scanner";/);
 });
 
 test("security.txt has the required fields and has not expired", () => {

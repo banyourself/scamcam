@@ -28,6 +28,7 @@ development and tests. `test/node/config.test.ts` checks that production deploys
 | 5. Deploy | Me | `npm run deploy`. It refuses to run with a placeholder database ID or a Turnstile test key, off `main`, with uncommitted changes, or when `main` differs from GitHub, then runs every test, builds with `CLOUDFLARE_ENV=production`, and deploys. `npm run deploy:dry-run` does everything except the upload | The Worker, and the `scamcam.kevinle.tech` custom domain (one DNS record and one certificate) |
 | 6. Secrets | Me, typing each value | `npx wrangler secret put TURNSTILE_SECRET_KEY --env production`, then the same for `SAFE_BROWSING_API_KEY` and `URLHAUS_AUTH_KEY`. Until the Turnstile secret is set, scans answer "temporarily unavailable" | Three secrets |
 | 7. Verify | Me | `npm run check:live`, then the checks below | None |
+| 9. Scanner Durable Object | Me | Deployed with `npm run deploy`, which applies the `v1` migration that creates the SQLite-backed `Scanner` class | One Durable Object namespace |
 | 8. Share signing key | Me, piped without displaying it | A random 32-byte key piped straight into `npx wrangler secret put SHARE_SIGNING_KEY --env production`; rotating it only stops sharing of reports made before the change | One secret |
 
 ## Live checks after the first deployment

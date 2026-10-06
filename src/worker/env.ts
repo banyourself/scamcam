@@ -8,7 +8,10 @@ export interface AppVariables {
   fetcher: typeof fetch;
   lookups: Lookups;
   aiModel: TextModel | null;
+  scans: ScanPlacement;
 }
+
+export type ScanPlacement = "inline" | "scanner";
 
 export interface AppEnv {
   Bindings: AppBindings;

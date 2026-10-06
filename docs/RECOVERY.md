@@ -99,6 +99,7 @@ them for 90 days.
 | `cleanup_backlog_<table>` | The daily cleanup used its budget of 25 delete batches (500 rows each, shared by all tables) before it finished that table; the rest is deleted on the next runs |
 | `errors_high` | At least 50 errors in the last 7 days |
 | `phishing_list_stale` | The list copy is more than 3 days old |
+| `scanner_unavailable` | A scan could not reach the Scanner Durable Object, so the Worker ran it itself; scans still work, but repeated alerts mean the scanner or its free quota needs a look |
 | `share_cleanup_failed` | The 5-minute cleanup of expired share links failed; reads still refuse expired links |
 | `rows_missing_expiry` | A row has no expiry, so cleanup would never delete it |
 

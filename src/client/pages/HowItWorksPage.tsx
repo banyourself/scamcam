@@ -22,16 +22,21 @@ export function HowItWorksPage() {
         <li>
           <strong>Look at the link itself.</strong> ScamCam finds the real domain (the part someone actually registered),
           decodes look-alike characters, and compares it with the domains Steam, Discord, Roblox, and Minecraft really use.
+          If the link only passes through a redirect, such as Steam&apos;s link filter, a Google redirect, or an email
+          scanner&apos;s safe link, ScamCam works out where it really leads and checks that address too.
         </li>
         <li>
-          <strong>Ask independent sources.</strong> Lists of known phishing and malware sites, Google Safe Browsing, how
-          old the domain is, and its DNS records. ScamCam never opens the link itself. Google works to provide the most
+          <strong>Ask independent sources.</strong> Lists of known phishing and malware sites, Google Safe Browsing,
+          Cloudflare&apos;s 1.1.1.2 security filter, how old the domain is, and its DNS records. ScamCam never opens the
+          link itself. Google works to provide the most
           accurate and up-to-date information about unsafe web resources, but it cannot guarantee that its information is
           complete and error-free: some risky sites may not be identified, and some safe sites may be identified in error.
         </li>
         <li>
           <strong>Read the message.</strong> Urgency, threats, requests for logins, QR codes, or payment, and stories
-          that match known scam scripts.
+          that match known scam scripts, including fake &quot;verify you are human&quot; steps that ask you to paste a
+          command, crypto wallet drainers, and texts that ask you to reply so a link will work. ScamCam also notices when a
+          message names a service like Steam or Discord but links somewhere else.
         </li>
         <li>
           <strong>Only if it is still unclear,</strong> a small AI model reads the message, with emails, phone numbers,
@@ -75,7 +80,7 @@ export function HowItWorksPage() {
       <h2>Status</h2>
       <p>
         ScamCam launched on October 5, 2026. The link and message checks, Google Safe Browsing, URLhaus, domain age, DNS,
-        the Phishing.Database list, and the AI step are all running. If a source is down or has reached its free limit
+        Cloudflare&apos;s security filter, the Phishing.Database list, and the AI step are all running. If a source is down or has reached its free limit
         for the day, the report says so.
       </p>
     </DocumentPage>

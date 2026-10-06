@@ -10,6 +10,8 @@ import {
   ipLoggers,
   officialBrandFor,
   riskyPathWords,
+  riskyTldSource,
+  riskyTlds,
   urlShorteners,
   type Brand,
 } from "./brands";
@@ -385,6 +387,17 @@ export function analyzeLink(original: string): AnalyzedLink {
         strength: "weak",
         title: "Has an unusually long chain of subdomains",
         detail: "Long chains of names before the real domain are often used to push the real address out of view.",
+      });
+    }
+    const suffix = parsed.publicSuffix ?? "";
+    if (riskyTlds.has(suffix) && !result.communitySite && !result.isIp) {
+      add({
+        id: `risky-tld-${registrable}`,
+        direction: "raises",
+        strength: "weak",
+        sourceUrl: riskyTldSource,
+        title: `Uses the .${suffix} ending, one of the most abused for phishing`,
+        detail: `Interisle's 2025 phishing study ranks .${suffix} among the endings with the most phishing for their size. Plenty of honest sites use it too, so this is only a small warning sign.`,
       });
     }
   }

@@ -3,7 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { csrf } from "hono/csrf";
 import type { TextModel } from "../engine/ai-review";
 import { createLookupState, sharedCacheCallsPerRequest, type LookupCache } from "../engine/cache";
-import type { AppEnv } from "./env";
+import type { AppEnv, ScanPlacement } from "./env";
 import { apiError, handleError, handleNotFound } from "./errors";
 import { edgeLookupCache } from "./lookup-cache";
 import { rateLimitApi } from "./middleware/rate-limit";
@@ -20,10 +20,12 @@ export interface AppOptions {
   fetcher?: typeof fetch;
   lookupCache?: LookupCache;
   aiModel?: TextModel;
+  scans?: ScanPlacement;
 }
 
 export function createApp(options: AppOptions = {}): OpenAPIHono<AppEnv> {
   const fetcher = options.fetcher ?? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
+  const scans = options.scans ?? (options.fetcher ? "inline" : "scanner");
   const lookupState = createLookupState();
   const app = new OpenAPIHono<AppEnv>({
     defaultHook: (result, c) => {
@@ -49,6 +51,7 @@ export function createApp(options: AppOptions = {}): OpenAPIHono<AppEnv> {
       sharedCacheCalls: { remaining: sharedCacheCallsPerRequest },
     });
     c.set("aiModel", options.aiModel ?? null);
+    c.set("scans", scans);
     await next();
   });
 

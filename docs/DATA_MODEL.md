@@ -16,6 +16,9 @@ can move to PostgreSQL later without touching routes.
 | `shared_reports` (migration `0005`) | Encrypted reports that a visitor chose to share | `id` (128 random bits), `iv`, `ciphertext` (AES-GCM; the key is only in the link), `created_at`, `expires_at` | 5, 10, or 15 minutes; deleted by a cleanup every 5 minutes |
 | `domain_list_shards` (migration `0003`) | Sorted 8-byte SHA-256 keys of listed domains, 1,024 rows per list | `PRIMARY KEY (list, shard)`, replaced in place by each sync | 7 days after the last sync |
 
+The `Scanner` Durable Object is declared with a SQLite storage backend, the only kind the Free plan allows, but it
+writes nothing there. Its lookup cache lives in memory.
+
 ## Planned tables
 
 Created only when the feature that needs them is built, so no unused tables exist.

@@ -11,7 +11,9 @@ export type ScamFamily =
   | "middleman"
   | "vote_scam"
   | "payment_pressure"
-  | "credential_theft";
+  | "credential_theft"
+  | "command_paste"
+  | "wallet_drainer";
 
 export interface Signal {
   id: string;
@@ -37,6 +39,7 @@ export const sourceNames = {
   safeBrowsing: "Google Safe Browsing",
   rdap: "RDAP registry data",
   dns: "DNS lookup (Cloudflare 1.1.1.1)",
+  dnsFilter: "Cloudflare security DNS (1.1.1.2)",
   urlhaus: "URLhaus (abuse.ch)",
   phishingDatabase: "Phishing.Database (community list)",
   ai: "AI pattern check (Workers AI)",

@@ -1,7 +1,7 @@
 import type { RiskLevel, ScanReport } from "../shared/report";
 import { brands } from "./brands";
 import { familyNames } from "./message-rules";
-import { strengthPoints, type ScamFamily, type Signal } from "./signals";
+import { sourceNames, strengthPoints, type ScamFamily, type Signal } from "./signals";
 
 export interface VerdictInput {
   messageSignals: Signal[];
@@ -47,6 +47,8 @@ const familyAdvice: Record<ScamFamily, string> = {
   vote_scam: "Ignore \"vote for my team\" links. Real tournaments do not need you to log in to vote.",
   payment_pressure: "Never pay for items or services with gift cards, crypto, or friends-and-family transfers.",
   credential_theft: "Never type your password into a page you reached from a link. Open the site yourself instead.",
+  command_paste: "Never paste a command someone gives you into the Run box, PowerShell, or a terminal. Real human checks never ask for that.",
+  wallet_drainer: "Never connect your wallet or sign anything on a site someone sent you. Check the project's official account yourself.",
 };
 
 function recommendationsFor(level: RiskLevel, families: ScamFamily[], brandIds: string[]): string[] {
@@ -88,6 +90,7 @@ export function decideVerdict(input: VerdictInput): Verdict {
       signals.some((signal) => signal.direction === "raises" && strengthPoints[signal.strength] >= 4),
   );
   const safeBrowsingHit = raises.find((signal) => signal.fromSafeBrowsing);
+  const filterHit = raises.find((signal) => signal.source === sourceNames.dnsFilter);
   const lookalike = raises.find((signal) => signal.lookalike);
 
   let level: RiskLevel;
@@ -130,6 +133,8 @@ export function decideVerdict(input: VerdictInput): Verdict {
       summary = `This looks like a fake ${lookalikeBrand} site.`;
     } else if (safeBrowsingHit) {
       summary = "Google Safe Browsing warns about this link.";
+    } else if (filterHit) {
+      summary = "Cloudflare's security filter blocks this site.";
     } else {
       summary = level === "high_risk" ? "Several warning signs point to a scam." : "There are warning signs, but nothing confirms a scam.";
     }

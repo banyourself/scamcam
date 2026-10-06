@@ -31,7 +31,7 @@ const breakerThreshold = 3;
 const breakerCooldownMs = 60_000;
 const maxMemoryEntries = 5000;
 
-export const sharedCacheCallsPerRequest = 24;
+export const sharedCacheCallsPerRequest = 20;
 
 export function createLookupState(): LookupState {
   return { inflight: new Map(), breakers: new Map(), memory: new Map() };

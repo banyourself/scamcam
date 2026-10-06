@@ -8,7 +8,8 @@ documentation checked on 2026-10-05; re-check before launch.
 | Service | Free limit | What happens at the limit | ScamCam's planned use |
 |---|---|---|---|
 | Workers requests | 100,000 per day | Error 1027 (route can fail closed); no charge | Only `/api/*` counts. Static pages are free and unlimited |
-| Workers CPU | 10 ms per request | Request fails | Deterministic checks are cheap; heavy parsing stays bounded |
+| Workers CPU | 10 ms per request | Request fails | The Worker only checks the rate limit and Turnstile and calls the scanner; the scan itself runs in a Durable Object |
+| Durable Objects (SQLite-backed only on Free) | 100,000 requests and 13,000 GB-s of duration a day; 30 seconds of CPU per request | That operation fails, and the Worker scans by itself instead | One request per scan, about 0.13 GB-s for a 1-second scan, so roughly 100,000 scans a day. Nothing is stored |
 | Subrequests | 50 per request (and per cron run); outside fetches, D1 queries, and Cache API calls all count | That call fails | At most 43 per scan (measured with 20 links and every source on), 6.7 on average for the benchmark; daily cleanup under 35 |
 | Cron triggers | 5 per account | Cannot add more | ScamCam uses 2 |
 | Workers Logs | 200,000 events per day, kept 3 days | Logging stops | One log line per API request |
@@ -25,15 +26,15 @@ documentation checked on 2026-10-05; re-check before launch.
 | Resource | Per scan | Free limit and headroom |
 |---|---|---|
 | Worker requests | 1 (`POST /api/v1/scans`), plus 1 health check per page load | 100,000 per day |
-| Subrequests | At most 12: Turnstile 1, Safe Browsing 1 (all links in one call), URLhaus up to 3, RDAP up to 3 (plus the IANA bootstrap once per 12 hours per instance), DNS up to 3 | 50 per request |
+| Subrequests | At most 15: Turnstile 1, Safe Browsing 1 (all links in one call), URLhaus up to 3, RDAP up to 3 (plus the IANA bootstrap once per 12 hours per instance), DNS up to 3, and Cloudflare's security DNS up to 3 | 50 per request |
 | D1 reads | 3 (the `writes_paused` flag, the list record, and one list shard) | 5 million per day |
 | D1 writes | Up to 5 (Safe Browsing, up to 3 URLhaus, and the AI count), only for calls that are actually made | 100,000 per day, so about 20,000 fully checked scans a day |
 | Cache API | At most 24 shared cache reads and writes per request; repeated lookups in the same Worker instance come from memory | Counts toward the 50 subrequests |
-| All subrequests | 43 for a message with 20 links (12 fetches, 22 cache calls, 9 queries); none for a repeat in the same Worker instance | 50 per request |
+| All subrequests | 44 for a message with 20 links in the Worker fallback (15 fetches, 20 cache calls, 9 queries); 24 in the scanner, which caches in memory only; none for a repeat in the same instance | 50 per request |
 | Workers AI | At most 1 call (about 2.1 neurons), only for messages the rules cannot decide | 10,000 neurons per day; ScamCam stops at 2,000 calls |
 | Safe Browsing calls | 1, capped by `SAFE_BROWSING_DAILY_LIMIT` (8,000) | Google Cloud quota |
 | URLhaus calls | Up to 3, capped by `URLHAUS_DAILY_LIMIT` (5,000) | Fair use |
-| CPU | 1.2 ms at the median and 2.9 ms at the 95th percentile for the benchmark in Node (with a fake network), and under 1 ms for each of the worst crafted inputs | 10 ms per request on Free; verify after deployment |
+| CPU | 1.2 ms at the median and 2.9 ms at the 95th percentile for the benchmark in Node (with a fake network), and under 1 ms for each of the worst crafted inputs. Live scans on a fresh Worker used 9 to 26 ms, which is why scans moved to the scanner | 30 seconds per request in the scanner; 10 ms for the Worker's own part |
 
 Per-visitor limits: 60 API requests and 10 scans per minute. Turnstile is required for every scan.
 

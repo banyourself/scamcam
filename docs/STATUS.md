@@ -37,6 +37,8 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | AI step | 2026-10-05 | `@cf/qwen/qwen3-30b-a3b-fp8` for messages the rules cannot decide; one label, can add a warning but never lower a result, 2,000 calls a day |
 | Screenshot reading | 2026-10-06 | "Read a screenshot", paste, or drop: the browser reads the text (Tesseract.js 7.0.0, English `best_int` model) and any QR code (jsQR 1.4.0), inverts dark-mode screenshots first, and adds the text to the box for review |
 | Share links | 2026-10-06 | Share on a report: 5, 10, or 15 minutes (10 by default), message text only if ticked; the link opens a read-only snapshot with its expiry |
+| Scanner Durable Object | 2026-10-06 | Scans run in the `Scanner` Durable Object with 30 seconds of CPU per request; the Worker keeps the bot check, rate limits, and signing, and falls back to scanning itself |
+| Newer checks | 2026-10-06 | Redirect wrappers decoded, Cloudflare's 1.1.1.2 security filter, copy-paste command, command, wallet, and reply-to-activate rules, brand mismatch between a message and its links, and abused endings ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#checks-added-on-2026-10-06)) |
 
 ### Screenshot reading
 
@@ -67,6 +69,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | abuse.ch URLhaus | The hostname only | Key set in production; verified live from the local dev server on 2026-10-05 (only "no results" answers seen live); capped at 5,000 calls a day |
 | RDAP | The registrable domain only | Working; cached, with back-off on 429 |
 | Cloudflare DNS over HTTPS | The hostname only | Working |
+| Cloudflare 1.1.1.2 security DNS | The hostname only | Working; verified locally on 2026-10-06 against Cloudflare's own blocked test hosts |
 | Phishing.Database | Nothing from visitors; a GitHub Actions job downloads the public list | Synced; matches are a strong warning, never confirmation |
 | Workers AI (`@cf/qwen/qwen3-30b-a3b-fp8`) | The redacted message with links replaced by `[link]` | On, capped at 2,000 calls a day |
 | Cloudflare Turnstile | The token and the visitor's IP address | Production widget |
@@ -88,8 +91,8 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Check | Latest recorded result |
 |---|---|
-| Vitest (worker, engine, and client projects) | 449 tests in 27 files pass (2026-10-06, with share links) |
-| Node config and script tests (`npm run test:config`) | 13 pass |
+| Vitest (worker, engine, and client projects) | 494 tests in 29 files pass (2026-10-06, with the scanner and the newer checks) |
+| Node config and script tests (`npm run test:config`) | 14 pass |
 | Accessibility (`npm run test:a11y`) | Passes; 52 axe-core checks were recorded with screenshot reading |
 | Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot step and the share step (scan, share, open) |
 | Recovery drill (`npm run test:recovery`) | All 7 tables matched after export and restore; export about 1 to 1.5 s (469 KB), restore about 2 to 3 s (2026-10-05) |
@@ -131,14 +134,17 @@ on scripts and styles.
 
 ## Open items
 
-### CPU time on the Free plan (open)
+### CPU time on the Free plan (fixed by the scanner, to confirm live)
 
 The first live scans used 11 to 29 ms of CPU against the Free plan's 10 ms per request; a health check uses 0 to
 5 ms. Cloudflare tolerates occasional overruns but stops a Worker that goes over consistently. A fresh process showed
 the cost is mostly one-time work (11.6 ms for the first scan, 0.2 ms after), so the Worker now warms up its patterns,
 rules, and report schema at startup, and reads the IANA registry list without a schema. Three real scans watched with
 `wrangler tail` on 2026-10-06 used 9 ms (a message), 16 ms (a link), and 26 ms (a link plus the AI step), down from
-11, 29, and 18 ms. All three succeeded, but scans with links still go over 10 ms.
+11, 29, and 18 ms. All three succeeded, but scans with links still went over 10 ms, so the scan engine now runs in
+the `Scanner` Durable Object, which the Free plan gives 30 seconds of CPU per request. The Worker's own part (rate
+limit, Turnstile, the scanner call, signing) still has to fit in 10 ms; confirm it with `wrangler tail` on the next
+real scans.
 
 ### To do after launch
 

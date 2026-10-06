@@ -41,7 +41,9 @@ is only a last resort for inconclusive context.
   payment method, or call a paid model. When a quota is reached, degrade honestly (see
   [docs/COST_MODEL.md](docs/COST_MODEL.md)).
 - Keep every request within the Workers Free plan: 10 ms of CPU and 50 subrequests, where outside fetches, D1
-  queries, and Cache API calls all count. `test/worker/security.test.ts`, `test/worker/maintenance.test.ts`, and
+  queries, and Cache API calls all count. Scans run in the `Scanner` Durable Object, which has 30 seconds of CPU per
+  request, but the Worker can fall back to scanning by itself, so the scan must still fit the Worker's subrequest
+  budget. `test/worker/security.test.ts`, `test/worker/maintenance.test.ts`, and
   `test/client/performance.test.ts` count them, so keep new lookups inside those budgets.
 
 ## Process

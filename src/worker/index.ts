@@ -5,6 +5,8 @@ import { logEvent } from "./logging";
 import { cronSchedule, runMaintenance, taskForCron } from "./maintenance/tasks";
 import { deleteExpiredShares } from "./repositories/shared-reports";
 
+export { Scanner } from "./scanner";
+
 try {
   warmUp();
 } catch (error) {

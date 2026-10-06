@@ -146,7 +146,8 @@ describe("scanContent", () => {
     const { scan } = options({ down: true }, { safeBrowsingKey: "key", urlhausKey: "key", phishingList: listInState("unavailable") });
     const report = await scanContent("steamcommunlty.example/tradeoffer/new", scan);
     expect(report.level).toBe("high_risk");
-    expect(report.notChecked.map((entry) => entry.reason)).toEqual(["unavailable", "unavailable", "unavailable", "unavailable", "unavailable"]);
+    expect(report.notChecked.map((entry) => entry.reason)).toEqual(["unavailable", "unavailable", "unavailable", "unavailable", "unavailable", "unavailable"]);
+    expect(report.notChecked.map((entry) => entry.name)).toContain("Cloudflare security DNS (1.1.1.2)");
   });
 
   it("never sends the full link or the message to outside services", async () => {
@@ -329,3 +330,51 @@ describe("hidden characters in scans", () => {
   });
 });
 
+
+describe("newer checks in scans", () => {
+  it("checks where a Steam link filter really leads instead of trusting Steam's address", async () => {
+    const report = await scanContent(
+      "https://steamcommunity.com/linkfilter/?u=https%3A%2F%2Fsteamcommunlty.example%2Ftradeoffer%2Fnew",
+      options({ registeredDaysAgo: 3 }).scan,
+    );
+    expect(report.level).toBe("high_risk");
+    expect(report.evidence.map((item) => item.title)).toContain("Steam's link filter sends you on to steamcommunlty.example");
+    expect(report.evidence.some((item) => item.signal === "lowers_risk")).toBe(false);
+    expect(report.summary).not.toContain("official website");
+  });
+
+  it("rates a site that Cloudflare's security filter blocks as high risk", async () => {
+    const { scan, fake } = options({ filteredHosts: ["account-help-desk.example"] });
+    const report = await scanContent("https://account-help-desk.example/", scan);
+    expect(report.level).toBe("high_risk");
+    expect(report.summary).toBe("Cloudflare's security filter blocks this site.");
+    expect(report.evidence[0]).toMatchObject({ title: "Cloudflare's security filter blocks this site", source: { name: "Cloudflare security DNS (1.1.1.2)" } });
+    expect(fake.requests.filter((request) => request.url.startsWith("https://security.cloudflare-dns.com/")).map((request) => new URL(request.url).searchParams.get("name"))).toEqual([
+      "account-help-desk.example",
+    ]);
+  });
+
+  it("says when the security filter could not be reached", async () => {
+    const report = await scanContent("https://account-help-desk.example/", options({ filterDown: true }).scan);
+    expect(report.notChecked).toContainEqual({ name: "Cloudflare security DNS (1.1.1.2)", reason: "unavailable" });
+  });
+
+  it("notices a message about one service that links somewhere else", async () => {
+    const report = await scanContent("free nitro for everyone who joins, grab it at https://gift-claims.example/start", options().scan);
+    const mismatch = report.evidence.find((item) => item.id === "brand-mismatch-gift-claims.example");
+    expect(mismatch?.title).toBe("The message is about Discord, but this link is not a Discord address");
+    expect(["suspicious", "high_risk"]).toContain(report.level);
+  });
+
+  it("does not call an official link a mismatch", async () => {
+    const report = await scanContent("my steam profile is https://steamcommunity.com/id/kevin", options().scan);
+    expect(report.evidence.some((item) => item.id.startsWith("brand-mismatch"))).toBe(false);
+    expect(report.level).toBe("no_known_threat");
+  });
+
+  it("flags the copy-paste command trick as a scam family", async () => {
+    const report = await scanContent("Verify you are human to join: press Windows + R, then CTRL + V and Enter", options().scan);
+    expect(report.summary).toBe("This matches the copy-paste command scam.");
+    expect(report.recommendations).toContain("Never paste a command someone gives you into the Run box, PowerShell, or a terminal. Real human checks never ask for that.");
+  });
+});

@@ -16,6 +16,10 @@ const near = (left: string, right: string) => new RegExp(`\\b(?:${left})\\b${gap
 const secretWords =
   "password|passcode|pass word|login (?:code|details|info)|2fa(?: code)?|two[- ]?factor(?: code)?|verification code|auth(?:entication|enticator)? code|backup codes?|security code|one[- ]?time (?:code|password)|otp|steam ?guard(?: code)?|seed phrase|recovery (?:phrase|code)";
 
+const runKeys = "win(?:dows)?(?: ?(?:key|button|logo key))? ?(?:\\+|plus) ?r";
+const pasteKeys = "paste|ctrl ?(?:\\+|plus) ?v";
+const commandPlaces = "run (?:box|dialog|window)|powershell|terminal|command prompt";
+
 const rules: MessageRule[] = [
   {
     id: "credential-request",
@@ -40,6 +44,46 @@ const rules: MessageRule[] = [
     title: "Asks for your cookie, token, or to paste code",
     detail: "Anyone with your browser cookie or account token can log in as you without your password.",
     patterns: [/\.?roblosecurity\b/, near("copy|paste|send|give|share", "cookies?|tokens?|session"), /\bjavascript:/, near("inspect element|developer tools|devtools|f12|console", "paste|copy|type|run")],
+  },
+  {
+    id: "command-paste",
+    strength: "strong",
+    family: "command_paste",
+    title: "Asks you to paste a command into your computer",
+    detail: "Fake \"verify you are human\" pages and bots tell you to press Windows+R or open a terminal and paste a command. The command installs malware that steals accounts and saved passwords. No real check ever asks for this.",
+    patterns: [
+      new RegExp(`\\b${runKeys}\\b[\\s\\S]{0,160}\\b(?:${pasteKeys})\\b`),
+      new RegExp(`\\b(?:verify|verification|human|captcha|robot|bot check)\\b[\\s\\S]{0,160}\\b(?:${runKeys}|${pasteKeys}|${commandPlaces})\\b`),
+      new RegExp(`\\b(?:${pasteKeys})\\b[\\s\\S]{0,80}\\b(?:${commandPlaces})\\b[\\s\\S]{0,120}\\b(?:verify|verification|human|captcha|robot)\\b`),
+    ],
+  },
+  {
+    id: "run-command",
+    strength: "moderate",
+    title: "Asks you to run a command on your computer",
+    detail: "Commands from other people can install malware or hand over your accounts. Only run commands you understand, from a source you trust.",
+    patterns: [
+      new RegExp(`\\b(?:paste|run|type|enter|copy)\\b[^.!?\\n]{0,60}\\b(?:in|into)\\b (?:the |your |a )?(?:${commandPlaces}|cmd)\\b`),
+      /\b(?:mshta|invoke-expression|iex|irm|iwr|invoke-webrequest)\b/,
+    ],
+  },
+  {
+    id: "wallet-connect",
+    strength: "strong",
+    family: "wallet_drainer",
+    title: "Asks you to connect a crypto wallet",
+    detail: "Fake airdrops, mints, and \"wallet verification\" pages drain everything from wallets that connect to them. Real projects do not send you links to connect.",
+    patterns: [
+      near("connect|link|sync|verify|validate|import|restore", "(?:crypto |web3 )?(?<!steam )wallets?|metamask|phantom|trust ?wallet|walletconnect|coinbase wallet"),
+      near("claim|mint", "(?:the |your |an? )?(?:airdrop|free mint|nfts?|whitelist spot|wl spot)"),
+    ],
+  },
+  {
+    id: "link-activation",
+    strength: "strong",
+    title: "Asks you to reply so the link will work",
+    detail: "Phones switch off links in texts from unknown senders. Scam texts ask you to reply Y, then reopen the message, to turn that protection off.",
+    patterns: [/\breply (?:with )?["']?(?:y|yes|1)["']?(?![a-z])[\s\S]{0,100}\b(?:activate|re-?open|exit|link (?:will )?(?:work|activate|be active))\b/],
   },
   {
     id: "game-testing",
@@ -240,4 +284,6 @@ export const familyNames: Record<ScamFamily, string> = {
   vote_scam: "fake vote or tournament",
   payment_pressure: "untraceable payment",
   credential_theft: "login theft",
+  command_paste: "copy-paste command",
+  wallet_drainer: "crypto wallet drainer",
 };

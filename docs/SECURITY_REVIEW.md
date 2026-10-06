@@ -99,7 +99,7 @@ source is reported as not checked instead of going over its free quota.
   API, the browser, and the personal site (`STATUS.md`). A real scan through the live Turnstile widget is still
   checked by hand, because Turnstile does not finish in a headless browser.
 - A manual screen reader review.
-- CPU time on the Free plan: live scans measured 11 to 29 ms against a 10 ms limit before the startup warm-up; the warm-up's effect is not yet measured (`STATUS.md`).
+- CPU time on the Free plan: live scans with links measured 16 to 26 ms after the startup warm-up, so scans moved to the Scanner Durable Object on 2026-10-06; the Worker's remaining share is to be confirmed live (`STATUS.md`).
 - No lawyer has reviewed the policy pages; the open questions were researched instead (`COMPLIANCE_MATRIX.md`).
 - An independent penetration test, if ScamCam grows.
 
@@ -168,3 +168,22 @@ message text is left out unless they tick the box.
 | Search engines indexing shared reports | `noindex` in the page and the `X-Robots-Tag` header on `/r/*`, and `robots.txt` disallows `/r/` | Header check |
 | Revealing the message by accident | The message is excluded unless the sharer ticks the box, which warns that names and usernames would be visible | Unit and browser tests |
 | Exceeding the Free plan's cron and query limits | One extra cron (3 of the account's 5); each cleanup run makes at most 10 queries | Config test |
+
+## Scanner and newer checks (2026-10-06)
+
+The scan engine moved into the `Scanner` Durable Object, and five checks were added: redirect wrappers, Cloudflare's
+1.1.1.2 security filter, new message rules, brand mismatch, and abused endings.
+
+### Threats checked
+
+| Threat | Protection | Test |
+|---|---|---|
+| Reaching the scanner directly | The Durable Object has no `fetch` handler and no route; only the Worker's `SCANNER` binding can call its `scan` method, and only after the rate limit and Turnstile pass | `test/worker/scanner.test.ts` |
+| Skipping the bot check | The Worker verifies Turnstile before it calls the scanner; a failed check never reaches it | Same file |
+| Losing scans when the scanner fails or its free quota runs out | The Worker catches the error, logs `scanner_unavailable` with only the error type, and scans by itself within the Worker limits | Same file, including a check that the message never reaches the logs |
+| Signing a report the engine did not make | The scanner parses its report with the public schema and signs it with the same Worker secret; the Worker passes the signature through unchanged | Same file verifies the signature |
+| A trusted redirect hiding a phishing site | The destination is decoded and checked, and the wrapper's "official" credit is removed | `test/engine/scan.test.ts` |
+| An official link hidden inside a bad link to look safer | A decoded official destination adds only its own evidence; the verdict still comes from the worst link, and the outer link is not official | Scoring rules |
+| Too many decoded links | At most 5 decoded destinations and 3 levels per scan; network lookups stay capped at 3 hosts | Subrequest test (44 in the Worker fallback) |
+| Malformed wrapper parameters | Only absolute `http` and `https` destinations on a different domain are accepted; bad percent or base64 encodings are ignored | `test/engine/redirects.test.ts` |
+| New outside source | Cloudflare's security resolver receives only the hostname, like the existing DNS lookup, and its answer is read with the same size cap and schema | Privacy test of every outgoing request |

@@ -38,6 +38,10 @@
     "binding": "AI",
     "remote": true
   },
+  "durable_objects": {
+    "bindings": [{ "name": "SCANNER", "class_name": "Scanner" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Scanner"] }],
   "triggers": {
     "crons": ["17 3 * * *", "41 4 * * 1", "*/5 * * * *"]
   },
@@ -94,6 +98,10 @@
       "ai": {
         "binding": "AI"
       },
+      "durable_objects": {
+        "bindings": [{ "name": "SCANNER", "class_name": "Scanner" }]
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Scanner"] }],
       "triggers": {
         "crons": ["17 3 * * *", "41 4 * * 1", "*/5 * * * *"]
       },

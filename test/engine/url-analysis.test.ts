@@ -115,3 +115,11 @@ describe("tricks", () => {
     expect(analyzeLink("http://exa mple.com").hostname).toBeNull();
   });
 });
+
+describe("risky endings", () => {
+  it("adds a small warning for endings that are abused far more than most", () => {
+    const signal = raised("https://account-help.bond/").find((item) => item.id === "risky-tld-account-help.bond");
+    expect(signal).toMatchObject({ strength: "weak", sourceUrl: "https://interisle.net/PhishingLandscape2025" });
+    expect(raised("https://account-help.com/").some((item) => item.id.startsWith("risky-tld"))).toBe(false);
+  });
+});

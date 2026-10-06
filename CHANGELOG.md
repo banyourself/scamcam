@@ -3,6 +3,25 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-06: Scanner and newer checks
+
+- Scans run in a SQLite-backed Durable Object named `Scanner`, which the Workers Free plan gives 30 seconds of CPU per
+  request instead of a Worker's 10 ms. Live scans with links had used 16 to 26 ms. The Worker keeps the rate limit,
+  Turnstile, and the signed answer, and runs the scan itself if the scanner is unreachable, with a
+  `scanner_unavailable` alert.
+- Redirect wrappers are decoded from the link itself (Steam's link filter, Google, Microsoft Safe Links, Proofpoint,
+  Facebook, Instagram, YouTube, Reddit, LinkedIn, Slack, VK, Bing, Tumblr, href.li, and `?url=` style parameters), so
+  the destination is checked and the wrapper no longer counts as an official link.
+- Cloudflare's 1.1.1.2 security resolver is a new source: a host it blocks is rated high risk.
+- New message rules: the copy-paste command trick ("ClickFix"), running commands, connecting a crypto wallet, and
+  replying to make a link work. Two new scam families, `command_paste` and `wallet_drainer`, are known to the AI step.
+- A message that names a brand but links to an unrelated site is flagged, and the five endings with the highest
+  phishing rate in Interisle's Phishing Landscape 2025 add a small warning.
+- The Worker fallback's shared cache budget dropped from 24 to 20 calls, so a 20-link scan uses 44 of 50 subrequests.
+- Site name: "ScamCam - Check the Scan".
+- Verified: 494 Vitest tests in 29 files and 14 Node tests pass, and local scans through the scanner flagged
+  Cloudflare's blocked test hosts, a Steam link filter link to one of them, and a copy-paste command message.
+
 ## 2026-10-06: Share links
 
 - A Share section under each report makes a link that works for 5, 10, or 15 minutes (10 by default). The message

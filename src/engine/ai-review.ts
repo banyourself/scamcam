@@ -11,6 +11,8 @@ export const scamFamilyDescriptions: Record<ScamFamily, string> = {
   vote_scam: "asks the reader to vote for a team or contest through a link or a login",
   payment_pressure: "pushes the reader to send money, gift cards, or crypto, or to refund a payment",
   credential_theft: "asks for a password, login code, recovery code, or access to the account",
+  command_paste: "asks the reader to paste or run a command in the Run box, PowerShell, a terminal, or the browser console, often as a fake human check",
+  wallet_drainer: "asks the reader to connect, verify, or sync a crypto wallet, or to claim an airdrop or mint through a link",
 };
 
 const scamLabels = Object.keys(scamFamilyDescriptions) as ScamFamily[];

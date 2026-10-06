@@ -1,4 +1,4 @@
-import { dohEndpoint } from "../../src/engine/dns";
+import { dohEndpoint, filteredDohEndpoint } from "../../src/engine/dns";
 import type { DomainListLookup, DomainListResult } from "../../src/engine/domain-list";
 import { rdapBootstrapUrl } from "../../src/engine/rdap";
 import { safeBrowsingEndpoint } from "../../src/engine/safe-browsing";
@@ -9,6 +9,8 @@ export interface FakeNetworkOptions {
   registeredDaysAgo?: number | "missing";
   rdapStatus?: string[];
   dnsStatus?: number;
+  filteredHosts?: string[];
+  filterDown?: boolean;
   safeBrowsing?: (prefixes: string[]) => SearchResponseFixture;
   urlhaus?: unknown;
   turnstile?: unknown;
@@ -52,6 +54,16 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
         events: [{ eventAction: "registration", eventDate: new Date(now.getTime() - days * 86_400_000).toISOString() }],
         status: options.rdapStatus ?? ["active"],
       });
+    }
+    if (url.startsWith(filteredDohEndpoint)) {
+      if (options.filterDown) {
+        return json({ error: "down" }, 502);
+      }
+      const name = new URL(url).searchParams.get("name") ?? "";
+      if (options.filteredHosts?.includes(name)) {
+        return json({ Status: 0, Answer: [{ type: 1, TTL: 60, data: "0.0.0.0" }], Comment: ["EDE(16): Censored"] });
+      }
+      return json({ Status: options.dnsStatus ?? 0, Answer: [{ type: 1, TTL: 300, data: "203.0.113.10" }] });
     }
     if (url.startsWith(dohEndpoint)) {
       return json({ Status: options.dnsStatus ?? 0, Answer: [{ type: 1, data: "203.0.113.10" }] });

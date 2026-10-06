@@ -1,19 +1,16 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import type { Context } from "hono";
 import { maxInputLength } from "../../shared/extract";
 import { ApiErrorSchema } from "../../shared/api";
 import { ScanReportSchema } from "../../shared/report-schema";
 import { reportSignatureHeader } from "../../shared/share";
 import { turnstileAction } from "../../shared/turnstile";
-import { reviewMessage, type TextModel } from "../../engine/ai-review";
-import { scanContent, type BudgetedProvider } from "../../engine/scan";
-import type { AppBindings, AppEnv } from "../env";
+import type { AppEnv } from "../env";
 import { errorBody } from "../errors";
 import { logEvent } from "../logging";
 import { clientAddress, rateLimitKey } from "../middleware/rate-limit";
-import { writesArePaused } from "../repositories/app-state";
-import { d1DomainList } from "../repositories/domain-lists";
-import { dailyLimit, recordProviderCall } from "../repositories/provider-usage";
-import { signReport } from "../security/report-signature";
+import { runScan, type ScanOutcome } from "../scan-runner";
+import { scanInScanner } from "../scanner";
 import { verifyTurnstileToken } from "../security/turnstile";
 
 const ScanRequestSchema = z
@@ -42,31 +39,17 @@ const scanRoute = createRoute({
   },
 });
 
-function budgetTaker(env: AppBindings) {
-  let paused: boolean | null = null;
-  return async (provider: BudgetedProvider): Promise<boolean> => {
-    paused ??= await writesArePaused(env.DB).catch(() => true);
-    if (paused) {
-      return provider !== "workers_ai";
-    }
-    const limit = dailyLimit(env, provider);
-    const calls = await recordProviderCall(env.DB, provider).catch(() => Number.POSITIVE_INFINITY);
-    return limit !== null && calls <= limit;
-  };
-}
-
-function aiModelFor(env: AppBindings, injected: TextModel | null): TextModel | null {
-  if (env.AI_MODE !== "inconclusive") {
-    return null;
+async function scanFor(c: Context<AppEnv>, content: string): Promise<ScanOutcome> {
+  const inline = () => runScan(c.env, content, { fetcher: c.get("fetcher"), lookups: c.get("lookups"), aiModel: c.get("aiModel") });
+  if (c.get("scans") === "inline" || !c.env.SCANNER) {
+    return inline();
   }
-  if (injected) {
-    return injected;
+  try {
+    return await scanInScanner(c.env.SCANNER, content);
+  } catch (error) {
+    logEvent("alert", { task: "scan", alert: "scanner_unavailable", reason: error instanceof Error ? error.name : "unknown" });
+    return inline();
   }
-  if (!env.AI) {
-    return null;
-  }
-  const binding = env.AI as unknown as TextModel;
-  return { run: (model, input) => binding.run(model, input) };
 }
 
 export const scanRoutes = new OpenAPIHono<AppEnv>().openapi(scanRoute, async (c) => {
@@ -91,35 +74,9 @@ export const scanRoutes = new OpenAPIHono<AppEnv>().openapi(scanRoute, async (c)
     }
     return c.json(errorBody(c, "bot_check_failed", "The security check did not pass. Complete it again and resubmit."), 403);
   }
-  const takeBudget = budgetTaker(c.env);
-  const model = aiModelFor(c.env, c.get("aiModel"));
-  const report = await scanContent(body.content, {
-    fetcher: c.get("fetcher"),
-    safeBrowsingKey: c.env.SAFE_BROWSING_API_KEY,
-    urlhausKey: c.env.URLHAUS_AUTH_KEY,
-    takeBudget,
-    aiReview: model
-      ? async (text) => {
-          const started = Date.now();
-          const result = await reviewMessage(text, { model, modelId: c.env.AI_MODEL, takeBudget: () => takeBudget("workers_ai") });
-          logEvent("ai_review", {
-            model: c.env.AI_MODEL,
-            status: result.status,
-            ...(result.status === "ok"
-              ? { label: result.label, promptTokens: result.promptTokens, completionTokens: result.completionTokens, neurons: result.neurons }
-              : {}),
-            ms: Date.now() - started,
-          });
-          return result;
-        }
-      : undefined,
-    lookups: c.get("lookups"),
-    phishingList: d1DomainList(c.env.DB, "phishing_database", c.get("lookups")),
-  });
-  const checked = ScanReportSchema.parse(report);
-  const signature = await signReport(checked, c.env.SHARE_SIGNING_KEY);
+  const { report, signature } = await scanFor(c, body.content);
   if (signature) {
     c.header(reportSignatureHeader, signature);
   }
-  return c.json(checked, 200);
+  return c.json(report, 200);
 });

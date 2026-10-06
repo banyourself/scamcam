@@ -1,13 +1,14 @@
 import { extractInput } from "../shared/extract";
 import type { Evidence, ScanReport, UncheckedSource } from "../shared/report";
-import { freeHostingSuffixes, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
+import { brandsNamedIn, freeHostingSuffixes, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
 import type { AiReviewResult } from "./ai-review";
 import { cacheKey, memoryLookups, recallFromMemory, recordOutcome, rememberInMemory, sourceIsOpen, type Lookups } from "./cache";
-import { isPrivateAddress, lookupDns, type DnsResult } from "./dns";
+import { isPrivateAddress, lookupDns, lookupFilteredDns, type DnsResult, type FilterResult } from "./dns";
 import { candidateNames, type DomainListLookup, type DomainListResult } from "./domain-list";
 import { aimsAtCheckers } from "./injection";
-import { analyzeMessage, familyNames } from "./message-rules";
+import { analyzeMessage, familyNames, normalizeMessage } from "./message-rules";
 import { lookupRdap, type RdapResult } from "./rdap";
+import { maxUnwrapDepth, unwrapRedirect } from "./redirects";
 import { searchSafeBrowsing, threatDefinitionUrls, threatDescriptions, type SafeBrowsingResult } from "./safe-browsing";
 import { phishingDatabaseUrl, sourceNames, strengthPoints, type ScamFamily, type Signal } from "./signals";
 import { analyzeLink, type AnalyzedLink } from "./url-analysis";
@@ -28,6 +29,8 @@ export interface ScanOptions {
 }
 
 const maxNetworkLinks = 3;
+const maxUnwrappedLinks = 5;
+const cloudflareFilterUrl = "https://developers.cloudflare.com/1.1.1.1/setup/#1111-for-families";
 const maxListedLinks = 10;
 const minReviewCharacters = 20;
 const aiMemorySeconds = 60 * 60;
@@ -126,6 +129,80 @@ function dnsSignals(link: AnalyzedLink, result: DnsResult): Signal[] {
     return [{ ...base, id: `dns-private-${host}`, direction: "raises", strength: "weak", title: "Points to a private network address", detail: "Public websites do not use private network addresses. This is unusual and can be used in attacks." }];
   }
   return [];
+}
+
+function filterSignals(link: AnalyzedLink, result: FilterResult): Signal[] {
+  if (result.status !== "ok" || !result.blocked) {
+    return [];
+  }
+  return [
+    {
+      id: `dns-filter-${link.hostname}`,
+      source: sourceNames.dnsFilter,
+      sourceUrl: cloudflareFilterUrl,
+      link: link.hostname!,
+      direction: "raises",
+      strength: "critical",
+      title: "Cloudflare's security filter blocks this site",
+      detail: "Cloudflare's 1.1.1.2 service, which blocks known malware and phishing sites, refuses to look up this address. Its list can occasionally be wrong, but do not open the link or enter any details.",
+    },
+  ];
+}
+
+function withDestinations(originals: string[]): AnalyzedLink[] {
+  const links: AnalyzedLink[] = [];
+  let unwrapped = 0;
+  for (const original of originals) {
+    let current = analyzeLink(original);
+    links.push(current);
+    for (let depth = 0; depth < maxUnwrapDepth && current.href && unwrapped < maxUnwrappedLinks; depth += 1) {
+      const redirect = unwrapRedirect(current.href);
+      if (!redirect) {
+        break;
+      }
+      const destination = analyzeLink(redirect.target);
+      if (!destination.hostname || links.some((link) => link.href === destination.href)) {
+        break;
+      }
+      unwrapped += 1;
+      const wrapper = current;
+      wrapper.signals = [
+        ...wrapper.signals.filter((signal) => signal.direction !== "lowers"),
+        {
+          id: `redirect-${wrapper.hostname}-${destination.hostname}`,
+          source: sourceNames.domain,
+          link: wrapper.hostname!,
+          direction: "context",
+          strength: "weak",
+          title: `${redirect.via} sends you on to ${destination.displayHostname}`,
+          detail: `This link only passes through ${wrapper.displayHostname}. You would end up on ${destination.displayHostname}, so ScamCam checked that address too.`,
+        },
+      ];
+      links.push(destination);
+      current = destination;
+    }
+  }
+  return links;
+}
+
+function brandMismatchSignals(link: AnalyzedLink, named: ReturnType<typeof brandsNamedIn>, hasScamFamily: boolean): Signal[] {
+  const brandRelated = link.brandsMentioned.length > 0 || link.signals.some((signal) => signal.lookalike);
+  if (named.length === 0 || !link.hostname || link.officialBrand || link.communitySite || brandRelated) {
+    return [];
+  }
+  const names = named.map((brand) => brand.name).join(" and ");
+  return [
+    {
+      id: `brand-mismatch-${link.hostname}`,
+      source: sourceNames.message,
+      link: link.hostname,
+      direction: "raises",
+      strength: hasScamFamily ? "moderate" : "weak",
+      brandId: named[0]!.id,
+      title: `The message is about ${names}, but this link is not a ${names} address`,
+      detail: `${link.registrableDomain ?? link.hostname} does not belong to ${names}. Scam messages often name a service you trust, then link somewhere else.`,
+    },
+  ];
 }
 
 function urlhausSignals(link: AnalyzedLink, result: UrlhausResult): Signal[] {
@@ -293,7 +370,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   const lookups = options.lookups ?? memoryLookups();
   const checkedAt = now.toISOString();
   const extracted = extractInput(content);
-  const links = extracted.links.map(analyzeLink);
+  const links = withDestinations(extracted.links);
   const readable = links.filter((link) => link.hostname);
   let messageText = extracted.redactedText;
   for (const link of extracted.links) {
@@ -391,15 +468,21 @@ export async function scanContent(content: string, options: ScanOptions): Promis
         const results = await Promise.all(
           networkLinks.map(async (link) => {
             if (link.isIp || link.communitySite) {
-              return true;
+              return [true, true];
             }
-            const result = await lookupDns(link.hostname!, options.fetcher, lookups);
-            attach(link, dnsSignals(link, result));
-            return result.status !== "unavailable";
+            const [result, filtered] = await Promise.all([
+              lookupDns(link.hostname!, options.fetcher, lookups),
+              lookupFilteredDns(link.hostname!, options.fetcher, lookups),
+            ]);
+            attach(link, [...dnsSignals(link, result), ...filterSignals(link, filtered)]);
+            return [result.status !== "unavailable", filtered.status !== "unavailable"];
           }),
         );
-        if (results.some((ok) => !ok)) {
+        if (results.some(([ok]) => !ok)) {
           notChecked.push({ name: sourceNames.dns, reason: "unavailable" });
+        }
+        if (results.some(([, ok]) => !ok)) {
+          notChecked.push({ name: sourceNames.dnsFilter, reason: "unavailable" });
         }
       })(),
     );
@@ -464,6 +547,10 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     }
   }
 
+  const namedBrands = brandsNamedIn(normalizeMessage(messageText));
+  for (const link of readable) {
+    attach(link, brandMismatchSignals(link, namedBrands, message.families.length > 0));
+  }
   const linkSignals = links.map((link) => [...link.signals, ...(extraSignals.get(link) ?? [])]);
   const nonOfficial = readable.filter((link) => !link.officialBrand);
   const verdictFor = (messageSignals: Signal[], families: ScamFamily[]) =>

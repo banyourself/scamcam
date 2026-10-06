@@ -2,7 +2,7 @@ import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import type { TextModel } from "../../src/engine/ai-review";
 import { memoryLookupCache, type LookupCache } from "../../src/engine/cache";
-import { dohEndpoint } from "../../src/engine/dns";
+import { dohEndpoint, filteredDohEndpoint } from "../../src/engine/dns";
 import { urlhausHostEndpoint } from "../../src/engine/urlhaus";
 import { createApp } from "../../src/worker/app";
 import { fakeNetwork, type FakeNetwork } from "../engine/fake-network";
@@ -125,7 +125,7 @@ describe("submitted text stays out of logs, caches, and outside requests", () =>
     expect(inputs).toHaveLength(1);
     expect(found(inputs.join("\n"), ["marker-path", "marker-query", "marker-mail", hostMarker, "555 010", "918273"])).toEqual([]);
     expect(inputs[0]).toContain("saturday photos");
-    const hostnameSources = [dohEndpoint, urlhausHostEndpoint, "https://rdap.registry.test/"];
+    const hostnameSources = [dohEndpoint, filteredDohEndpoint, urlhausHostEndpoint, "https://rdap.registry.test/"];
     for (const request of fake.requests) {
       const sent = `${decodeURIComponent(request.url)} ${request.body}`;
       expect(found(sent, textMarkers)).toEqual([]);

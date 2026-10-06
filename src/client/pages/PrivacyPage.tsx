@@ -67,7 +67,7 @@ export function PrivacyPage() {
           </tr>
           <tr>
             <td>The name of the website in a link, such as example.com</td>
-            <td>To look up how old the domain is (domain registries), whether it exists (Cloudflare DNS), and whether it is known for malware (URLhaus)</td>
+            <td>To look up how old the domain is (domain registries), whether it exists (Cloudflare DNS), whether Cloudflare&apos;s security filter blocks it (Cloudflare 1.1.1.2), and whether it is known for malware (URLhaus)</td>
             <td>The answers are kept for 1 minute to 1 day under a scrambled key, so the name itself is not stored</td>
           </tr>
           <tr>
@@ -108,7 +108,7 @@ export function PrivacyPage() {
           <strong>Google Safe Browsing</strong> receives only short scrambled fingerprints, never the link itself.
         </li>
         <li>
-          <strong>Domain registries, Cloudflare DNS, and URLhaus (abuse.ch)</strong> receive only the website name, for
+          <strong>Domain registries, Cloudflare DNS (1.1.1.1 and its 1.1.1.2 security filter), and URLhaus (abuse.ch)</strong> receive only the website name, for
           example <em>login.example.com</em>, never the rest of the link or your message.
         </li>
         <li>

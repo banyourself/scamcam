@@ -143,3 +143,17 @@ for (const brand of brands) {
 export function officialBrandFor(registrableDomain: string | null): Brand | null {
   return registrableDomain ? (officialIndex.get(registrableDomain) ?? null) : null;
 }
+
+export const riskyTlds = new Set(["xin", "bond", "help", "win", "cfd"]);
+export const riskyTldSource = "https://interisle.net/PhishingLandscape2025";
+
+const brandNamePatterns = new Map<Brand, RegExp>(
+  brands.map((brand) => {
+    const words = [brand.name.toLowerCase(), ...brand.tokens].map((word) => word.replace(/[.+-]/g, "\\$&"));
+    return [brand, new RegExp(`\\b(?:${[...new Set(words)].join("|")})\\b`)];
+  }),
+);
+
+export function brandsNamedIn(normalizedText: string): Brand[] {
+  return brands.filter((brand) => brandNamePatterns.get(brand)!.test(normalizedText));
+}

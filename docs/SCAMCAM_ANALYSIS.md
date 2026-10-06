@@ -202,10 +202,28 @@ skips the AI.
 
 ### Known limits
 
-- Links that redirect (shorteners, official redirectors such as Steam's link filter) are not followed, by design.
+- Links are never followed over the network, by design. Short links stay hidden. Redirect wrappers that carry their
+  destination inside the link (Steam's link filter, Google, Safe Links, Proofpoint, and others) are decoded and checked.
 - New scam domains with no look-alike name and no message context are "unknown" until a list or Safe Browsing knows them.
 - Message rules are English only, and they miss most scams that are worded differently from their patterns; the AI
   step covers much of that gap.
 - The AI step is a small model on hand-written evaluation sets. It can be wrong, and its label can be less precise
   than the scam it caught.
 - The official domain lists are hand-maintained and must be reviewed when platforms add domains.
+
+## Checks added on 2026-10-06
+
+| Check | Signal | Why |
+|---|---|---|
+| Redirect wrappers decoded (`src/engine/redirects.ts`) | The wrapper loses any "official" credit and shows where it leads; the destination gets every link check and source | Phishing links hide behind trusted redirectors, and Steam's own link filter would otherwise have counted as an official Steam link |
+| Cloudflare's 1.1.1.2 security filter | Critical warning (high risk on its own, not a confirmation) | A second independent threat list next to Google Safe Browsing, free and passive |
+| Copy-paste command ("ClickFix") rule | Strong warning, new family `command_paste` | Fake "verify you are human" steps that make people press Windows+R and paste a command; Microsoft's Digital Defense Report 2025 names this the most common way in, and Check Point found it in hijacked Discord invites in 2025 |
+| Running a command | Moderate warning | Pasting into PowerShell, a terminal, or the Run box, or PowerShell download-and-run commands |
+| Crypto wallet connection | Strong warning, new family `wallet_drainer` | Fake airdrops, mints, and wallet verification pages drain connected wallets; "steam wallet" is excluded |
+| Reply to activate a link | Strong warning | Scam texts ask for a "Y" reply so the phone turns links back on |
+| Message names a brand, link goes elsewhere | Weak warning, moderate when a scam family also matched | A message about Steam or Discord whose link belongs to neither, and does not imitate them by name |
+| Endings abused far more than most | Weak warning, linked to Interisle's Phishing Landscape 2025 | .xin, .bond, .help, .win, and .cfd have the highest phishing rate for their size |
+
+Each rule has tests that it fires and tests that ordinary messages stay quiet, such as asking a friend to press
+Windows+R and type `dxdiag`, an event invite that asks for a "yes", a Steam wallet balance, and an email's "paste this
+link into your browser". The AI step knows both new families.

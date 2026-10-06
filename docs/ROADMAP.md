@@ -16,12 +16,13 @@ Every feature ships with tests, a security review, and updates to [STATUS.md](ST
 | Public launch | 2026-10-05 | Live at `scamcam.kevinle.tech` on Cloudflare's free plan, Phishing.Database sync on, policies published, live checks passing, personal site unaffected |
 | Screenshot reading | 2026-10-06 | Screenshots are read in the visitor's browser (Tesseract.js for text, jsQR for QR codes) and never uploaded, with strict file checks against fake images and decompression bombs |
 | Share links | 2026-10-06 | Opt-in links that work for 5, 10, or 15 minutes, encrypted with a key only the link holds, signed reports only, message text only when ticked |
+| Scanner and newer checks | 2026-10-06 | The scan engine runs in a Durable Object to stay inside the Free plan's CPU limit; redirect wrappers decoded, Cloudflare's security filter, copy-paste command, wallet drainer, and reply-to-activate rules, brand mismatch, and abused endings |
 
 ## Next
 
 ### After launch
 
-1. Bring scans with links under the Free plan's CPU limit for good (see [STATUS.md](STATUS.md#open-items)).
+1. Confirm the Worker's share of each scan stays under 10 ms on live traffic (see [STATUS.md](STATUS.md#open-items)).
 2. Watch the first daily and weekly maintenance reports for alerts ([RECOVERY.md](RECOVERY.md)).
 3. Close the three rule gaps from the held-out benchmark with a fresh sample from the list.
 
