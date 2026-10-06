@@ -79,6 +79,7 @@ export const scanRoutes = new OpenAPIHono<AppEnv>().openapi(scanRoute, async (c)
     safeBrowsingKey: c.env.SAFE_BROWSING_API_KEY,
     urlhausKey: c.env.URLHAUS_AUTH_KEY,
     takeBudget: budgetTaker(c.env),
+    lookups: c.get("lookups"),
   });
   return c.json(ScanReportSchema.parse(report), 200);
 });

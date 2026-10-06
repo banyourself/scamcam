@@ -1,6 +1,7 @@
 import { extractInput } from "../shared/extract";
 import type { Evidence, ScanReport, UncheckedSource } from "../shared/report";
 import { freeHostingSuffixes, urlShorteners } from "./brands";
+import { memoryLookups, type Lookups } from "./cache";
 import { isPrivateAddress, lookupDns, type DnsResult } from "./dns";
 import { analyzeMessage } from "./message-rules";
 import { lookupRdap, type RdapResult } from "./rdap";
@@ -17,6 +18,7 @@ export interface ScanOptions {
   safeBrowsingKey?: string | undefined;
   urlhausKey?: string | undefined;
   takeBudget: (provider: BudgetedProvider) => Promise<boolean>;
+  lookups?: Lookups;
   now?: Date;
 }
 
@@ -156,6 +158,7 @@ function order(signal: Signal): number {
 
 export async function scanContent(content: string, options: ScanOptions): Promise<ScanReport> {
   const now = options.now ?? new Date();
+  const lookups = options.lookups ?? memoryLookups();
   const checkedAt = now.toISOString();
   const extracted = extractInput(content);
   const links = extracted.links.map(analyzeLink);
@@ -177,12 +180,13 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   if (readable.length > 0) {
     if (!options.safeBrowsingKey) {
       notChecked.push({ name: sourceNames.safeBrowsing, reason: "not_configured" });
-    } else if (!(await options.takeBudget("safe_browsing"))) {
-      notChecked.push({ name: sourceNames.safeBrowsing, reason: "over_budget" });
     } else {
-      const key = options.safeBrowsingKey;
+      const apiKey = options.safeBrowsingKey;
       tasks.push(
-        searchSafeBrowsing(readable.map((link) => link.original), key, options.fetcher).then((result) => {
+        searchSafeBrowsing(
+          readable.map((link) => link.original),
+          { apiKey, fetcher: options.fetcher, lookups, takeBudget: () => options.takeBudget("safe_browsing") },
+        ).then((result) => {
           safeBrowsing = result;
         }),
       );
@@ -192,17 +196,20 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     if (!options.urlhausKey) {
       notChecked.push({ name: sourceNames.urlhaus, reason: "not_configured" });
     } else {
-      const key = options.urlhausKey;
+      const authKey = options.urlhausKey;
       tasks.push(
         (async () => {
           let reason: UncheckedSource["reason"] | null = null;
           for (const link of networkLinks) {
-            if (!(await options.takeBudget("urlhaus"))) {
+            const result = await lookupUrlhausHost(link.hostname!, {
+              authKey,
+              fetcher: options.fetcher,
+              lookups,
+              takeBudget: () => options.takeBudget("urlhaus"),
+            });
+            if (result.status === "over_budget") {
               reason = "over_budget";
-              continue;
-            }
-            const result = await lookupUrlhausHost(link.hostname!, key, options.fetcher);
-            if (result.status === "unavailable") {
+            } else if (result.status === "unavailable") {
               reason ??= "unavailable";
             }
             attach(link, urlhausSignals(link, result));
@@ -220,7 +227,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
             if (link.isIp || link.isPrivateSuffix || link.communitySite || !link.registrableDomain) {
               return true;
             }
-            const result = await lookupRdap(link.registrableDomain, options.fetcher);
+            const result = await lookupRdap(link.registrableDomain, options.fetcher, lookups);
             attach(link, rdapSignals(link, result, now));
             return result.status !== "unavailable";
           }),
@@ -237,7 +244,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
             if (link.isIp || link.communitySite) {
               return true;
             }
-            const result = await lookupDns(link.hostname!, options.fetcher);
+            const result = await lookupDns(link.hostname!, options.fetcher, lookups);
             attach(link, dnsSignals(link, result));
             return result.status !== "unavailable";
           }),
@@ -251,8 +258,8 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   await Promise.all(tasks);
 
   const safeBrowsingResult = safeBrowsing as SafeBrowsingResult | null;
-  if (safeBrowsingResult?.status === "unavailable") {
-    notChecked.push({ name: sourceNames.safeBrowsing, reason: "unavailable" });
+  if (safeBrowsingResult?.status === "unavailable" || safeBrowsingResult?.status === "over_budget") {
+    notChecked.push({ name: sourceNames.safeBrowsing, reason: safeBrowsingResult.status });
   } else if (safeBrowsingResult?.status === "ok") {
     for (const link of readable) {
       const threats = safeBrowsingResult.threats.get(link.original);
@@ -272,7 +279,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
         ]);
       }
     }
-    if (safeBrowsingResult.threats.size === 0) {
+    if (safeBrowsingResult.threats.size === 0 && safeBrowsingResult.complete) {
       generalSignals.push({
         id: "gsb-clear",
         source: sourceNames.safeBrowsing,
@@ -292,7 +299,8 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     families: message.families,
     linkCount: readable.length,
     allLinksOfficial: readable.length > 0 && nonOfficial.length === 0,
-    safeBrowsingCleared: safeBrowsingResult?.status === "ok" && nonOfficial.every((link) => !safeBrowsingResult.threats.has(link.original)),
+    safeBrowsingCleared:
+      safeBrowsingResult?.status === "ok" && safeBrowsingResult.complete && nonOfficial.every((link) => !safeBrowsingResult.threats.has(link.original)),
     officialBrandNames: [...new Set(readable.map((link) => link.officialBrand?.name).filter((name): name is string => Boolean(name)))],
   });
   if (verdict.contradiction) {

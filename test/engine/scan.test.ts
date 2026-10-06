@@ -1,5 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { resetRdapCache } from "../../src/engine/rdap";
+import { describe, expect, it } from "vitest";
 import { canonicalizeUrl, urlExpressions } from "../../src/engine/safe-browsing";
 import { scanContent, type ScanOptions } from "../../src/engine/scan";
 import { ScanReportSchema } from "../../src/shared/report-schema";
@@ -17,8 +16,6 @@ async function hashOf(link: string): Promise<string> {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(expression)));
   return btoa(String.fromCharCode(...digest));
 }
-
-beforeEach(() => resetRdapCache());
 
 describe("scanContent", () => {
   it("returns reports that match the public schema", async () => {

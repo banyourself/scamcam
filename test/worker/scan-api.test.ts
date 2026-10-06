@@ -1,6 +1,6 @@
 import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
-import { resetRdapCache } from "../../src/engine/rdap";
+import { memoryLookupCache, type LookupCache } from "../../src/engine/cache";
 import { ScanReportSchema } from "../../src/shared/report-schema";
 import { createApp } from "../../src/worker/app";
 import { fakeNetwork, type FakeNetworkOptions } from "../engine/fake-network";
@@ -8,9 +8,15 @@ import { fakeNetwork, type FakeNetworkOptions } from "../engine/fake-network";
 const origin = "https://scamcam.kevinle.tech";
 let nextAddress = 1;
 
-async function scan(body: unknown, network: FakeNetworkOptions = {}, bindings: Partial<typeof env> = {}, ip = `198.51.100.${nextAddress++}`) {
+async function scan(
+  body: unknown,
+  network: FakeNetworkOptions = {},
+  bindings: Partial<typeof env> = {},
+  ip = `198.51.100.${nextAddress++}`,
+  lookupCache: LookupCache | "edge" = memoryLookupCache(),
+) {
   const fake = fakeNetwork(network);
-  const app = createApp({ fetcher: fake.fetcher });
+  const app = createApp(lookupCache === "edge" ? { fetcher: fake.fetcher } : { fetcher: fake.fetcher, lookupCache });
   const ctx = createExecutionContext();
   const response = await app.fetch(
     new Request(`${origin}/api/v1/scans`, {
@@ -26,7 +32,6 @@ async function scan(body: unknown, network: FakeNetworkOptions = {}, bindings: P
 }
 
 beforeEach(async () => {
-  resetRdapCache();
   await env.DB.prepare("DELETE FROM provider_usage").run();
 });
 
@@ -94,6 +99,29 @@ describe("POST /api/v1/scans", () => {
     expect(report.notChecked).toContainEqual({ name: "Google Safe Browsing", reason: "over_budget" });
     const usage = await env.DB.prepare("SELECT calls FROM provider_usage WHERE provider = 'safe_browsing'").first<{ calls: number }>();
     expect(usage?.calls).toBe(2);
+  });
+
+  it("reuses lookups from Cloudflare's cache across requests and counts only real provider calls", async () => {
+    const content = `https://login.cache-${crypto.randomUUID().slice(0, 8)}.example/verify`;
+    const bindings = { SAFE_BROWSING_API_KEY: "test-key", URLHAUS_AUTH_KEY: "test-key" };
+    const network = { safeBrowsing: () => ({ cacheSeconds: 300 }) };
+    const providerCalls = (requests: { url: string }[]) => requests.filter((request) => !request.url.includes("challenges.cloudflare.com")).length;
+    const first = await scan({ content, turnstileToken: "t" }, network, bindings, undefined, "edge");
+    expect(first.response.status).toBe(200);
+    expect(providerCalls(first.fake.requests)).toBe(5);
+    const second = await scan({ content, turnstileToken: "t" }, network, bindings, undefined, "edge");
+    expect(second.response.status).toBe(200);
+    expect(providerCalls(second.fake.requests)).toBe(0);
+    expect(second.fake.requests.some((request) => request.url.includes("challenges.cloudflare.com"))).toBe(true);
+    const firstReport = await first.response.json<{ level: string; evidence: unknown[] }>();
+    const secondReport = await second.response.json<{ level: string; evidence: unknown[] }>();
+    expect(secondReport.level).toBe(firstReport.level);
+    expect(secondReport.evidence.length).toBe(firstReport.evidence.length);
+    const usage = await env.DB.prepare("SELECT provider, calls FROM provider_usage ORDER BY provider").all<{ provider: string; calls: number }>();
+    expect(usage.results).toEqual([
+      { provider: "safe_browsing", calls: 1 },
+      { provider: "urlhaus", calls: 1 },
+    ]);
   });
 
   it("limits how many checks one visitor can run per minute", async () => {

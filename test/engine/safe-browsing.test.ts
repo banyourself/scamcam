@@ -7,6 +7,7 @@ import {
   searchSafeBrowsing,
   urlExpressions,
 } from "../../src/engine/safe-browsing";
+import { memoryLookups, type Lookups } from "../../src/engine/cache";
 import { fromHex, protobufResponse } from "./safe-browsing-wire";
 
 const googleVectors: [string, string][] = [
@@ -128,23 +129,23 @@ async function fullHashBase64(expression: string): Promise<string> {
   return btoa(String.fromCharCode(...digest));
 }
 
+function search(links: string[], fetcher: typeof fetch, lookups: Lookups = memoryLookups(), takeBudget = async () => true) {
+  return searchSafeBrowsing(links, { apiKey: "test-key", fetcher, lookups, takeBudget });
+}
+
+function phishAnswer(fullHash: string, cacheSeconds = 300): Response {
+  return protobufResponse({ fullHashes: [{ fullHash, fullHashDetails: [{ threatType: "SOCIAL_ENGINEERING" }] }], cacheSeconds });
+}
+
 describe("Safe Browsing lookup", () => {
   it("sends only 4-byte hash prefixes and matches full hashes locally", async () => {
     const requested: string[] = [];
     const matched = await fullHashBase64("phish.example/");
-    const fetcher: typeof fetch = async (input) => {
+    const result = await search(["https://phish.example/login?u=1", "https://fine.example/"], async (input) => {
       requested.push(String(input));
-      return protobufResponse({
-        fullHashes: [{ fullHash: matched, fullHashDetails: [{ threatType: "SOCIAL_ENGINEERING" }] }],
-        cacheSeconds: 300,
-      });
-    };
-    const result = await searchSafeBrowsing(["https://phish.example/login?u=1", "https://fine.example/"], "test-key", fetcher);
-    expect(result.status).toBe("ok");
-    if (result.status === "ok") {
-      expect([...result.threats.entries()]).toEqual([["https://phish.example/login?u=1", ["SOCIAL_ENGINEERING"]]]);
-      expect(result.cacheSeconds).toBe(300);
-    }
+      return phishAnswer(matched);
+    });
+    expect(result).toEqual({ status: "ok", threats: new Map([["https://phish.example/login?u=1", ["SOCIAL_ENGINEERING"]]]), complete: true, called: true });
     expect(requested).toHaveLength(1);
     const url = new URL(requested[0]!);
     expect(`${url.origin}${url.pathname}`).toBe(safeBrowsingEndpoint);
@@ -158,24 +159,24 @@ describe("Safe Browsing lookup", () => {
 
   it("ignores canary and frame-only matches", async () => {
     const matched = await fullHashBase64("phish.example/");
-    const fetcher: typeof fetch = async () =>
+    const result = await search(["https://phish.example/"], async () =>
       protobufResponse({
         fullHashes: [
           { fullHash: matched, fullHashDetails: [{ threatType: "SOCIAL_ENGINEERING", attributes: ["CANARY"] }, { threatType: "MALWARE", attributes: ["FRAME_ONLY"] }] },
         ],
-      });
-    const result = await searchSafeBrowsing(["https://phish.example/"], "key", fetcher);
+      }),
+    );
     expect(result.status === "ok" && result.threats.size).toBe(0);
   });
 
   it("reports errors and bad responses as unavailable", async () => {
-    expect((await searchSafeBrowsing(["https://a.example/"], "key", async () => new Response("no", { status: 429 }))).status).toBe("unavailable");
-    expect((await searchSafeBrowsing(["https://a.example/"], "key", async () => Response.json({ fullHashes: [] }))).status).toBe("unavailable");
-    expect((await searchSafeBrowsing(["https://a.example/"], "key", async () => protobufResponse(fromHex("0a260a20efbd")))).status).toBe("unavailable");
-    expect((await searchSafeBrowsing(["https://a.example/"], "key", async () => protobufResponse(new Uint8Array(1_000_001)))).status).toBe("unavailable");
+    expect((await search(["https://a.example/"], async () => new Response("no", { status: 429 }))).status).toBe("unavailable");
+    expect((await search(["https://a.example/"], async () => Response.json({ fullHashes: [] }))).status).toBe("unavailable");
+    expect((await search(["https://a.example/"], async () => protobufResponse(fromHex("0a260a20efbd")))).status).toBe("unavailable");
+    expect((await search(["https://a.example/"], async () => protobufResponse(new Uint8Array(1_000_001)))).status).toBe("unavailable");
     expect(
       (
-        await searchSafeBrowsing(["https://a.example/"], "key", async () => {
+        await search(["https://a.example/"], async () => {
           throw new TypeError("offline");
         })
       ).status,
@@ -184,16 +185,123 @@ describe("Safe Browsing lookup", () => {
 
   it("keeps every threat type for one hash and puts phishing first", async () => {
     const matched = await fullHashBase64("phish.example/");
-    const fetcher: typeof fetch = async () =>
-      protobufResponse({ fullHashes: [{ fullHash: matched, fullHashDetails: [{ threatType: "MALWARE" }, { threatType: "SOCIAL_ENGINEERING" }] }] });
-    const result = await searchSafeBrowsing(["https://phish.example/"], "key", fetcher);
+    const result = await search(["https://phish.example/"], async () =>
+      protobufResponse({ fullHashes: [{ fullHash: matched, fullHashDetails: [{ threatType: "MALWARE" }, { threatType: "SOCIAL_ENGINEERING" }] }] }),
+    );
     expect(result.status === "ok" && result.threats.get("https://phish.example/")).toEqual(["SOCIAL_ENGINEERING", "MALWARE"]);
+  });
+});
+
+describe("Safe Browsing cache", () => {
+  it("caches every queried prefix for Google's cache duration, including prefixes without a match", async () => {
+    let now = 1_000_000;
+    const lookups = memoryLookups(() => now);
+    let calls = 0;
+    const matched = await fullHashBase64("phish.example/");
+    const fetcher: typeof fetch = async () => {
+      calls += 1;
+      return phishAnswer(matched);
+    };
+    await search(["https://phish.example/", "https://fine.example/"], fetcher, lookups);
+    const second = await search(["https://phish.example/", "https://fine.example/"], fetcher, lookups);
+    expect(calls).toBe(1);
+    expect(second).toEqual({ status: "ok", threats: new Map([["https://phish.example/", ["SOCIAL_ENGINEERING"]]]), complete: true, called: false });
+    now += 299_000;
+    await search(["https://fine.example/"], fetcher, lookups);
+    expect(calls).toBe(1);
+    now += 2_000;
+    await search(["https://fine.example/"], fetcher, lookups);
+    expect(calls).toBe(2);
+  });
+
+  it("asks Google only about prefixes that are not cached yet", async () => {
+    const lookups = memoryLookups();
+    const requested: string[][] = [];
+    const fetcher: typeof fetch = async (input) => {
+      requested.push(new URL(String(input)).searchParams.getAll("hashPrefixes"));
+      return protobufResponse({ cacheSeconds: 300 });
+    };
+    await search(["https://first.example/"], fetcher, lookups);
+    await search(["https://first.example/", "https://second.example/"], fetcher, lookups);
+    expect(requested).toHaveLength(2);
+    expect(requested[1]!.some((prefix) => requested[0]!.includes(prefix))).toBe(false);
   });
 
   it("does not cache when the cache duration is out of range", async () => {
-    const fetcher: typeof fetch = async () => protobufResponse({ cacheSeconds: 90_000 });
-    const result = await searchSafeBrowsing(["https://fine.example/"], "key", fetcher);
-    expect(result).toEqual({ status: "ok", threats: new Map(), cacheSeconds: 0 });
+    const lookups = memoryLookups();
+    let calls = 0;
+    const fetcher: typeof fetch = async () => {
+      calls += 1;
+      return protobufResponse({ cacheSeconds: 90_000 });
+    };
+    await search(["https://fine.example/"], fetcher, lookups);
+    await search(["https://fine.example/"], fetcher, lookups);
+    expect(calls).toBe(2);
+  });
+
+  it("takes from the daily budget only when Google is actually asked", async () => {
+    const lookups = memoryLookups();
+    let taken = 0;
+    const takeBudget = async () => {
+      taken += 1;
+      return true;
+    };
+    const fetcher: typeof fetch = async () => protobufResponse({ cacheSeconds: 300 });
+    await search(["https://fine.example/"], fetcher, lookups, takeBudget);
+    await search(["https://fine.example/"], fetcher, lookups, takeBudget);
+    expect(taken).toBe(1);
+  });
+
+  it("reports the budget as used up without calling Google", async () => {
+    let calls = 0;
+    const result = await search(
+      ["https://fine.example/"],
+      async () => {
+        calls += 1;
+        return protobufResponse({});
+      },
+      memoryLookups(),
+      async () => false,
+    );
+    expect(result).toEqual({ status: "over_budget" });
+    expect(calls).toBe(0);
+  });
+
+  it("still shows a cached warning when Google cannot be reached for the other links", async () => {
+    const lookups = memoryLookups();
+    const matched = await fullHashBase64("phish.example/");
+    await search(["https://phish.example/"], async () => phishAnswer(matched), lookups);
+    const result = await search(["https://phish.example/", "https://other.example/"], async () => new Response("down", { status: 503 }), lookups);
+    expect(result).toEqual({ status: "ok", threats: new Map([["https://phish.example/", ["SOCIAL_ENGINEERING"]]]), complete: false, called: false });
+  });
+
+  it("shares one request between identical lookups that run at the same time", async () => {
+    const lookups = memoryLookups();
+    let calls = 0;
+    const fetcher: typeof fetch = async () => {
+      calls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return protobufResponse({ cacheSeconds: 300 });
+    };
+    await Promise.all([search(["https://same.example/"], fetcher, lookups), search(["https://same.example/"], fetcher, lookups)]);
+    expect(calls).toBe(1);
+  });
+
+  it("pauses calls to Google for a minute after three failures in a row", async () => {
+    let now = 5_000_000;
+    const lookups = memoryLookups(() => now);
+    let calls = 0;
+    const fetcher: typeof fetch = async () => {
+      calls += 1;
+      return new Response("down", { status: 503 });
+    };
+    for (const host of ["a", "b", "c", "d"]) {
+      expect((await search([`https://${host}.example/`], fetcher, lookups)).status).toBe("unavailable");
+    }
+    expect(calls).toBe(3);
+    now += 61_000;
+    await search(["https://e.example/"], fetcher, lookups);
+    expect(calls).toBe(4);
   });
 });
 
@@ -206,7 +314,7 @@ const liveAnswers: [string, string, string[]][] = [
 describe("Safe Browsing live answers recorded on 2026-10-05", () => {
   it.each(liveAnswers)("reads Google's answer for its %s test page", async (page, answer, expected) => {
     const link = `https://testsafebrowsing.appspot.com/s/${page}.html`;
-    const result = await searchSafeBrowsing([link], "key", async () => protobufResponse(fromHex(answer)));
-    expect(result).toEqual({ status: "ok", threats: new Map([[link, expected]]), cacheSeconds: 300 });
+    const result = await search([link], async () => protobufResponse(fromHex(answer)));
+    expect(result).toEqual({ status: "ok", threats: new Map([[link, expected]]), complete: true, called: true });
   });
 });

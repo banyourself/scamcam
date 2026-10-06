@@ -1,4 +1,5 @@
 import { getDomain } from "tldts";
+import { cacheKey, readCached, recordOutcome, sharedLoad, sourceIsOpen, writeCached, type Lookups } from "./cache";
 import { readMessage, readPackedVarints, type WireField } from "./protobuf";
 
 export const safeBrowsingEndpoint = "https://safebrowsing.googleapis.com/v5/hashes:search";
@@ -230,6 +231,8 @@ const threatPriority = ["SOCIAL_ENGINEERING", "MALWARE", "UNWANTED_SOFTWARE", "P
 
 const maxResponseBytes = 1_000_000;
 
+const maxPrefixesPerRequest = 1000;
+
 const maxCacheSeconds = 86_400n;
 
 function enumValues(fields: WireField[], field: number): bigint[] {
@@ -295,13 +298,56 @@ function byPriority(first: string, second: string): number {
   return rank(first) - rank(second);
 }
 
-export type SafeBrowsingResult =
-  | { status: "ok"; threats: Map<string, string[]>; cacheSeconds: number }
-  | { status: "unavailable" };
+interface CachedFullHash {
+  hash: string;
+  types: string[];
+}
 
-export async function searchSafeBrowsing(links: string[], apiKey: string, fetcher: typeof fetch): Promise<SafeBrowsingResult> {
+function isCachedFullHashes(value: unknown): value is CachedFullHash[] {
+  return (
+    Array.isArray(value) &&
+    value.every((entry) => typeof entry?.hash === "string" && Array.isArray(entry.types) && entry.types.every((type: unknown) => typeof type === "string"))
+  );
+}
+
+async function querySafeBrowsing(prefixes: string[], apiKey: string, fetcher: typeof fetch): Promise<{ threatsByHash: Map<string, string[]>; cacheSeconds: number } | null> {
+  const query = new URLSearchParams({ key: apiKey });
+  for (const prefix of prefixes) {
+    query.append("hashPrefixes", prefix);
+  }
+  try {
+    const response = await fetcher(`${safeBrowsingEndpoint}?${query}`, { signal: AbortSignal.timeout(4000) });
+    if (!response.ok || !(response.headers.get("content-type") ?? "").includes("protobuf")) {
+      return null;
+    }
+    const body = new Uint8Array(await response.arrayBuffer());
+    if (body.length > maxResponseBytes) {
+      return null;
+    }
+    return decodeSearchResponse(body);
+  } catch {
+    return null;
+  }
+}
+
+export interface SafeBrowsingOptions {
+  apiKey: string;
+  fetcher: typeof fetch;
+  lookups: Lookups;
+  takeBudget: () => Promise<boolean>;
+}
+
+export type SafeBrowsingResult =
+  | { status: "ok"; threats: Map<string, string[]>; complete: boolean; called: boolean }
+  | { status: "unavailable" }
+  | { status: "over_budget" };
+
+export const safeBrowsingSource = "safe_browsing";
+
+export async function searchSafeBrowsing(links: string[], options: SafeBrowsingOptions): Promise<SafeBrowsingResult> {
+  const { lookups } = options;
   const hashesByLink = new Map<string, string[]>();
-  const prefixes = new Set<string>();
+  const prefixHex = new Map<string, string>();
   for (const link of links) {
     const canonical = canonicalizeUrl(link);
     if (!canonical) {
@@ -311,39 +357,74 @@ export async function searchSafeBrowsing(links: string[], apiKey: string, fetche
     for (const expression of urlExpressions(canonical)) {
       const digest = await sha256(expression);
       hashes.push(hex(digest));
-      prefixes.add(toBase64(digest.slice(0, 4)));
+      prefixHex.set(toBase64(digest.slice(0, 4)), hex(digest.slice(0, 4)));
     }
     hashesByLink.set(link, hashes);
   }
-  if (prefixes.size === 0) {
-    return { status: "ok", threats: new Map(), cacheSeconds: 0 };
-  }
-  const query = new URLSearchParams({ key: apiKey });
-  for (const prefix of [...prefixes].slice(0, 1000)) {
-    query.append("hashPrefixes", prefix);
-  }
-  let decoded: { threatsByHash: Map<string, string[]>; cacheSeconds: number };
-  try {
-    const response = await fetcher(`${safeBrowsingEndpoint}?${query}`, { signal: AbortSignal.timeout(4000) });
-    if (!response.ok || !(response.headers.get("content-type") ?? "").includes("protobuf")) {
-      return { status: "unavailable" };
+  const known = new Map<string, CachedFullHash[]>();
+  const missing: string[] = [];
+  for (const prefix of prefixHex.keys()) {
+    const hit = await readCached(lookups, await cacheKey("gsb-prefix", prefix), isCachedFullHashes);
+    if (hit) {
+      known.set(prefix, hit);
+    } else {
+      missing.push(prefix);
     }
-    const body = new Uint8Array(await response.arrayBuffer());
-    if (body.length > maxResponseBytes) {
-      return { status: "unavailable" };
+  }
+  let failure: "unavailable" | "over_budget" | null = null;
+  let called = false;
+  const asked = missing.slice(0, maxPrefixesPerRequest).sort();
+  if (asked.length > 0) {
+    const answer = await sharedLoad(lookups, `gsb-query/${asked.join(",")}`, async () => {
+      if (!sourceIsOpen(lookups, safeBrowsingSource)) {
+        return "unavailable" as const;
+      }
+      if (!(await options.takeBudget())) {
+        return "over_budget" as const;
+      }
+      const result = await querySafeBrowsing(asked, options.apiKey, options.fetcher);
+      recordOutcome(lookups, safeBrowsingSource, result !== null);
+      if (!result) {
+        return "unavailable" as const;
+      }
+      for (const prefix of asked) {
+        const start = prefixHex.get(prefix)!;
+        const entries = [...result.threatsByHash].filter(([hash]) => hash.startsWith(start)).map(([hash, types]) => ({ hash, types }));
+        await writeCached(lookups, await cacheKey("gsb-prefix", prefix), entries, result.cacheSeconds);
+      }
+      return result;
+    });
+    if (typeof answer === "string") {
+      failure = answer;
+    } else {
+      called = true;
+      for (const prefix of asked) {
+        const start = prefixHex.get(prefix)!;
+        known.set(
+          prefix,
+          [...answer.threatsByHash].filter(([hash]) => hash.startsWith(start)).map(([hash, types]) => ({ hash, types })),
+        );
+      }
     }
-    decoded = decodeSearchResponse(body);
-  } catch {
-    return { status: "unavailable" };
+  }
+  const threatsByHash = new Map<string, string[]>();
+  for (const entries of known.values()) {
+    for (const entry of entries) {
+      threatsByHash.set(entry.hash, [...(threatsByHash.get(entry.hash) ?? []), ...entry.types]);
+    }
   }
   const threats = new Map<string, string[]>();
   for (const [link, hashes] of hashesByLink) {
-    const found = [...new Set(hashes.flatMap((hash) => decoded.threatsByHash.get(hash) ?? []))].sort(byPriority);
+    const found = [...new Set(hashes.flatMap((hash) => threatsByHash.get(hash) ?? []))].sort(byPriority);
     if (found.length > 0) {
       threats.set(link, found);
     }
   }
-  return { status: "ok", threats, cacheSeconds: decoded.cacheSeconds };
+  const complete = known.size === prefixHex.size;
+  if (!complete && threats.size === 0) {
+    return { status: failure ?? "unavailable" };
+  }
+  return { status: "ok", threats, complete, called };
 }
 
 export const threatDescriptions: Record<string, string> = {
