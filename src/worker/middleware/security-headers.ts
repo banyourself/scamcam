@@ -2,7 +2,7 @@ import type { MiddlewareHandler } from "hono";
 import type { AppEnv } from "../env";
 
 const apiSecurityHeaders: Record<string, string> = {
-  "Cache-Control": "no-store",
+  "Cache-Control": "no-store, no-transform",
   "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
   "Cross-Origin-Resource-Policy": "same-origin",
   "Referrer-Policy": "no-referrer",

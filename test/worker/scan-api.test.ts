@@ -50,7 +50,7 @@ describe("POST /api/v1/scans", () => {
     const siteverify = fake.requests.find((request) => request.url.includes("challenges.cloudflare.com"));
     expect(siteverify?.body).toContain(`secret=${env.TURNSTILE_SECRET_KEY}`);
     expect(siteverify?.body).toContain("response=token");
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.get("Cache-Control")).toBe("no-store, no-transform");
   });
 
   it("stores nothing that was submitted", async () => {

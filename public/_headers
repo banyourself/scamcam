@@ -7,10 +7,13 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
 
 /assets/*
-  Cache-Control: public, max-age=31536000, immutable
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable, no-transform
 
 /.well-known/security.txt
   Content-Type: text/plain; charset=utf-8
-  Cache-Control: public, max-age=3600
+  ! Cache-Control
+  Cache-Control: public, max-age=3600, no-transform

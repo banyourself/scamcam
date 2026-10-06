@@ -62,12 +62,13 @@ const pageHeaders: [string, (value: string) => boolean][] = [
   ],
   ["permissions-policy", (value) => ["camera=()", "microphone=()", "geolocation=()", "payment=()"].every((part) => value.includes(part))],
   ["cross-origin-opener-policy", (value) => value === "same-origin"],
+  ["cache-control", (value) => value.split(",").map((part) => part.trim()).includes("no-transform") && value.split(",").filter((part) => part.trim().startsWith("max-age")).length === 1],
 ];
 
 const apiHeaders: [string, (value: string) => boolean][] = [
   ...sharedHeaders,
   ["content-security-policy", (value) => value.startsWith("default-src 'none'") && value.includes("frame-ancestors 'none'")],
-  ["cache-control", (value) => value === "no-store"],
+  ["cache-control", (value) => value === "no-store, no-transform"],
 ];
 
 function headerProblems(label: string, headers: Headers, expected: [string, (value: string) => boolean][]): string[] {

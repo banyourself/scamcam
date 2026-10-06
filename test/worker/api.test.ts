@@ -26,7 +26,7 @@ describe("health endpoint", () => {
 
   it("sends strict security headers and a request id", async () => {
     const response = await call("/api/v1/health");
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.get("Cache-Control")).toBe("no-store, no-transform");
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(response.headers.get("X-Frame-Options")).toBe("DENY");
     expect(response.headers.get("Content-Security-Policy")).toContain("default-src 'none'");
