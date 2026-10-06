@@ -256,19 +256,16 @@ async function checkBrowser(): Promise<string[]> {
       }
     }
     const scans = requests.filter((request) => request.url === `${base}/api/v1/scans`);
-    if (!scanned) {
-      return failures;
-    }
-    if (scans.length !== 1 || scans[0]?.method !== "POST") {
+    if (scanned && (scans.length !== 1 || scans[0]?.method !== "POST")) {
       failures.push(`expected one POST to /api/v1/scans, saw ${scans.length}`);
-    } else {
-      const fields = Object.keys(JSON.parse(scans[0].postData ?? "{}") as Record<string, unknown>).sort();
+    } else if (scanned) {
+      const fields = Object.keys(JSON.parse(scans[0]?.postData ?? "{}") as Record<string, unknown>).sort();
       if (fields.join(",") !== "content,turnstileToken") {
         failures.push(`the scan request sent unexpected fields: ${fields.join(", ")}`);
       }
     }
 
-    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  browser visit of ${publicRoutes.length} pages, a theme change, and a scan`);
+    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  browser visit of ${publicRoutes.length} pages, a theme change${scanned ? ", and a scan" : ""}`);
     console.log(`      origins contacted: ${[...origins].sort().join(", ")}`);
     console.log(`      local storage keys: ${storage.local.map(([key]) => key).join(", ") || "none"}`);
     console.log(

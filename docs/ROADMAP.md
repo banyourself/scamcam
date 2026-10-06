@@ -11,24 +11,14 @@ until the current one is evaluated.
 | 3. Detection | Done locally | Public Suffix List, URL and message analysis, gaming impersonation rules, RDAP, DNS, evidence correlation, structured reports, scan endpoint with Turnstile; Safe Browsing v5 and URLhaus connected and verified live locally; Phishing.Database moved to Stage 4 |
 | 4. Optimization | Done locally | Caching under each provider's rules, safe deduplication, paused failing sources and registry back-off, Phishing.Database sync (ready, switched on at deployment), a free Workers AI step for messages the rules cannot decide, performance and AI benchmarks; the held-out domain benchmark waits for permission to download the list |
 | 5. Security and compliance | Done locally | Security review against the OWASP API Top 10 and ASVS with 11 findings fixed, Workers Free plan limits (CPU and subrequests) measured and enforced by tests, privacy checks in a real browser and in the Worker, IPv6 and concurrency rate-limit tests, monitoring alerts, cleanup limits, a recovery runbook and backup drill, policy drafts reviewed with questions for a lawyer, disclosure contact checked (see `SECURITY_REVIEW.md` and `RECOVERY.md`) |
-| 6. Deployment | Next, needs approval | Create D1 in Cloudflare, set secrets, deploy, attach `scamcam.kevinle.tech`, verify the personal site is unaffected, trademark check |
+| 6. Deployment | Done, live on 2026-10-05 | D1 created, Worker deployed to `scamcam.kevinle.tech`, secrets set by Kevin, Phishing.Database sync on, policies published, live checks passing, personal site unaffected (see `BUILD_STATE.md`) |
 
-## Decisions Kevin needs to make before Stage 6
+## After launch
 
-1. Approve creating Cloudflare resources: one Worker named `scamcam` and one D1 database named `scamcam`.
-2. Approve attaching `scamcam.kevinle.tech` as a Worker Custom Domain (Cloudflare creates that one DNS record).
-3. Create a Turnstile widget for `scamcam.kevinle.tech` and set its secret with `wrangler secret put`.
-4. Done on 2026-10-05: Kevin created the Safe Browsing API key and the abuse.ch Auth-Key, and both work locally. For
-   production, Kevin sets them with `npx wrangler secret put`.
-5. Decide whether to keep the name ScamCam after the trademark search (see `COMPLIANCE_MATRIX.md`).
-6. Switch on the Phishing.Database sync: create a Cloudflare API token limited to D1 Edit, add it as the GitHub secret
-   `CLOUDFLARE_D1_TOKEN` with `CLOUDFLARE_ACCOUNT_ID`, and set the repository variable `PHISHING_DATABASE_SYNC` to
-   `enabled` (see `DEPLOYMENT.md`).
-7. Done on 2026-10-05: a test security report from an outside Gmail address arrived at kevin@kevinle.tech, and the
-   reply reached the Gmail inbox.
-8. Done on 2026-10-05: instead of a lawyer, Kevin asked for researched answers to the open legal questions. They are
-   in `COMPLIANCE_MATRIX.md`, and the pages were updated to match. The draft labels come off and the effective date
-   is set at launch.
+1. Run one real scan by hand, since Turnstile does not finish in a headless browser.
+2. Watch the first daily and weekly maintenance reports for alerts (`RECOVERY.md`).
+3. Close the three rule gaps from the held-out benchmark with a fresh sample from the list.
+4. Add the Live Minutes Turnstile widget to minutes.kevinle.tech.
 
 ## Later phases
 

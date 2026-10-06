@@ -1,6 +1,7 @@
 # Deployment
 
-**Nothing has been deployed.** Every step below that touches Cloudflare needs Kevin's explicit approval first.
+**Deployed on 2026-10-05** with Kevin's approval for each step. Any further change that touches Cloudflare still needs
+his explicit approval first. Redeploy a new version of `main` with `npm run deploy`.
 
 ## Target
 

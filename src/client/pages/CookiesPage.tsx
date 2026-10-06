@@ -33,9 +33,9 @@ export function CookiesPage() {
         </tbody>
       </table>
       <p>
-        ScamCam&apos;s own pages and API set no cookies. An automated check of every page and a full scan in a real
-        browser found no cookies and no browser storage other than the theme choice. That check used Cloudflare&apos;s
-        test keys, so it will be repeated on the live site before launch. Cloudflare describes its security cookies in
+        ScamCam&apos;s own pages and API set no cookies. On October 5, 2026, an automated check of every page on the live
+        site in a real browser found no cookies and no browser storage other than the theme choice, and the only other
+        site contacted was Cloudflare&apos;s bot check. Cloudflare describes its security cookies in
         its <a href="https://developers.cloudflare.com/fundamentals/reference/policies-compliances/cloudflare-cookies/">cookie list</a>.
       </p>
       <p>
