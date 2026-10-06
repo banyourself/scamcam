@@ -8,6 +8,7 @@ const maxResponseBytes = 64 * 1024;
 const SiteverifyResponseSchema = z.object({
   success: z.boolean(),
   hostname: z.string().optional(),
+  action: z.string().optional(),
   "error-codes": z.array(z.string()).optional(),
 });
 
@@ -20,6 +21,7 @@ export interface TurnstileOptions {
   secret: string | undefined;
   remoteIp: string;
   expectedHostname: string | null;
+  expectedAction?: string | null;
   fetcher?: typeof fetch;
 }
 
@@ -50,6 +52,9 @@ export async function verifyTurnstileToken(options: TurnstileOptions): Promise<T
     return { ok: false, reason: "rejected" };
   }
   if (options.expectedHostname && parsed.data.hostname !== options.expectedHostname) {
+    return { ok: false, reason: "rejected" };
+  }
+  if (options.expectedAction && parsed.data.action !== options.expectedAction) {
     return { ok: false, reason: "rejected" };
   }
   return { ok: true };

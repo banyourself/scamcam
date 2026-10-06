@@ -6,7 +6,6 @@ export function CookiesPage() {
       title="Cookies"
       reference="SC-POL-04"
       updated="2026-10-05"
-      draft
       lead="ScamCam does not use advertising, analytics, or tracking cookies, so there is no cookie banner."
     >
       <table>

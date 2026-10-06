@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { turnstileAction } from "../../../shared/turnstile";
 
 interface TurnstileApi {
   render(element: HTMLElement, options: Record<string, unknown>): string;
@@ -54,6 +55,7 @@ export function TurnstileWidget({ siteKey, resetKey, onToken, onUnavailable }: T
         }
         widgetId = window.turnstile.render(container.current, {
           sitekey: siteKey,
+          action: turnstileAction,
           theme: document.documentElement.classList.contains("dark") ? "dark" : "light",
           size: "flexible",
           callback: (token: string) => callbacks.current.onToken(token),

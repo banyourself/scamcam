@@ -64,7 +64,7 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
       return json(options.urlhaus ?? { query_status: "no_results" });
     }
     if (url.includes("challenges.cloudflare.com")) {
-      return json(options.turnstile ?? { success: true, hostname: "scamcam.kevinle.tech" });
+      return json(options.turnstile ?? { success: true, hostname: "scamcam.kevinle.tech", action: "scan" });
     }
     return json({ error: "unexpected request" }, 404);
   };

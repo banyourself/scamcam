@@ -2,7 +2,7 @@ import { DocumentPage } from "@/components/layout/DocumentPage";
 
 export function AcceptableUsePage() {
   return (
-    <DocumentPage title="Acceptable use" reference="SC-POL-03" updated="2026-10-05" draft>
+    <DocumentPage title="Acceptable use" reference="SC-POL-03" updated="2026-10-05">
       <p>ScamCam is shared by everyone for free, so please keep it usable for others.</p>
       <h2>Do not</h2>
       <ul>

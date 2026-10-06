@@ -7,7 +7,6 @@ export function PrivacyPage() {
       title="Privacy policy"
       reference="SC-POL-01"
       updated="2026-10-05"
-      draft
       lead="ScamCam is built to know as little about you as possible."
     >
       <h2>The short version</h2>
@@ -152,8 +151,7 @@ export function PrivacyPage() {
 
       <h2>Changes</h2>
       <p>
-        Any change will be posted on this page with a new date. This policy is a draft for review, so it has no effective
-        date yet. The effective date will be set when ScamCam launches.
+        This policy takes effect on October 5, 2026. Any change will be posted on this page with a new date.
       </p>
     </DocumentPage>
   );

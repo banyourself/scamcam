@@ -65,7 +65,7 @@
         {
           "binding": "DB",
           "database_name": "scamcam",
-          "database_id": "PENDING_D1_DATABASE_ID",
+          "database_id": "bcd6fed8-7150-4f63-a661-d6e24ccfaee1",
           "migrations_dir": "migrations"
         }
       ],
@@ -91,7 +91,7 @@
         "APP_ENV": "production",
         "APP_VERSION": "0.1.0",
         "STORAGE_SOFT_LIMIT_BYTES": "80000000",
-        "TURNSTILE_SITE_KEY": "PENDING_TURNSTILE_SITE_KEY",
+        "TURNSTILE_SITE_KEY": "0x4AAAAAAFO_YoUQA-ehFN5P",
         "SAFE_BROWSING_DAILY_LIMIT": "8000",
         "URLHAUS_DAILY_LIMIT": "5000",
         "AI_MODE": "inconclusive",

@@ -2,7 +2,7 @@ import { DocumentPage } from "@/components/layout/DocumentPage";
 
 export function DisclosurePage() {
   return (
-    <DocumentPage title="Vulnerability disclosure" reference="SC-SEC-02" updated="2026-10-05" draft>
+    <DocumentPage title="Vulnerability disclosure" reference="SC-SEC-02" updated="2026-10-05">
       <p>
         Security researchers help keep ScamCam safe. If you find a vulnerability, please report it so it can be fixed
         before anyone is harmed.

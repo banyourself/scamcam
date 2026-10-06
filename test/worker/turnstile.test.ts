@@ -33,6 +33,12 @@ describe("Turnstile verification", () => {
     expect(result).toEqual({ ok: false, reason: "rejected" });
   });
 
+  it("rejects a token issued for another action when an action is expected", async () => {
+    const answer = (action: string) => verifyTurnstileToken({ ...base, expectedAction: "scan", fetcher: fakeFetch({ success: true, hostname: base.expectedHostname, action }) });
+    expect(await answer("scan")).toEqual({ ok: true });
+    expect(await answer("login")).toEqual({ ok: false, reason: "rejected" });
+  });
+
   it("rejects failed or malformed responses", async () => {
     expect(await verifyTurnstileToken({ ...base, fetcher: fakeFetch({ success: false }) })).toEqual({ ok: false, reason: "rejected" });
     expect(await verifyTurnstileToken({ ...base, fetcher: fakeFetch({ nope: 1 }) })).toEqual({ ok: false, reason: "rejected" });

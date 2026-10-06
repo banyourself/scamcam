@@ -17,7 +17,7 @@ export function AccessibilityPage() {
         <li>Automated accessibility checks run on every page before each release.</li>
       </ul>
       <h2>Known limitations</h2>
-      <p>Automated checks cannot catch everything. A manual screen reader review is planned before launch.</p>
+      <p>Automated checks cannot catch everything. A manual screen reader review has not been done yet and is planned.</p>
       <h2>Feedback</h2>
       <p>
         If something is hard to use, email <a href="mailto:kevin@kevinle.tech">kevin@kevinle.tech</a> and describe the

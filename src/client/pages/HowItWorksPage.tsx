@@ -67,9 +67,9 @@ export function HowItWorksPage() {
 
       <h2>Status</h2>
       <p>
-        ScamCam is being built in public stages and is not live yet. The link and message checks, Google Safe Browsing,
-        URLhaus, domain age, DNS, and the AI step all work in testing. The Phishing.Database list starts once its daily
-        update is switched on at launch; until then reports say it is not connected.
+        ScamCam launched on October 5, 2026. The link and message checks, Google Safe Browsing, URLhaus, domain age, DNS,
+        the Phishing.Database list, and the AI step are all running. If a source is down or has reached its free limit
+        for the day, the report says so.
       </p>
     </DocumentPage>
   );

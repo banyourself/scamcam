@@ -2,6 +2,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { maxInputLength } from "../../shared/extract";
 import { ApiErrorSchema } from "../../shared/api";
 import { ScanReportSchema } from "../../shared/report-schema";
+import { turnstileAction } from "../../shared/turnstile";
 import { reviewMessage, type TextModel } from "../../engine/ai-review";
 import { scanContent, type BudgetedProvider } from "../../engine/scan";
 import type { AppBindings, AppEnv } from "../env";
@@ -79,6 +80,7 @@ export const scanRoutes = new OpenAPIHono<AppEnv>().openapi(scanRoute, async (c)
     secret: c.env.TURNSTILE_SECRET_KEY,
     remoteIp: clientAddress(c.req.raw),
     expectedHostname: production ? new URL(c.req.url).hostname : null,
+    expectedAction: production ? turnstileAction : null,
     fetcher: c.get("fetcher"),
   });
   if (!turnstile.ok) {

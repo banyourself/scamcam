@@ -3,7 +3,7 @@ import { Link } from "@/router";
 
 export function TermsPage() {
   return (
-    <DocumentPage title="Terms of service" reference="SC-POL-02" updated="2026-10-05" draft>
+    <DocumentPage title="Terms of service" reference="SC-POL-02" updated="2026-10-05">
       <h2>What ScamCam is</h2>
       <p>
         ScamCam is a free, noncommercial tool that gives automated, informational assessments of links and messages.
