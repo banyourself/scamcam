@@ -14,20 +14,19 @@ passes through anyone else.
 
 ## One-time setup (needs approval)
 
-| Step | Command or action | Changes |
-|---|---|---|
-| 1. Sign in | `npx wrangler login` | Grants wrangler access to the account |
-| 2. Create the database | `npx wrangler d1 create scamcam` and put the returned ID in `wrangler.jsonc` | New D1 database |
-| 3. Apply migrations | `npx wrangler d1 migrations apply scamcam --remote` | Tables in that database |
-| 4. Turnstile | Create a widget for `scamcam.kevinle.tech` in the dashboard, set its site key as `TURNSTILE_SITE_KEY` in `wrangler.jsonc`, then `npx wrangler secret put TURNSTILE_SECRET_KEY` | New widget and secret |
-| 4b. Threat intelligence keys | `npx wrangler secret put SAFE_BROWSING_API_KEY` and `npx wrangler secret put URLHAUS_AUTH_KEY` (the keys already work locally; reports say which sources were not connected) | Secrets |
-| 5. Production settings | Set `APP_ENV` to `production` for the deployed environment. Workers AI needs no setup; set `AI_MODE` to `off` to switch the AI step off | Config only |
-| 6. Deploy | `npm run build && npx wrangler deploy` | New Worker |
-| 7. Attach the domain | Add `"routes": [{ "pattern": "scamcam.kevinle.tech", "custom_domain": true }]` and deploy again | One DNS record and one certificate |
-| 8. Verify | The live checks below | None |
+Production settings live in the `production` environment of `wrangler.jsonc`. The top-level settings stay for local
+development and tests. `test/node/config.test.ts` checks that production deploys only the `scamcam` Worker to
+`scamcam.kevinle.tech`, with the same limits, schedules, and log settings as development.
 
-The config check in `test/node/config.test.ts` fails if `routes`, `workers_dev`, or `preview_urls` are enabled, so
-a public target cannot be added by accident. Remove that guard deliberately in the approved deployment change.
+| Step | Who | Command or action | Changes |
+|---|---|---|---|
+| 1. Sign in | Kevin | `npx wrangler login` (done on 2026-10-05) | Grants wrangler access to the account |
+| 2. Create the database | Me | `npx wrangler d1 create scamcam --location wnam`, then put the ID in `env.production.d1_databases` | One D1 database |
+| 3. Apply migrations | Me | `npx wrangler d1 migrations apply scamcam --remote --env production` | Tables in that database |
+| 4. Turnstile widget | Kevin, in the dashboard | Turnstile, Add widget: name ScamCam, hostname `scamcam.kevinle.tech`, mode Managed. Share the site key (it is public) so it can go in `env.production.vars.TURNSTILE_SITE_KEY`; keep the secret key for step 6 | One widget |
+| 5. Deploy | Me | `npm run deploy`. It refuses to run with a placeholder database ID or a Turnstile test key, off `main`, with uncommitted changes, or when `main` differs from GitHub, then runs every test, builds with `CLOUDFLARE_ENV=production`, and deploys. `npm run deploy:dry-run` does everything except the upload | The Worker, and the `scamcam.kevinle.tech` custom domain (one DNS record and one certificate) |
+| 6. Secrets | Kevin types each value | `npx wrangler secret put TURNSTILE_SECRET_KEY --env production`, then the same for `SAFE_BROWSING_API_KEY` and `URLHAUS_AUTH_KEY`. Until the Turnstile secret is set, scans answer "temporarily unavailable" | Three secrets |
+| 7. Verify | Me | `npm run check:live`, then the checks below | None |
 
 ## Live checks after the first deployment
 
@@ -35,6 +34,7 @@ Local checks cannot see Cloudflare's own behavior, so these run once the site is
 
 | Check | How | Expected |
 |---|---|---|
+| Automated | `npm run check:live` runs the headers, `security.txt`, browser, cookie, API, rate limit, and personal site checks below against the live site | Every check passes; any Cloudflare security cookies are listed |
 | Personal site | Open `kevinle.tech` and its usual pages | Unchanged |
 | Headers | `curl -sI https://scamcam.kevinle.tech/` and `curl -sI https://scamcam.kevinle.tech/api/v1/health` | CSP, HSTS, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP, and CORP on the page; `no-store` on the API; no `Set-Cookie` on either |
 | `security.txt` | `curl -s https://scamcam.kevinle.tech/.well-known/security.txt` and `curl -sI https://scamcam.kevinle.tech/security.txt` | The file as `text/plain`, and a 301 to it from the old path |

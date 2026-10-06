@@ -16,7 +16,24 @@ const wrangler = JSON.parse(stripJsonComments(read("wrangler.jsonc"))) as {
   preview_urls: boolean;
   routes?: unknown;
   observability?: { enabled?: boolean; logs?: { enabled?: boolean; invocation_logs?: boolean } };
+  vars: Record<string, string>;
+  ratelimits: unknown[];
+  d1_databases: { binding: string; database_name: string }[];
+  env?: Record<string, WranglerEnvironment>;
 };
+
+interface WranglerEnvironment {
+  name?: string;
+  workers_dev?: boolean;
+  preview_urls?: boolean;
+  routes?: unknown;
+  vars?: Record<string, string>;
+  ratelimits?: unknown[];
+  d1_databases?: { binding: string; database_name: string }[];
+  ai?: { binding: string };
+  triggers?: { crons: string[] };
+  observability?: unknown;
+}
 
 test("cron triggers in wrangler.jsonc match the maintenance schedule", () => {
   const tasks = read("src/worker/maintenance/tasks.ts");
@@ -31,10 +48,34 @@ test("Workers Logs keep only ScamCam's own events, not Cloudflare's per-request 
   assert.equal(wrangler.observability?.logs?.invocation_logs, false);
 });
 
-test("no public deployment target is configured without approval", () => {
+test("the development config has no public deployment target", () => {
   assert.equal(wrangler.workers_dev, false);
   assert.equal(wrangler.preview_urls, false);
   assert.equal(wrangler.routes, undefined);
+  assert.deepEqual(Object.keys(wrangler.env ?? {}), ["production"]);
+});
+
+test("production deploys only to scamcam.kevinle.tech and matches the development config", () => {
+  const production = wrangler.env?.production;
+  assert.ok(production);
+  assert.equal(production.name, "scamcam");
+  assert.equal(production.workers_dev, false);
+  assert.equal(production.preview_urls, false);
+  assert.deepEqual(production.routes, [{ pattern: "scamcam.kevinle.tech", custom_domain: true }]);
+  assert.equal(production.vars?.APP_ENV, "production");
+  assert.deepEqual(Object.keys(production.vars ?? {}).sort(), Object.keys(wrangler.vars).sort());
+  for (const name of Object.keys(wrangler.vars).filter((key) => !["APP_ENV", "TURNSTILE_SITE_KEY"].includes(key))) {
+    assert.equal(production.vars?.[name], wrangler.vars[name], `${name} differs between development and production`);
+  }
+  assert.notEqual(production.vars?.TURNSTILE_SITE_KEY, wrangler.vars.TURNSTILE_SITE_KEY);
+  assert.deepEqual(production.ratelimits, wrangler.ratelimits);
+  assert.deepEqual(production.triggers, wrangler.triggers);
+  assert.deepEqual(production.observability, wrangler.observability);
+  assert.deepEqual(production.ai, { binding: "AI" });
+  assert.deepEqual(
+    production.d1_databases?.map(({ binding, database_name }) => ({ binding, database_name })),
+    wrangler.d1_databases.map(({ binding, database_name }) => ({ binding, database_name })),
+  );
 });
 
 test("security.txt has the required fields and has not expired", () => {

@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
+import { parseArgs } from "node:util";
 import { preview } from "vite";
 import { openPage, publicRoutes, submitScan, waitFor, withChrome } from "./browser.ts";
 
@@ -28,7 +29,13 @@ interface PageStorage {
 }
 
 const port = 4175;
-const base = `http://127.0.0.1:${port}`;
+const { values: options } = parseArgs({ options: { live: { type: "string" } } });
+const live = options.live !== undefined;
+const base = live ? new URL(options.live!).origin : `http://127.0.0.1:${port}`;
+const cloudflareCookie = /^(__cf_bm|cf_clearance|_cfuvid|__cflb|__cfruid|cf_chl_.*)$/;
+const testSiteKey = /^[123]x0{20}[A-F]{2}$/;
+const cloudflareCookiesSeen = new Set<string>();
+const notes: string[] = [];
 const turnstileOrigin = "https://challenges.cloudflare.com";
 const probe = "privacy probe 7q4: send me your 2fa code at steam-trade-probe.example/probe-path-7q4 so i can verify the trade";
 const probeMarkers = ["privacy probe", "7q4", "steam-trade-probe", "probe-path", "2fa code"];
@@ -73,8 +80,13 @@ function headerProblems(label: string, headers: Headers, expected: [string, (val
       problems.push(`${label}: unexpected ${name}: ${value}`);
     }
   }
-  if (headers.getSetCookie().length > 0) {
-    problems.push(`${label}: sets a cookie`);
+  for (const cookie of headers.getSetCookie()) {
+    const name = cookie.split("=")[0]!.trim();
+    if (live && cloudflareCookie.test(name)) {
+      cloudflareCookiesSeen.add(name);
+    } else {
+      problems.push(`${label}: sets a cookie (${name})`);
+    }
   }
   for (const name of ["x-powered-by", "access-control-allow-origin"]) {
     if (headers.has(name)) {
@@ -84,18 +96,25 @@ function headerProblems(label: string, headers: Headers, expected: [string, (val
   return problems;
 }
 
+async function assetPaths(): Promise<string[]> {
+  const html = await (await fetch(`${base}/`)).text();
+  const script = /src="(\/assets\/[^"]+\.js)"/.exec(html)?.[1];
+  const style = /href="(\/assets\/[^"]+\.css)"/.exec(html)?.[1];
+  const css = style ? await (await fetch(base + style)).text() : "";
+  const font = /url\((\/assets\/[^)]+\.woff2)\)/.exec(css)?.[1];
+  return [script, style, font].filter((path): path is string => path !== undefined);
+}
+
 async function checkHeaders(): Promise<string[]> {
-  const assets = readdirSync("dist/client/assets");
+  const assets = await assetPaths();
   const staticPaths = [
     ...publicRoutes,
-    `/assets/${assets.find((name) => name.endsWith(".js"))}`,
-    `/assets/${assets.find((name) => name.endsWith(".css"))}`,
-    `/assets/${assets.find((name) => name.endsWith(".woff2"))}`,
+    ...assets,
     "/favicon.svg",
     "/robots.txt",
     "/.well-known/security.txt",
   ];
-  const failures: string[] = [];
+  const failures: string[] = assets.length === 3 ? [] : [`found ${assets.length} of 3 asset paths in the page`];
   for (const path of staticPaths) {
     const response = await fetch(base + path, { redirect: "manual" });
     await response.arrayBuffer();
@@ -153,9 +172,18 @@ async function checkBrowser(): Promise<string[]> {
     await openPage(cdp, base, "/");
     await cdp.evaluate(`document.querySelector('button[aria-label^="Switch to"]').click()`);
     await waitFor(cdp, `localStorage.getItem("scamcam-theme") !== null`);
-    const alert = await submitScan(cdp, probe);
-    if (alert) {
-      failures.push(`the scan showed an error (${alert})`);
+    let scanned = true;
+    try {
+      const alert = await submitScan(cdp, probe);
+      if (alert) {
+        failures.push(`the scan showed an error (${alert})`);
+      }
+    } catch (error) {
+      if (!live) {
+        throw error;
+      }
+      scanned = false;
+      notes.push("the scan step was skipped because Turnstile did not finish in a headless browser; run one scan by hand");
     }
     await sleep(1500);
 
@@ -193,9 +221,17 @@ async function checkBrowser(): Promise<string[]> {
     const cookies = await cdp
       .send<{ cookies: Cookie[] }>("Storage.getCookies")
       .catch(() => cdp.send<{ cookies: Cookie[] }>("Network.getAllCookies"));
-    const firstParty = cookies.cookies.filter((cookie) => ["127.0.0.1", "localhost"].includes(cookie.domain.replace(/^\./, "")));
-    if (firstParty.length > 0) {
-      failures.push(`ScamCam set cookies: ${firstParty.map((cookie) => cookie.name).join(", ")}`);
+    const siteHost = new URL(base).hostname;
+    const firstParty = cookies.cookies.filter((cookie) => {
+      const domain = cookie.domain.replace(/^\./, "");
+      return domain === siteHost || siteHost.endsWith(`.${domain}`);
+    });
+    for (const cookie of firstParty) {
+      if (live && cloudflareCookie.test(cookie.name)) {
+        cloudflareCookiesSeen.add(cookie.name);
+      } else {
+        failures.push(`ScamCam's site set a cookie: ${cookie.name}`);
+      }
     }
 
     const origins = new Set<string>();
@@ -219,6 +255,9 @@ async function checkBrowser(): Promise<string[]> {
       }
     }
     const scans = requests.filter((request) => request.url === `${base}/api/v1/scans`);
+    if (!scanned) {
+      return failures;
+    }
     if (scans.length !== 1 || scans[0]?.method !== "POST") {
       failures.push(`expected one POST to /api/v1/scans, saw ${scans.length}`);
     } else {
@@ -302,7 +341,50 @@ function checkBundle(): string[] {
   return failures;
 }
 
+async function checkLiveApi(): Promise<string[]> {
+  const failures: string[] = [];
+  const health = (await (await fetch(`${base}/api/v1/health`)).json()) as { environment?: string; scanning?: string; turnstileSiteKey?: string | null };
+  if (health.environment !== "production" || health.scanning !== "available") {
+    failures.push(`health reports ${health.environment} and ${health.scanning}`);
+  }
+  if (!health.turnstileSiteKey || testSiteKey.test(health.turnstileSiteKey)) {
+    failures.push("the live site uses a Turnstile test key or none");
+  }
+  const scan = (headers: Record<string, string>, body: string) => fetch(`${base}/api/v1/scans`, { method: "POST", headers, body });
+  const missing = await scan({ "Content-Type": "application/json", Origin: base }, JSON.stringify({ content: "hello" }));
+  if (missing.status !== 403) {
+    failures.push(`a scan without a bot check answered ${missing.status}, not 403`);
+  }
+  const crossSite = await scan({ "Content-Type": "text/plain", Origin: "https://evil.example" }, JSON.stringify({ content: "hello" }));
+  if (crossSite.status !== 403) {
+    failures.push(`a cross-site scan answered ${crossSite.status}, not 403`);
+  }
+  let limited = false;
+  for (let attempt = 0; attempt < 15 && !limited; attempt += 1) {
+    const response = await scan({ "Content-Type": "application/json", Origin: base }, JSON.stringify({ content: "hello" }));
+    await response.arrayBuffer();
+    limited = response.status === 429 && response.headers.get("retry-after") !== null;
+  }
+  if (!limited) {
+    failures.push("15 scans in a row from one address were never rate limited");
+  }
+  for (const site of ["https://kevinle.tech/", "https://www.kevinle.tech/"]) {
+    const response = await fetch(site);
+    const html = await response.text();
+    if (response.status !== 200 || html.includes("ScamCam: Put scams in focus")) {
+      failures.push(`${site} answered ${response.status}${html.includes("ScamCam") ? " with ScamCam's page" : ""}`);
+    }
+  }
+  console.log(`${failures.length > 0 ? "FAIL" : "pass"}  live API: production settings, bot check required, cross-site posts refused, rate limit, personal site unchanged`);
+  return failures;
+}
+
 async function main(): Promise<void> {
+  if (live) {
+    const failures = [...(await checkHeaders()), ...(await checkLiveApi()), ...(await checkBrowser())];
+    report(failures);
+    return;
+  }
   process.env.NODE_ENV = "production";
   const failures = checkBundle();
   const server = await preview({ preview: { port, strictPort: true, host: "127.0.0.1", cors: false }, logLevel: "error" });
@@ -310,6 +392,16 @@ async function main(): Promise<void> {
     failures.push(...(await checkHeaders()), ...(await checkBrowser()));
   } finally {
     await new Promise<void>((resolve) => server.httpServer.close(() => resolve()));
+  }
+  report(failures);
+}
+
+function report(failures: string[]): void {
+  if (cloudflareCookiesSeen.size > 0) {
+    console.log(`      cookies set by Cloudflare's own security features: ${[...cloudflareCookiesSeen].sort().join(", ")}`);
+  }
+  for (const note of notes) {
+    console.log(`note: ${note}`);
   }
   if (failures.length > 0) {
     console.error(`\n${failures.length} privacy or security problem(s):\n${failures.join("\n")}`);
