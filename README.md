@@ -59,6 +59,8 @@ Run all checks with `npm run check`.
 | [BUILD_STATE.md](docs/BUILD_STATE.md) | What exists, what works, test results |
 | [COMPLETED_WORK.md](docs/COMPLETED_WORK.md) | Everything completed so far, stage by stage |
 | [SECURITY.md](SECURITY.md) | Reporting vulnerabilities and security controls |
+| [SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) | Stage 5 security review: findings, fixes, OWASP API Top 10 and ASVS mapping |
+| [RECOVERY.md](docs/RECOVERY.md) | Recovery runbook, alerts, and the backup and restore drill |
 | [PRIVACY_DESIGN.md](docs/PRIVACY_DESIGN.md) | What data is processed and why |
 | [COMPLIANCE_MATRIX.md](docs/COMPLIANCE_MATRIX.md) | Laws and standards that may apply |
 | [API_LICENSE_MATRIX.md](docs/API_LICENSE_MATRIX.md) | Threat intelligence sources and their terms |

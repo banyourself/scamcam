@@ -10,7 +10,7 @@ teenagers. The design goal is to keep nothing that is not needed.
 | Submitted message text | To find links and scam patterns | No. Processed in memory and discarded |
 | Submitted URL | To check its domain and reputation | Not raw. Only a keyed hash or the registrable domain when an indicator must be cached (Stage 3+) |
 | IP address | Rate limiting, Turnstile | Not by ScamCam. Passed to the Cloudflare rate limiter and Turnstile, which do not store it for us |
-| Request metadata | Debugging | Worker logs keep method, route, status, duration, and a request ID for 3 days. No IP, no URL, no query |
+| Request metadata | Debugging | Worker logs keep method, route, status, duration, and a request ID made by the Worker for 3 days. No IP, no URL, no query. Cloudflare's own per-request invocation logs are turned off |
 | Error type and route | Reliability | `error_events` for 7 days |
 
 ## What is never collected
@@ -46,6 +46,7 @@ Gaming audiences include minors. Rules that apply from day one:
 - Never put private messages or secret-bearing URLs into shared caches.
 - Cache only public indicators (registrable domain reputation, provider results) under each provider's terms.
 - Normalize conservatively so distinct indicators are not merged (`SCAMCAM_ANALYSIS.md`).
-- Provider answers live in a named Cloudflare cache under SHA-256 keys, so the cache never holds the names that were
-  looked up. Values hold only the provider's answer.
+- Provider answers live in the Worker's memory and in a named Cloudflare cache under SHA-256 keys, so neither holds
+  the names that were looked up. Values hold only the provider's answer. Safe Browsing answers are kept per hash
+  prefix in memory only.
 - AI answers (one label) are kept only in the Worker's memory, for an hour, under a hash of the cleaned message.

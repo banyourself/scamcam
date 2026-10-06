@@ -12,13 +12,13 @@ This is ScamCam's written retention schedule (also required by the 2025 COPPA am
 | Application error records | 7 days | `error_events.expires_at`, daily cleanup |
 | Maintenance run records | 90 days | `maintenance_runs.expires_at`, daily cleanup |
 | Provider call counts (no content, one row per provider per day) | 35 days | `provider_usage.expires_at`, daily cleanup |
-| Provider answers (Safe Browsing, URLhaus, RDAP, DNS) | The source's rule: Google's `cacheDuration`, 15 minutes, 1 to 24 hours, or the DNS TTL | Cache API expiry and a stored expiry time checked on every read |
+| Provider answers (Safe Browsing, URLhaus, RDAP, DNS) | The source's rule: Google's `cacheDuration`, 15 minutes, 1 to 24 hours, or the DNS TTL | Worker memory and Cache API expiry, with a stored expiry time checked on every read; Safe Browsing answers stay in memory only |
 | AI answers (one label) | 1 hour, in memory only | Worker memory |
 | Phishing.Database copy (hashed keys) | Replaced daily; deleted 7 days after the last sync; not used after 3 days | `domain_lists.expires_at`, `domain_list_shards.expires_at`, daily cleanup |
 | Unreviewed voluntary reports | 7 days | Later stage |
 | Threat intelligence cache | Provider-defined expiry (for example Safe Browsing `cacheDuration`) | Cache API, see provider answers above |
 | Verified first-party indicators | Reviewed at least every 30 days | `review_after` column (Stage 4) |
-| Worker logs | 3 days (Cloudflare Workers Logs on Free) | Cloudflare |
+| Worker logs | 3 days (Cloudflare Workers Logs on Free); ScamCam's own events only, with invocation logs off | Cloudflare |
 | D1 point-in-time recovery | 7 days (Cloudflare Time Travel on Free) | Cloudflare; deleted data can be restored for 7 days |
 
 Data may be kept longer only when a source's license, an active security investigation, or the law requires it.

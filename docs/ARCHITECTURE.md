@@ -8,7 +8,7 @@ Browser ──HTTPS──> Cloudflare edge ──> one Worker "scamcam"
                                          └── /api/*  Hono app (Zod, OpenAPI)
                                                ├── D1 "scamcam"     operational data and the hashed Phishing.Database copy
                                                ├── Rate limiting bindings (API and scans)
-                                               ├── Named cache "scamcam-lookups"  provider answers under hashed keys
+                                               ├── Worker memory, then named cache "scamcam-lookups"  provider answers under hashed keys
                                                ├── Workers AI (Qwen3 30B A3B)     only for messages the rules cannot decide
                                                └── POST /api/v1/scans -> src/engine: passive lookups only
                                                    (Turnstile, Safe Browsing hash prefixes, URLhaus host,
@@ -19,6 +19,18 @@ GitHub Actions (daily) ──> Phishing.Database list ──> scripts/domain-lis
 
 Only paths under `/api/*` invoke the Worker (`run_worker_first`). Everything else is served as a static asset, which
 Cloudflare does not count against the Workers request quota.
+
+### Free plan limits per request
+
+On the Workers Free plan each request gets 10 ms of CPU time and 50 subrequests, and outside fetches, D1 queries, and
+Cache API calls all count toward the 50. A scan stays within both:
+
+- The worst crafted inputs take under 1 ms of analysis, because parsing time grows in step with input length.
+- Outside lookups are capped (one Safe Browsing request, and at most 3 hosts each for DNS, RDAP, and URLhaus), Safe
+  Browsing answers are kept per hash prefix in the Worker's memory, other answers are checked in memory before the
+  shared cache, and a request may make at most 24 shared cache calls. A message with 20 links uses 43 subrequests
+  (12 fetches, 22 cache calls, 9 queries); a repeated scan in the same Worker instance makes no outside calls.
+- The daily cleanup shares one budget of 24 delete batches across all tables, so a run stays under 35 queries.
 
 ## Repository layout
 
@@ -49,7 +61,7 @@ Cloudflare does not count against the Workers request quota.
 | D1 | Free, SQL, migrations, 7-day Time Travel. Repositories isolate SQL so PostgreSQL stays possible | KV only (no queries), external Postgres (cost, another vendor) |
 | Workers rate limiting binding | No storage writes per request, no cost found in the docs | D1 counters (a write per request), WAF rule (Free plan allows one IP rule) |
 | `tldts` for the Public Suffix List | MIT, maintained, fast, includes private suffixes such as pages.dev | `psl` (slower releases), a hand-made suffix list (wrong for multi-part endings) |
-| Named Cache API cache for provider answers | Free, no write quota, expiry through `Cache-Control`, kept apart from the site's page cache; keys are hashes on the site's own origin | KV (1,000 writes a day on Free), D1 (a write per lookup) |
+| Named Cache API cache for provider answers, behind the Worker's memory | Free, no write quota, expiry through `Cache-Control`, kept apart from the site's page cache; keys are hashes on the site's own origin. Memory comes first because every Cache API call counts toward the 50 subrequests a request may make on the Free plan, so Safe Browsing's many per-prefix answers stay in memory only | KV (1,000 writes a day on Free), D1 (a write per lookup) |
 | Hashed Phishing.Database shards in D1, built by GitHub Actions | A daily sync writes about 1,025 rows and a check reads one; the 11 MB list is far too much for a Worker's 10 ms of CPU on Free | One row per domain (about 500,000 writes per refresh), KV, static assets (stale between deploys) |
 | Workers AI with Qwen3 30B A3B for unclear messages | Free allocation, Apache 2.0, caught 80 percent of scams in the evaluation sets with no false alarms, about 2.1 neurons a call | Granite 4.0 Micro (cheaper, more false alarms), larger models (5 to 10 times the neurons) |
 | Remote bindings off in tests and CI | Tests use a fake model and CI has no Cloudflare login; the local dev server still reaches the real model | Running CI against a real account |
@@ -109,7 +121,9 @@ reputation of verdicts, and the operator's Cloudflare account.
 | Prompt injection | A message tells the AI to report "safe" or to say something else | The AI runs only when the rules found nothing; invisible characters are removed first; text aimed at checkers skips the AI and raises a warning; the message is marked as untrusted data between markers that the message cannot contain; only one known label is accepted; a label can add one warning but never lower a result; the verdict is computed from evidence. Full mapping in `OWASP_LLM_TOP_10.md` |
 | Hidden characters | Zero-width characters split "free nitro" past filters, or a direction control makes `photo[U+202E]gpj.exe` look like a picture | Removed before analysis, display, and the AI, and reported as a warning |
 | Poisoned community list | A legitimate domain is added to Phishing.Database | Matches never confirm, official sites are never looked up, shared services are context only, the list is size-checked and pinned to a commit |
-| Quota exhaustion (denial of wallet or service) | Bots flood scans to burn D1, AI, or provider quotas | Rate limiting, Turnstile on scans, cached results, daily caps (AI capped at 2,000 calls, refused when usage cannot be counted), paused failing sources, honest "temporarily unavailable" responses |
+| Quota exhaustion (denial of wallet or service) | Bots flood scans to burn D1, AI, or provider quotas | Rate limiting (per visitor and per IPv6 /64, at each Cloudflare location), Turnstile on scans, cached results, daily caps counted for the whole service (AI capped at 2,000 calls, refused when usage cannot be counted), paused failing sources, honest "temporarily unavailable" responses |
+| CPU and subrequest exhaustion | A crafted message makes parsing slow, or many links push a request past the Free plan's 50 subrequests | Parsing that grows in step with input length (tested on 31 crafted inputs and 300 fuzzed ones), capped lookups, memory before the shared cache, at most 24 shared cache calls per request, provider answers read with size caps |
+| Log and header injection | A client sends its own request ID or crafted headers to plant text in logs | The Worker makes its own request IDs, logs only fixed fields, and Cloudflare's per-request invocation logs are off |
 | Abuse of verdicts | Someone uses ScamCam to label a competitor a scam | Signal-based wording, sources and dates shown, dispute path, no accusations against individuals |
 | Data exposure | Private message or secret-bearing URL stored or cached | No raw content storage; no shared caching of private submissions; hashed indicators only |
 | Supply chain | A compromised npm package | Exact versions, lockfile, audit, Dependabot, few dependencies |

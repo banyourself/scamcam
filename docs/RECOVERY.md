@@ -1,0 +1,118 @@
+# Recovery runbook
+
+**Nothing is deployed yet.** Every command below with `--remote`, and every change in the Cloudflare dashboard, acts on
+the live service and needs Kevin's approval. The local drill at the end touches nothing outside this PC.
+
+## What ScamCam keeps, and what losing it costs
+
+ScamCam stores no messages, links, IP addresses, or accounts, so there is no user data to recover and no one to
+notify if the database is lost.
+
+| Table | Holds | If it is lost |
+|---|---|---|
+| `provider_usage` | Calls per provider per day, kept 35 days | Today's counts restart at zero, so one day's free quota could be used twice; each source is still capped |
+| `maintenance_runs` | Run history and reports, kept 90 days | History only |
+| `error_events` | Error type and route, kept 7 days | Debugging history only |
+| `app_state` | Whether optional writes are paused | The next daily task sets it again |
+| `domain_lists`, `domain_list_shards` | The hashed Phishing.Database copy | Rerun the sync (about a minute); until then reports say the list is not connected |
+| `d1_migrations` | Which migrations ran | Apply the migrations again |
+
+## Scenarios
+
+### A bad deploy
+
+1. `npx wrangler deployments list` shows recent versions.
+2. `npx wrangler rollback <version-id>` serves the previous version again. The database is not changed.
+
+### A bad migration or damaged data
+
+D1 Time Travel keeps restore points for the last 7 days on the Free plan (30 days on Paid).
+
+1. `npx wrangler d1 time-travel info scamcam` shows the current bookmark.
+2. `npx wrangler d1 time-travel restore scamcam --timestamp=<unix seconds>` restores to that moment. Cloudflare's docs
+   call this a destructive operation: it overwrites the database in place and cancels queries that are running.
+3. `npx wrangler d1 migrations list scamcam --remote` should report nothing to apply.
+
+### Starting over
+
+If the database is gone or not worth restoring:
+
+1. `npx wrangler d1 create scamcam` and put the new ID in `wrangler.jsonc`.
+2. `npx wrangler d1 migrations apply scamcam --remote`.
+3. `npm run build && npx wrangler deploy`.
+4. Run the "Phishing.Database sync" workflow by hand.
+
+### A portable copy before a risky change
+
+`npx wrangler d1 export scamcam --remote --output backup.sql` writes the schema and data, and
+`npx wrangler d1 execute <database> --remote --file backup.sql` loads it into an empty database. Time Travel is faster
+for going back; an export is a copy that does not depend on the original database.
+
+### A leaked secret
+
+Replace the secret first, then remove the old one, so checking keeps working.
+
+| Secret | Replace | Then |
+|---|---|---|
+| `TURNSTILE_SECRET_KEY` | Rotate the secret in the Turnstile widget settings, then `npx wrangler secret put TURNSTILE_SECRET_KEY` | Check that a scan works |
+| `SAFE_BROWSING_API_KEY` | Create a new key restricted to the Safe Browsing API, then `npx wrangler secret put SAFE_BROWSING_API_KEY` | Delete the old key in Google Cloud |
+| `URLHAUS_AUTH_KEY` | Create a new Auth-Key at abuse.ch, then `npx wrangler secret put URLHAUS_AUTH_KEY` | Revoke the old key |
+| `CLOUDFLARE_D1_TOKEN` (GitHub) | Roll the token in the Cloudflare dashboard and update the GitHub secret | Rerun the sync workflow |
+
+Then read the usage section of the next weekly report for calls that do not match normal traffic.
+
+### A provider is down or out of quota
+
+Nothing needs to be done. A source pauses for a minute after three failures in a row, a daily budget stops calls to
+that source, and reports list it under "not checked". To switch the AI step off, set `AI_MODE` to `off` and deploy.
+
+### An abuse spike
+
+Turnstile and the scan limit (10 a minute per visitor at each Cloudflare location) come first, and the daily budgets
+cap provider use for the whole service. Limits can be lowered in `wrangler.jsonc` and deployed. Any WAF rule or zone
+setting would change `kevinle.tech` and needs Kevin's approval.
+
+### The list sync fails
+
+The workflow fails visibly in GitHub Actions and can be rerun by hand. Reports stop using a copy older than 3 days,
+the weekly report raises `phishing_list_stale`, and the daily cleanup deletes a copy 7 days after its last sync. A sync
+that stops partway leaves a mix of old and new shards that still answers correctly (tested).
+
+### Storage is nearly full
+
+Maintenance raises `storage_near_soft_limit` at 80 percent of `STORAGE_SOFT_LIMIT_BYTES` (80 MB), pauses optional
+writes at the limit, and resumes them when cleanup frees space.
+
+## Alerts
+
+Daily and weekly maintenance write a JSON report to `maintenance_runs.detail_json` and log one
+`{"event":"alert",...}` line per alert. Workers Logs keep these for 3 days on the Free plan; the run history keeps
+them for 90 days.
+
+| Alert | Meaning |
+|---|---|
+| `safe_browsing_near_daily_limit`, `urlhaus_near_daily_limit`, `workers_ai_near_daily_limit` | A day used at least 80 percent of that source's daily budget (daily report: today and yesterday; weekly report: the last 7 days) |
+| `storage_near_soft_limit`, `storage_over_soft_limit` | The database is at 80 percent of the soft limit, or past it with optional writes paused |
+| `maintenance_failed` | A maintenance run failed in the last day (daily) or week (weekly), or the current run failed |
+| `maintenance_stuck` | A run has said "running" for more than 6 hours |
+| `cleanup_backlog_<table>` | The daily cleanup used its budget of 24 delete batches (500 rows each, shared by all tables) before it finished that table; the rest is deleted on the next runs |
+| `errors_high` | At least 50 errors in the last 7 days |
+| `phishing_list_stale` | The list copy is more than 3 days old |
+| `rows_missing_expiry` | A row has no expiry, so cleanup would never delete it |
+
+To read the latest reports: `npx wrangler d1 execute scamcam --remote --command "SELECT task, status, finished_at,
+detail_json FROM maintenance_runs ORDER BY id DESC LIMIT 5"`.
+
+## Drill
+
+`npm run test:recovery` runs `scripts/recovery-drill.ts` on two throwaway local databases. It applies every
+migration to the first, adds sample rows and a 20,000-entry list, exports it with `wrangler d1 export`, loads the
+export into the second, and compares every table and the migration history. CI runs it on every push.
+
+| Where | Export | Restore | Result |
+|---|---|---|---|
+| Windows PC, 2026-10-05 | 991 ms, 469 KB | 2,041 ms | All 7 tables matched; no migrations pending |
+| GitHub Actions (Ubuntu), 2026-10-05 | 1,453 ms, 469 KB | 2,860 ms | All 7 tables matched; no migrations pending |
+
+After deployment, with Kevin: run `npx wrangler d1 time-travel info scamcam` once to confirm that restore points
+exist.
