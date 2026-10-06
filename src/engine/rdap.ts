@@ -36,10 +36,6 @@ function isAnswer(value: unknown): value is RdapAnswer {
   return AnswerSchema.safeParse(value).success;
 }
 
-function isBackoff(value: unknown): value is true {
-  return value === true;
-}
-
 async function fetchBootstrap(fetcher: typeof fetch): Promise<ServicePairs | null> {
   try {
     const response = await fetcher(rdapBootstrapUrl, { signal: AbortSignal.timeout(4000) });
@@ -113,7 +109,7 @@ export async function lookupRdap(domain: string, fetcher: typeof fetch, lookups:
     return hit;
   }
   const backoffKey = await cacheKey("rdap-backoff", base);
-  if (await readCached(lookups, backoffKey, isBackoff)) {
+  if (recallFromMemory(lookups, backoffKey) === true) {
     return { status: "unavailable" };
   }
   const source = `rdap:${base}`;
@@ -128,7 +124,7 @@ export async function lookupRdap(domain: string, fetcher: typeof fetch, lookups:
       });
       if (response.status === 429) {
         recordOutcome(lookups, source, false);
-        await writeCached(lookups, backoffKey, true, backoffSeconds(response.headers.get("retry-after")));
+        rememberInMemory(lookups, backoffKey, true, backoffSeconds(response.headers.get("retry-after")));
         return { status: "unavailable" };
       }
       if (response.status === 404) {

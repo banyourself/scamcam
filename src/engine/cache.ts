@@ -18,6 +18,7 @@ export interface Lookups {
   cache: LookupCache;
   state: LookupState;
   clock: () => number;
+  sharedCacheCalls?: { remaining: number };
 }
 
 interface Envelope {
@@ -28,7 +29,9 @@ interface Envelope {
 
 const breakerThreshold = 3;
 const breakerCooldownMs = 60_000;
-const maxMemoryEntries = 200;
+const maxMemoryEntries = 5000;
+
+export const sharedCacheCallsPerRequest = 24;
 
 export function createLookupState(): LookupState {
   return { inflight: new Map(), breakers: new Map(), memory: new Map() };
@@ -73,7 +76,26 @@ function isEnvelope(value: unknown): value is Envelope {
   return typeof value === "object" && value !== null && (value as Envelope).v === 1 && typeof (value as Envelope).expiresAt === "number" && "data" in value;
 }
 
+function takeSharedCacheCall(lookups: Lookups): boolean {
+  const allowance = lookups.sharedCacheCalls;
+  if (!allowance) {
+    return true;
+  }
+  if (allowance.remaining <= 0) {
+    return false;
+  }
+  allowance.remaining -= 1;
+  return true;
+}
+
 export async function readCached<T>(lookups: Lookups, key: string, isValue: (value: unknown) => value is T): Promise<T | undefined> {
+  const remembered = recallFromMemory(lookups, key);
+  if (remembered !== undefined) {
+    return isValue(remembered) ? remembered : undefined;
+  }
+  if (!takeSharedCacheCall(lookups)) {
+    return undefined;
+  }
   let stored: unknown;
   try {
     stored = await lookups.cache.get(key);
@@ -83,12 +105,17 @@ export async function readCached<T>(lookups: Lookups, key: string, isValue: (val
   if (!isEnvelope(stored) || stored.expiresAt <= lookups.clock() || !isValue(stored.data)) {
     return undefined;
   }
+  rememberInMemory(lookups, key, stored.data, (stored.expiresAt - lookups.clock()) / 1000);
   return stored.data;
 }
 
 export async function writeCached(lookups: Lookups, key: string, value: unknown, ttlSeconds: number): Promise<void> {
   const seconds = Math.floor(ttlSeconds);
   if (!(seconds > 0)) {
+    return;
+  }
+  rememberInMemory(lookups, key, value, seconds);
+  if (!takeSharedCacheCall(lookups)) {
     return;
   }
   const envelope: Envelope = { v: 1, expiresAt: lookups.clock() + seconds * 1000, data: value };

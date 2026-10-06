@@ -1,4 +1,4 @@
-import { cleanupBatchSize, cleanupMaxBatchesPerTable, expiresAfter, nowInSeconds, retentionSeconds } from "../retention";
+import { cleanupBatchSize, expiresAfter, nowInSeconds, retentionSeconds } from "../retention";
 
 export const retentionTables = ["error_events", "maintenance_runs", "provider_usage", "domain_lists", "domain_list_shards"] as const;
 export type RetentionTable = (typeof retentionTables)[number];
@@ -30,20 +30,25 @@ export async function finishMaintenanceRun(
     .run();
 }
 
-export async function deleteExpiredRows(db: D1Database, table: RetentionTable, now = nowInSeconds()): Promise<number> {
+export async function deleteExpiredRows(
+  db: D1Database,
+  table: RetentionTable,
+  maxBatches: number,
+  now = nowInSeconds(),
+): Promise<{ deleted: number; batches: number; finished: boolean }> {
   const statement = db
     .prepare(`DELETE FROM ${table} WHERE rowid IN (SELECT rowid FROM ${table} WHERE expires_at <= ?1 LIMIT ?2)`)
     .bind(now, cleanupBatchSize);
   let deleted = 0;
-  for (let batch = 0; batch < cleanupMaxBatchesPerTable; batch += 1) {
+  for (let batch = 1; batch <= maxBatches; batch += 1) {
     const result = await statement.run();
     const changes = result.meta.changes ?? 0;
     deleted += changes;
     if (changes < cleanupBatchSize) {
-      break;
+      return { deleted, batches: batch, finished: true };
     }
   }
-  return deleted;
+  return { deleted, batches: maxBatches, finished: false };
 }
 
 export async function countRows(db: D1Database, table: RetentionTable): Promise<number> {

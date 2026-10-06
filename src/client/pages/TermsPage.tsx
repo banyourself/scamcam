@@ -8,7 +8,7 @@ export function TermsPage() {
       <p>
         ScamCam is a free, noncommercial tool that gives automated, informational assessments of links and messages.
         Results are opinions based on the evidence available at the time. They are not guarantees, legal findings, or
-        statements about anyone&apos;s intent.
+        statements about anyone&apos;s intent. Some checks use an AI model, which can be wrong.
       </p>
 
       <h2>No warranty</h2>
@@ -22,6 +22,12 @@ export function TermsPage() {
       <p>
         Use ScamCam lawfully and follow the <Link to="/acceptable-use">acceptable use policy</Link>. Do not submit
         content you are not allowed to share, and do not paste passwords or other secrets.
+      </p>
+
+      <h2>Information from other sources</h2>
+      <p>
+        Results include information from Google Safe Browsing, URLhaus, Phishing.Database, domain registries, and DNS.
+        ScamCam does not control these sources, and they can be incomplete, out of date, or wrong.
       </p>
 
       <h2>Corrections</h2>
@@ -44,6 +50,11 @@ export function TermsPage() {
 
       <h2>Governing law</h2>
       <p>These terms are governed by the laws of the State of California, United States.</p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions about these terms go to <a href="mailto:kevin@kevinle.tech">kevin@kevinle.tech</a>.
+      </p>
     </DocumentPage>
   );
 }

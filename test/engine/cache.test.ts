@@ -43,10 +43,38 @@ describe("lookup cache", () => {
     expect(await readCached(lookups, "a", isAnything)).toBeUndefined();
   });
 
-  it("keeps working when the cache itself fails", async () => {
-    const lookups = { ...memoryLookups(), cache: { get: async () => Promise.reject(new Error("down")), put: async () => Promise.reject(new Error("down")) } };
+  it("keeps answering from memory when the shared cache fails", async () => {
+    const broken = { get: async () => Promise.reject(new Error("down")), put: async () => Promise.reject(new Error("down")) };
+    const lookups = { ...memoryLookups(), cache: broken };
     await writeCached(lookups, "a", 1, 60);
-    expect(await readCached(lookups, "a", isAnything)).toBeUndefined();
+    expect(await readCached(lookups, "a", isAnything)).toBe(1);
+    expect(await readCached({ ...memoryLookups(), cache: broken }, "a", isAnything)).toBeUndefined();
+  });
+
+  it("stops calling the shared cache once a request has used its allowance", async () => {
+    let calls = 0;
+    const counting = memoryLookupCache();
+    const lookups = {
+      ...memoryLookups(),
+      cache: {
+        get: (key: string) => {
+          calls += 1;
+          return counting.get(key);
+        },
+        put: (key: string, value: unknown, ttl: number) => {
+          calls += 1;
+          return counting.put(key, value, ttl);
+        },
+      },
+      sharedCacheCalls: { remaining: 3 },
+    };
+    for (const key of ["a", "b", "c", "d", "e"]) {
+      await writeCached(lookups, key, key, 60);
+    }
+    expect(calls).toBe(3);
+    expect(await readCached(lookups, "e", isAnything)).toBe("e");
+    expect(await readCached({ ...lookups, state: memoryLookups().state }, "e", isAnything)).toBeUndefined();
+    expect(calls).toBe(3);
   });
 
   it("drops the oldest entry when the memory cache is full", async () => {

@@ -18,7 +18,7 @@ import { budgetedProviders, dailyLimit, providerUsageSince, usageDay } from "../
 import type { AppBindings } from "../env";
 import { domainListStatus } from "../repositories/domain-lists";
 import { logEvent } from "../logging";
-import { cleanupBatchSize, cleanupMaxBatchesPerTable, nowInSeconds } from "../retention";
+import { cleanupMaxBatchesPerRun, nowInSeconds } from "../retention";
 
 export const cronSchedule = {
   daily: "17 3 * * *",
@@ -107,14 +107,21 @@ function runAlerts(failedRuns: number, stuckRuns: number): string[] {
 
 export async function runDailyMaintenance(env: AppBindings): Promise<MaintenanceReport> {
   const deleted: Record<string, number> = {};
-  for (const table of retentionTables) {
-    deleted[table] = await deleteExpiredRows(env.DB, table);
+  const backlog: string[] = [];
+  let batchesUsed = 0;
+  for (const [index, table] of retentionTables.entries()) {
+    const laterTables = retentionTables.length - index - 1;
+    const result = await deleteExpiredRows(env.DB, table, Math.max(1, cleanupMaxBatchesPerRun - batchesUsed - laterTables));
+    deleted[table] = result.deleted;
+    batchesUsed += result.batches;
+    if (!result.finished) {
+      backlog.push(`cleanup_backlog_${table}`);
+    }
   }
   const storage = await checkStorage(env);
   const stuckRuns = await staleRunningTasks(env.DB, alertThresholds.stuckRunSeconds);
   const failedRuns = await failedRunsSince(env.DB, nowInSeconds() - daySeconds);
   const usage = await usageSummary(env, 2);
-  const backlog = retentionTables.filter((table) => deleted[table] === cleanupBatchSize * cleanupMaxBatchesPerTable).map((table) => `cleanup_backlog_${table}`);
   const alerts = [...storageAlerts(storage), ...usageAlerts(usage), ...runAlerts(failedRuns, stuckRuns), ...backlog];
   return { deleted, storage, stuckRuns, failedRuns, usage, alerts };
 }

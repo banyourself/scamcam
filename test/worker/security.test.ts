@@ -1,9 +1,14 @@
 import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { TextModel } from "../../src/engine/ai-review";
 import { memoryLookupCache } from "../../src/engine/cache";
+import { buildShards, domainListKeepSeconds } from "../../src/engine/domain-list";
 import { createApp } from "../../src/worker/app";
 import { rateLimitKey } from "../../src/worker/middleware/rate-limit";
+import { domainListStatements } from "../../src/worker/repositories/domain-list-sql";
+import { nowInSeconds } from "../../src/worker/retention";
 import { fakeNetwork } from "../engine/fake-network";
+import { countingCache, countingDatabase, freePlanSubrequestLimit } from "./counting";
 
 const origin = "https://scamcam.kevinle.tech";
 let nextAddress = 1;
@@ -99,6 +104,20 @@ describe("API abuse and cross-origin requests", () => {
     }
   });
 
+  it("always makes its own request ID instead of trusting one sent by the client", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      const { response } = await send("/api/v1/health", { headers: { "X-Request-Id": "chosen-by-the-client_123" } });
+      const id = response.headers.get("X-Request-Id") ?? "";
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      const lines = log.mock.calls.map(([line]) => String(line)).join(" ");
+      expect(lines).toContain(id);
+      expect(lines).not.toContain("chosen-by-the-client");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("treats SQL in a message as plain text", async () => {
     const before = await env.DB.prepare("SELECT COUNT(*) AS total FROM sqlite_master WHERE type = 'table'").first<{ total: number }>();
     const { response } = await send("/api/v1/scans", json({ content: "hi'); DROP TABLE provider_usage; -- and \" OR 1=1 --", turnstileToken: "t" }));
@@ -114,3 +133,48 @@ describe("API abuse and cross-origin requests", () => {
     expect(body.length).toBeLessThan(300);
   });
 });
+
+describe("Workers Free plan limits", () => {
+  it("keeps a message with 20 links and every source switched on under 50 subrequests", async () => {
+    const now = nowInSeconds();
+    const statements = domainListStatements({
+      list: "phishing_database",
+      version: "limits-test",
+      syncedAt: now,
+      expiresAt: now + domainListKeepSeconds,
+      shards: await buildShards(["listed-scam.example"]),
+    });
+    await env.DB.batch(statements.map((statement) => env.DB.prepare(statement)));
+    try {
+      const queries = { queries: 0 };
+      const { cache, counter } = countingCache();
+      const fake = fakeNetwork({ safeBrowsing: () => ({ cacheSeconds: 300 }) });
+      const model: TextModel = {
+        async run() {
+          return { response: "none" };
+        },
+      };
+      const app = createApp({ fetcher: fake.fetcher, lookupCache: cache, aiModel: model });
+      const links = Array.from({ length: 20 }, (_, index) => `https://login.secure${index}.account-check${index}.example/a/b/c/d?x=${index}`);
+      const bindings = { ...env, DB: countingDatabase(env.DB, queries), SAFE_BROWSING_API_KEY: "k", URLHAUS_AUTH_KEY: "k", AI_MODE: "inconclusive" };
+      const ctx = createExecutionContext();
+      const response = await app.fetch(
+        new Request(`${origin}/api/v1/scans`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Origin: origin, "CF-Connecting-IP": "192.0.2.250" },
+          body: JSON.stringify({ content: `my friend sent these, are they ok? ${links.join(" ")}`, turnstileToken: "t" }),
+        }),
+        bindings,
+        ctx,
+      );
+      await waitOnExecutionContext(ctx);
+      expect(response.status).toBe(200);
+      const used = { fetches: fake.requests.length, cacheCalls: counter.calls, queries: queries.queries };
+      console.log(JSON.stringify({ subrequestsForTwentyLinks: used }));
+      expect(used.fetches + used.cacheCalls + used.queries, JSON.stringify(used)).toBeLessThan(freePlanSubrequestLimit);
+    } finally {
+      await env.DB.batch([env.DB.prepare("DELETE FROM domain_list_shards"), env.DB.prepare("DELETE FROM domain_lists")]);
+    }
+  });
+});
+

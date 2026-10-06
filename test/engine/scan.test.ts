@@ -100,6 +100,25 @@ describe("scanContent", () => {
     expect(report.evidence[0]!.source.name).toBe("URLhaus (abuse.ch)");
   });
 
+  it("links only to URLhaus's own pages, whatever reference URLhaus sends", async () => {
+    const references = {
+      "https://urlhaus.abuse.ch/host/malware.example/": "https://urlhaus.abuse.ch/host/malware.example/",
+      "javascript:alert(1)": undefined,
+      "https://evil.example/urlhaus": undefined,
+      "http://urlhaus.abuse.ch/host/malware.example/": undefined,
+      "https://user@urlhaus.abuse.ch/": undefined,
+    };
+    for (const [reference, expected] of Object.entries(references)) {
+      const { scan } = options(
+        { urlhaus: { query_status: "ok", urlhaus_reference: reference, url_count: "1", urls: [{ url: "https://malware.example/payload.exe", url_status: "online" }] } },
+        { urlhausKey: "key" },
+      );
+      const report = await scanContent("https://malware.example/payload.exe", scan);
+      expect(ScanReportSchema.safeParse(report).success).toBe(true);
+      expect(report.evidence.find((item) => item.source.name === "URLhaus (abuse.ch)")?.source.url).toBe(expected);
+    }
+  });
+
   it("does not let URLhaus reports on shared hosts condemn every link", async () => {
     const { scan } = options(
       { urlhaus: { query_status: "ok", url_count: "900", urls: [{ url: "https://foo.pages.dev/other.exe", url_status: "online" }] } },

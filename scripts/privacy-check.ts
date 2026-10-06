@@ -104,6 +104,19 @@ async function checkHeaders(): Promise<string[]> {
     }
     failures.push(...headerProblems(path, response.headers, pageHeaders));
   }
+  const securityTxt = await fetch(`${base}/.well-known/security.txt`);
+  const securityText = await securityTxt.text();
+  if (!(securityTxt.headers.get("content-type") ?? "").startsWith("text/plain")) {
+    failures.push(`/.well-known/security.txt: served as ${securityTxt.headers.get("content-type")}`);
+  }
+  if (!/^Contact: mailto:/m.test(securityText) || !/^Policy: https:\/\/scamcam\.kevinle\.tech\/disclosure$/m.test(securityText)) {
+    failures.push("/.well-known/security.txt: missing Contact or the disclosure Policy link");
+  }
+  const legacy = await fetch(`${base}/security.txt`, { redirect: "manual" });
+  await legacy.arrayBuffer();
+  if (legacy.status !== 301 || legacy.headers.get("location") !== "/.well-known/security.txt") {
+    failures.push(`/security.txt: expected a permanent redirect to /.well-known/security.txt, got ${legacy.status}`);
+  }
   const apiRequests: [string, RequestInit][] = [
     ["/api/v1/health", {}],
     ["/api/v1/openapi.json", {}],
@@ -115,7 +128,7 @@ async function checkHeaders(): Promise<string[]> {
     await response.arrayBuffer();
     failures.push(...headerProblems(`${init.method ?? "GET"} ${path}`, response.headers, apiHeaders));
   }
-  console.log(`${failures.length > 0 ? "FAIL" : "pass"}  security headers on ${staticPaths.length} static paths and ${apiRequests.length} API answers`);
+  console.log(`${failures.length > 0 ? "FAIL" : "pass"}  security headers on ${staticPaths.length} static paths and ${apiRequests.length} API answers, and security.txt`);
   return failures;
 }
 

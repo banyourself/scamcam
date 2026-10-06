@@ -4,6 +4,7 @@ import worker from "../../src/worker/index";
 import { cronSchedule, runMaintenance, taskForCron } from "../../src/worker/maintenance/tasks";
 import { writesArePaused } from "../../src/worker/repositories/app-state";
 import { usageDay } from "../../src/worker/repositories/provider-usage";
+import { countingDatabase, freePlanSubrequestLimit } from "./counting";
 import { nowInSeconds } from "../../src/worker/retention";
 
 async function insertErrorEvent(expiresAt: number) {
@@ -199,3 +200,26 @@ describe("monitoring and alerts", () => {
     expect(lines.join(" ")).not.toContain("simulated database failure");
   });
 });
+
+describe("Workers Free plan limits for maintenance", () => {
+  it("stays under 50 database queries a run even when every table has a backlog", async () => {
+    const past = nowInSeconds() - 60;
+    const fill = (sql: string, rows: number) =>
+      env.DB.prepare(sql.replace("{rows}", String(rows))).bind(past).run();
+    await fill("INSERT INTO error_events (code, route, created_at, expires_at) WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < {rows}) SELECT 'Error', '/x', ?1, ?1 FROM n", 9000);
+    await fill("INSERT INTO maintenance_runs (task, status, started_at, finished_at, expires_at) WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < {rows}) SELECT 'daily', 'succeeded', ?1, ?1, ?1 FROM n", 3000);
+    await fill("INSERT INTO provider_usage (provider, day, calls, expires_at) WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < {rows}) SELECT 'urlhaus', 'old-' || i, 1, ?1 FROM n", 3000);
+    await fill("INSERT INTO domain_list_shards (list, shard, version, entries, hashes, expires_at) WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i + 1 FROM n WHERE i < {rows} - 1) SELECT 'phishing_database', i, 'old', 0, X'', ?1 FROM n", 1024);
+    const counter = { queries: 0 };
+    await runMaintenance("daily", { ...env, DB: countingDatabase(env.DB, counter) });
+    expect(counter.queries).toBeLessThan(freePlanSubrequestLimit);
+    const daily = await detailOf("daily");
+    expect(daily.deleted).toEqual({ error_events: 9000, maintenance_runs: 1000, provider_usage: 500, domain_lists: 0, domain_list_shards: 500 });
+    expect(daily.alerts).toEqual(["cleanup_backlog_maintenance_runs", "cleanup_backlog_provider_usage", "cleanup_backlog_domain_list_shards"]);
+    const weekly = { queries: 0 };
+    await runMaintenance("weekly", { ...env, DB: countingDatabase(env.DB, weekly) });
+    expect(weekly.queries).toBeLessThan(freePlanSubrequestLimit);
+    await env.DB.batch([env.DB.prepare("DELETE FROM domain_list_shards"), env.DB.prepare("DELETE FROM provider_usage")]);
+  });
+});
+

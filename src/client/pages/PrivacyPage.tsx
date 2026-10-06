@@ -58,7 +58,7 @@ export function PrivacyPage() {
           <tr>
             <td>The name of the website in a link, such as example.com</td>
             <td>To look up how old the domain is (domain registries), whether it exists (Cloudflare DNS), and whether it is known for malware (URLhaus)</td>
-            <td>The answers are kept for 15 minutes to a day under a scrambled key, so the name itself is not stored</td>
+            <td>The answers are kept for 1 minute to 1 day under a scrambled key, so the name itself is not stored</td>
           </tr>
           <tr>
             <td>Your IP address</td>
@@ -66,9 +66,9 @@ export function PrivacyPage() {
             <td>Not saved by ScamCam</td>
           </tr>
           <tr>
-            <td>Basic request records (time, page, result code)</td>
-            <td>To fix problems</td>
-            <td>3 days in Cloudflare logs, with no IP address or link</td>
+            <td>ScamCam&apos;s own records of each request (time, page, result code, how long it took) and of each AI check (its one-word answer and size)</td>
+            <td>To fix problems and stay within free limits</td>
+            <td>3 days in Cloudflare Workers Logs. They contain no IP address, message, or link, and Cloudflare&apos;s own per-request logs are turned off</td>
           </tr>
           <tr>
             <td>Error type and page</td>
@@ -107,11 +107,31 @@ export function PrivacyPage() {
         </li>
       </ul>
 
+      <h2>Tracking by other companies</h2>
+      <p>
+        No other company can use ScamCam to follow what you do over time or across other websites. Cloudflare processes
+        your IP address and some browser signals to deliver the site and run the bot check, under Cloudflare&apos;s own
+        privacy policy.
+      </p>
+
       <h2>Cookies and Do Not Track</h2>
       <p>
         ScamCam sets no cookies of its own. Cloudflare may set strictly necessary security cookies. Your theme choice is
         saved in your browser only. ScamCam does not track you across sites, so Do Not Track signals change nothing. See
         the <Link to="/cookies">cookie policy</Link>.
+      </p>
+
+      <h2>Legal basis in the EU and UK</h2>
+      <p>
+        Checking what you submit is necessary to give you the result you asked for. Security processing, such as rate
+        limits and the bot check, relies on the legitimate interest in keeping a free service safe and available. Results
+        are automated opinions about links and messages, not decisions about you.
+      </p>
+
+      <h2>Where information is processed</h2>
+      <p>
+        Cloudflare runs ScamCam in data centers around the world, usually one near you. The lookup services listed above
+        are based in the United States, Switzerland (abuse.ch), and wherever each domain registry operates.
       </p>
 
       <h2>Your rights</h2>
@@ -123,7 +143,10 @@ export function PrivacyPage() {
       </p>
 
       <h2>Changes</h2>
-      <p>Any change will be posted here with a new date. This policy has no effective date yet because it is a draft.</p>
+      <p>
+        Any change will be posted on this page with a new date. This policy is a draft for review, so it has no effective
+        date yet. The effective date will be set when ScamCam launches.
+      </p>
     </DocumentPage>
   );
 }

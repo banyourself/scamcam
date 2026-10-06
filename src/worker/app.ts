@@ -1,13 +1,13 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { bodyLimit } from "hono/body-limit";
 import { csrf } from "hono/csrf";
-import { requestId } from "hono/request-id";
 import type { TextModel } from "../engine/ai-review";
-import { createLookupState, type LookupCache } from "../engine/cache";
+import { createLookupState, sharedCacheCallsPerRequest, type LookupCache } from "../engine/cache";
 import type { AppEnv } from "./env";
 import { apiError, handleError, handleNotFound } from "./errors";
 import { edgeLookupCache } from "./lookup-cache";
 import { rateLimitApi } from "./middleware/rate-limit";
+import { assignRequestId } from "./middleware/request-id";
 import { requestLogger } from "./middleware/request-logger";
 import { secureApiHeaders } from "./middleware/security-headers";
 import { healthRoutes } from "./routes/health";
@@ -33,7 +33,7 @@ export function createApp(options: AppOptions = {}): OpenAPIHono<AppEnv> {
     },
   });
 
-  app.use("/api/*", requestId({ limitLength: 64 }));
+  app.use("/api/*", assignRequestId);
   app.use("/api/*", secureApiHeaders);
   app.use("/api/*", requestLogger);
   app.use("/api/*", csrf());
@@ -41,7 +41,12 @@ export function createApp(options: AppOptions = {}): OpenAPIHono<AppEnv> {
   app.use("/api/*", rateLimitApi);
   app.use("/api/*", async (c, next) => {
     c.set("fetcher", fetcher);
-    c.set("lookups", { cache: options.lookupCache ?? edgeLookupCache(new URL(c.req.url).origin), state: lookupState, clock: Date.now });
+    c.set("lookups", {
+      cache: options.lookupCache ?? edgeLookupCache(new URL(c.req.url).origin),
+      state: lookupState,
+      clock: Date.now,
+      sharedCacheCalls: { remaining: sharedCacheCallsPerRequest },
+    });
     c.set("aiModel", options.aiModel ?? null);
     await next();
   });

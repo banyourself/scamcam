@@ -107,17 +107,17 @@ describe("POST /api/v1/scans", () => {
     expect(usage?.calls).toBe(2);
   });
 
-  it("reuses lookups from Cloudflare's cache across requests and counts only real provider calls", async () => {
+  it("reuses lookups from Cloudflare's cache across Worker instances and counts only real provider calls", async () => {
     const content = `https://login.cache-${crypto.randomUUID().slice(0, 8)}.example/verify`;
     const bindings = { SAFE_BROWSING_API_KEY: "test-key", URLHAUS_AUTH_KEY: "test-key" };
     const network = { safeBrowsing: () => ({ cacheSeconds: 300 }) };
-    const providerCalls = (requests: { url: string }[]) => requests.filter((request) => !request.url.includes("challenges.cloudflare.com")).length;
+    const providerCalls = (requests: { url: string }[]) => requests.filter((request) => !request.url.includes("challenges.cloudflare.com"));
     const first = await scan({ content, turnstileToken: "t" }, network, bindings, undefined, "edge");
     expect(first.response.status).toBe(200);
-    expect(providerCalls(first.fake.requests)).toBe(5);
+    expect(providerCalls(first.fake.requests)).toHaveLength(5);
     const second = await scan({ content, turnstileToken: "t" }, network, bindings, undefined, "edge");
     expect(second.response.status).toBe(200);
-    expect(providerCalls(second.fake.requests)).toBe(0);
+    expect(providerCalls(second.fake.requests).map((request) => new URL(request.url).hostname)).toEqual(["safebrowsing.googleapis.com"]);
     expect(second.fake.requests.some((request) => request.url.includes("challenges.cloudflare.com"))).toBe(true);
     const firstReport = await first.response.json<{ level: string; evidence: unknown[] }>();
     const secondReport = await second.response.json<{ level: string; evidence: unknown[] }>();
@@ -125,9 +125,36 @@ describe("POST /api/v1/scans", () => {
     expect(secondReport.evidence.length).toBe(firstReport.evidence.length);
     const usage = await env.DB.prepare("SELECT provider, calls FROM provider_usage ORDER BY provider").all<{ provider: string; calls: number }>();
     expect(usage.results).toEqual([
-      { provider: "safe_browsing", calls: 1 },
+      { provider: "safe_browsing", calls: 2 },
       { provider: "urlhaus", calls: 1 },
     ]);
+  });
+
+  it("asks no provider again when the same Worker instance repeats a scan", async () => {
+    const fake = fakeNetwork({ safeBrowsing: () => ({ cacheSeconds: 300 }) });
+    const app = createApp({ fetcher: fake.fetcher });
+    const bindings = { ...env, SAFE_BROWSING_API_KEY: "test-key", URLHAUS_AUTH_KEY: "test-key" };
+    const content = `https://login.memory-${crypto.randomUUID().slice(0, 8)}.example/verify`;
+    const send = async () => {
+      const ctx = createExecutionContext();
+      const response = await app.fetch(
+        new Request(`${origin}/api/v1/scans`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Origin: origin, "CF-Connecting-IP": `198.51.100.${nextAddress++}` },
+          body: JSON.stringify({ content, turnstileToken: "t" }),
+        }),
+        bindings,
+        ctx,
+      );
+      await waitOnExecutionContext(ctx);
+      return response;
+    };
+    const providerCalls = () => fake.requests.filter((request) => !request.url.includes("challenges.cloudflare.com")).length;
+    expect((await send()).status).toBe(200);
+    const afterFirst = providerCalls();
+    expect(fake.requests.some((request) => request.url.includes("safebrowsing.googleapis.com"))).toBe(true);
+    expect((await send()).status).toBe(200);
+    expect(providerCalls()).toBe(afterFirst);
   });
 
   it("runs the AI check on inconclusive messages and counts it against the daily AI limit", async () => {

@@ -16,7 +16,7 @@ export function SecurityPage() {
         <li>All input is validated, size limited, and treated as data, never as instructions.</li>
         <li>Requests are rate limited, and a privacy-focused bot check protects the free limits.</li>
         <li>Errors never show internal details. Secrets are never stored in code.</li>
-        <li>Dependencies are pinned, audited on every change, and updated weekly. Code is scanned for leaked secrets.</li>
+        <li>Dependencies are pinned, audited on every change, and updated weekly. Code and the built site are scanned for leaked secrets.</li>
         <li>No messages, full links, or IP addresses are stored, so there is little to leak.</li>
       </ul>
       <h2>Found a problem?</h2>

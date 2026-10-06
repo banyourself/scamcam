@@ -1,5 +1,5 @@
 import { getDomain } from "tldts";
-import { cacheKey, readCached, recordOutcome, sharedLoad, sourceIsOpen, writeCached, type Lookups } from "./cache";
+import { cacheKey, recallFromMemory, recordOutcome, rememberInMemory, sharedLoad, sourceIsOpen, type Lookups } from "./cache";
 import { readLimitedBytes } from "./limited-body";
 import { readMessage, readPackedVarints, type WireField } from "./protobuf";
 
@@ -361,8 +361,8 @@ export async function searchSafeBrowsing(links: string[], options: SafeBrowsingO
   const known = new Map<string, CachedFullHash[]>();
   const missing: string[] = [];
   for (const prefix of prefixHex.keys()) {
-    const hit = await readCached(lookups, await cacheKey("gsb-prefix", prefix), isCachedFullHashes);
-    if (hit) {
+    const hit = recallFromMemory(lookups, await cacheKey("gsb-prefix", prefix));
+    if (isCachedFullHashes(hit)) {
       known.set(prefix, hit);
     } else {
       missing.push(prefix);
@@ -387,7 +387,9 @@ export async function searchSafeBrowsing(links: string[], options: SafeBrowsingO
       for (const prefix of asked) {
         const start = prefixHex.get(prefix)!;
         const entries = [...result.threatsByHash].filter(([hash]) => hash.startsWith(start)).map(([hash, types]) => ({ hash, types }));
-        await writeCached(lookups, await cacheKey("gsb-prefix", prefix), entries, result.cacheSeconds);
+        if (result.cacheSeconds > 0) {
+          rememberInMemory(lookups, await cacheKey("gsb-prefix", prefix), entries, result.cacheSeconds);
+        }
       }
       return result;
     });

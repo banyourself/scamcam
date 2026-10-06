@@ -39,6 +39,14 @@ export interface UrlhausOptions {
   takeBudget: () => Promise<boolean>;
 }
 
+function referencePage(value: string | undefined): string | null {
+  if (!value || !URL.canParse(value)) {
+    return null;
+  }
+  const url = new URL(value);
+  return url.protocol === "https:" && url.hostname === "urlhaus.abuse.ch" && url.username === "" && url.password === "" ? url.href : null;
+}
+
 function isAnswer(value: unknown): value is UrlhausAnswer {
   return AnswerSchema.safeParse(value).success;
 }
@@ -68,7 +76,7 @@ async function queryUrlhaus(host: string, authKey: string, fetcher: typeof fetch
     return {
       status: "ok",
       listed: true,
-      reference: parsed.data.urlhaus_reference ?? null,
+      reference: referencePage(parsed.data.urlhaus_reference),
       total: Number(parsed.data.url_count ?? urls.length) || urls.length,
       onlineUrls: urls.filter((entry) => entry.url_status === "online").map((entry) => entry.url),
       threats: [...new Set(urls.map((entry) => entry.threat).filter((threat): threat is string => Boolean(threat)))],

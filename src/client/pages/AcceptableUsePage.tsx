@@ -11,6 +11,7 @@ export function AcceptableUsePage() {
         <li>Submit other people&apos;s private information, passwords, or login codes.</li>
         <li>Use results to harass, threaten, or publicly accuse a person.</li>
         <li>Attack, overload, or probe ScamCam outside the rules in the vulnerability disclosure policy.</li>
+        <li>Hide instructions in a message to steer the AI check, except when testing under the disclosure policy.</li>
         <li>Present ScamCam results as an official finding by Steam, Discord, Roblox, Microsoft, or anyone else.</li>
       </ul>
       <h2>What happens</h2>

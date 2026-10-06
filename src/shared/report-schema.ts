@@ -8,7 +8,7 @@ export const EvidenceSchema = z.object({
   signal: z.enum(["raises_risk", "lowers_risk", "neutral"]),
   title: z.string(),
   detail: z.string(),
-  source: z.object({ name: z.string(), url: z.url().optional() }),
+  source: z.object({ name: z.string(), url: z.url({ protocol: /^https$/ }).optional() }),
   checkedAt: z.iso.datetime(),
 });
 

@@ -15,6 +15,7 @@ const wrangler = JSON.parse(stripJsonComments(read("wrangler.jsonc"))) as {
   workers_dev: boolean;
   preview_urls: boolean;
   routes?: unknown;
+  observability?: { enabled?: boolean; logs?: { enabled?: boolean; invocation_logs?: boolean } };
 };
 
 test("cron triggers in wrangler.jsonc match the maintenance schedule", () => {
@@ -22,6 +23,12 @@ test("cron triggers in wrangler.jsonc match the maintenance schedule", () => {
   const daily = /daily: "([^"]+)"/.exec(tasks)?.[1];
   const weekly = /weekly: "([^"]+)"/.exec(tasks)?.[1];
   assert.deepEqual(wrangler.triggers.crons, [daily, weekly]);
+});
+
+test("Workers Logs keep only ScamCam's own events, not Cloudflare's per-request records", () => {
+  assert.equal(wrangler.observability?.enabled, true);
+  assert.equal(wrangler.observability?.logs?.enabled, true);
+  assert.equal(wrangler.observability?.logs?.invocation_logs, false);
 });
 
 test("no public deployment target is configured without approval", () => {
@@ -33,6 +40,7 @@ test("no public deployment target is configured without approval", () => {
 test("security.txt has the required fields and has not expired", () => {
   const text = read("public/.well-known/security.txt");
   assert.match(text, /^Contact: mailto:\S+@\S+$/m);
+  assert.match(text, /^Policy: https:\/\/scamcam\.kevinle\.tech\/disclosure$/m);
   const expires = /^Expires: (\S+)$/m.exec(text)?.[1];
   assert.ok(expires, "Expires is required");
   const days = (Date.parse(expires) - Date.now()) / 86_400_000;
