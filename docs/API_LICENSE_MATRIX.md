@@ -5,9 +5,9 @@ Re-check terms before enabling each integration and at least yearly.
 
 | Source | Use in ScamCam | Auth | Limits | Attribution | Caching | Privacy | Decision |
 |---|---|---|---|---|---|---|---|
-| Tesseract.js 7.0.0 and tesseract.js-core 7.0.0 | Reading text from screenshots in the visitor's browser | None | Runs on the device | Apache 2.0 license text served at `/ocr/7.0.0-2/licenses/` | Served by ScamCam with a one-year immutable cache | The image never leaves the device | **Stage 7** |
-| English model (`@tesseract.js-data/eng` 1.0.0, `4.0.0_best_int`) | Language data for Tesseract | None | 2.95 MB, downloaded once | MIT package of Tesseract's Apache 2.0 `tessdata` | Same as above | Local only | **Stage 7** |
-| jsQR 1.4.0 | Reading QR codes in screenshots | None | Runs on the device | Apache 2.0 license text served at `/ocr/7.0.0-2/licenses/` | Bundled | Local only | **Stage 7** |
+| Tesseract.js 7.0.0 and tesseract.js-core 7.0.0 | Reading text from screenshots in the visitor's browser | None | Runs on the device | Apache 2.0 license text served at `/ocr/7.0.0-2/licenses/` | Served by ScamCam with a one-year immutable cache | The image never leaves the device | **Live** since 2026-10-06 |
+| English model (`@tesseract.js-data/eng` 1.0.0, `4.0.0_best_int`) | Language data for Tesseract | None | 2.95 MB, downloaded once | MIT package of Tesseract's Apache 2.0 `tessdata` | Same as above | Local only | **Live** since 2026-10-06 |
+| jsQR 1.4.0 | Reading QR codes in screenshots | None | Runs on the device | Apache 2.0 license text served at `/ocr/7.0.0-2/licenses/` | Bundled | Local only | **Live** since 2026-10-06 |
 | Public Suffix List via `tldts` | Registrable domain, lookalike checks | None | Local | MPL-2.0 notice (list), MIT (`tldts`) | Bundled, refreshed with releases | Local only | **MVP** |
 | Google Safe Browsing v5 `hashes:search` | Known phishing, malware, unwanted software | Free Google Cloud API key | Per Cloud Console quota (no published number) | Warnings must say "Advisory provided by Google" and link to Google's advisory page | Must honor `cacheDuration`; never show a warning after the cache expires | Only 4-byte hash prefixes leave ScamCam | **MVP** (noncommercial terms fit) |
 | Cloudflare DNS over HTTPS (JSON) | NS, MX, A records, resolution failures | None | Not published | None | Respect TTL | Domain only; Cloudflare deletes logs within 25 hours | **MVP** |
@@ -31,18 +31,18 @@ Re-check terms before enabling each integration and at least yearly.
 Each source is its own module in `src/engine` with a lookup function, a timeout, and a typed result that always
 includes "unavailable". The scan orchestrator turns results into evidence, so a source can be added, replaced, or
 removed without changing the report code. Results are evidence, never the final verdict on their own. A shared
-adapter interface with per-source cache policies arrives with caching in Stage 4.
+lookup cache with per-source cache policies (`src/engine/cache.ts`) arrived with the caching work.
 
-## Implementation status (Stage 4)
+## Implementation status (October 2026)
 
 | Source | Status | Notes |
 |---|---|---|
 | Public Suffix List (`tldts` 7.4.16) | Working | Bundled; refreshed when the package is updated |
-| Google Safe Browsing v5 | Working locally with a live key (2026-10-05) | Google's phishing, malware, and unwanted software test pages are flagged live, and Google's full hashes equal ScamCam's own hashes of them. `hashes:search` answers only in binary Protocol Buffers (`application/x-protobuf`); a JSON request is refused with "Unsupported Output Format". `src/engine/protobuf.ts` decodes the answer. Capped by `SAFE_BROWSING_DAILY_LIMIT`. Reports show "Advisory provided by Google" and hedged wording |
-| URLhaus host lookup | Working locally with a live key (2026-10-05) | Sends only the hostname. Live lookups of clean hosts return "no results"; a live match has not been seen yet. Capped by `URLHAUS_DAILY_LIMIT`. Matches on shared hosts (free hosting, chat file hosts) are shown as context, never as confirmation |
+| Google Safe Browsing v5 | Working locally with a live key (2026-10-05); key set in production at launch | Google's phishing, malware, and unwanted software test pages are flagged live, and Google's full hashes equal ScamCam's own hashes of them. `hashes:search` answers only in binary Protocol Buffers (`application/x-protobuf`); a JSON request is refused with "Unsupported Output Format". `src/engine/protobuf.ts` decodes the answer. Capped by `SAFE_BROWSING_DAILY_LIMIT`. Reports show "Advisory provided by Google" and hedged wording |
+| URLhaus host lookup | Working locally with a live key (2026-10-05); key set in production at launch | Sends only the hostname. Live lookups of clean hosts return "no results"; a live match has not been seen yet. Capped by `URLHAUS_DAILY_LIMIT`. Matches on shared hosts (free hosting, chat file hosts) are shown as context, never as confirmation |
 | RDAP | Working | IANA bootstrap cached for 12 hours per Worker instance; one lookup per registrable domain; 404 means not registered; 429 and errors show as "did not respond" |
 | Cloudflare DNS over HTTPS | Working | One A-record lookup per hostname |
-| Phishing.Database | Built, switched on at deployment | The "new today" and "last hour" feeds have not changed since December 2025, so the daily sync uses `phishing-domains-ACTIVE.txt` (about 11 MB, updated several times a day) at a pinned commit. Stored as hashed shards; matches are labeled as a community list that can be wrong; MIT license credited in reports. Checked at full size on 2026-10-05: 392,063 entries, including IPv4 addresses and host names with underscores |
+| Phishing.Database | Switched on at launch (2026-10-05); the first sync loaded 392,063 entries | The "new today" and "last hour" feeds have not changed since December 2025, so the daily sync uses `phishing-domains-ACTIVE.txt` (about 11 MB, updated several times a day) at a pinned commit. Stored as hashed shards; matches are labeled as a community list that can be wrong; MIT license credited in reports. Checked at full size on 2026-10-05: 392,063 entries, including IPv4 addresses and host names with underscores |
 | Everything marked Not used or Deferred above | Unchanged | |
 
 ## AI model

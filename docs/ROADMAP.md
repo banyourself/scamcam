@@ -1,28 +1,39 @@
 # Roadmap
 
-Each stage ends with tests, a security review, and an update to `BUILD_STATE.md`. Later stages do not start
-until the current one is evaluated.
+Every feature ships with tests, a security review, and updates to [STATUS.md](STATUS.md) and
+[CHANGELOG.md](../CHANGELOG.md). A new phase starts only after the current one is stable and evaluated.
 
-| Stage | Status | Contents |
+## Live now
+
+| Feature | Live since | Contents |
 |---|---|---|
-| 0. Planning | Done | Requirements, free-tier and license research, architecture, threat model, data model, retention, costs, legal and naming risks |
-| 1. Foundation | Done locally | Repository, React and TypeScript, Worker with Hono, D1 migrations, security headers, error handling, rate limiting, Turnstile helper, scheduled cleanup, logging, CI, Codespaces |
-| 2. Website | Done locally | Evidence-room design system, landing page with gaming scam guide, scan panel with live in-browser link and redaction preview, report layout, How it works, draft Privacy, Terms, Acceptable Use, and Cookie pages, Accessibility, Security, Vulnerability Disclosure, and Contact pages, automated WCAG 2.2 AA audit |
-| 3. Detection | Done locally | Public Suffix List, URL and message analysis, gaming impersonation rules, RDAP, DNS, evidence correlation, structured reports, scan endpoint with Turnstile; Safe Browsing v5 and URLhaus connected and verified live locally; Phishing.Database moved to Stage 4 |
-| 4. Optimization | Done locally | Caching under each provider's rules, safe deduplication, paused failing sources and registry back-off, Phishing.Database sync (ready, switched on at deployment), a free Workers AI step for messages the rules cannot decide, performance and AI benchmarks; the held-out domain benchmark waits for permission to download the list |
-| 5. Security and compliance | Done locally | Security review against the OWASP API Top 10 and ASVS with 11 findings fixed, Workers Free plan limits (CPU and subrequests) measured and enforced by tests, privacy checks in a real browser and in the Worker, IPv6 and concurrency rate-limit tests, monitoring alerts, cleanup limits, a recovery runbook and backup drill, policy drafts reviewed with questions for a lawyer, disclosure contact checked (see `SECURITY_REVIEW.md` and `RECOVERY.md`) |
-| 6. Deployment | Done, live on 2026-10-05 | D1 created, Worker deployed to `scamcam.kevinle.tech`, secrets set by Kevin, Phishing.Database sync on, policies published, live checks passing, personal site unaffected (see `BUILD_STATE.md`) |
-| 7. Screenshots | Done, live on 2026-10-06 | Screenshots are read in the visitor's browser (Tesseract.js for text, jsQR for QR codes) and never uploaded; strict file checks against fake images and decompression bombs; security review in `SECURITY_REVIEW.md` |
-| 8. Share links | Done, live on 2026-10-06 | Opt-in links that work for 5, 10, or 15 minutes, encrypted with a key only the link holds, signed reports only, message text only when ticked |
+| Foundation | 2026-10-05 | Requirements, free-tier and license research, architecture, threat model, data model, retention, costs, legal and naming risks, then the repository, React and TypeScript, a Worker with Hono, D1 migrations, security headers, error handling, rate limiting, a Turnstile helper, scheduled cleanup, logging, CI, and Codespaces |
+| Website and design | 2026-10-05 | Evidence-room design system, landing page with a gaming scam guide, scan panel with a live in-browser link and redaction preview, report layout, How it works, Privacy, Terms, Acceptable use, Cookies, Accessibility, Security, Vulnerability disclosure, and Contact pages, and an automated WCAG 2.2 AA audit |
+| Detection engine | 2026-10-05 | Public Suffix List, URL and message analysis, gaming impersonation rules, Safe Browsing v5, URLhaus, RDAP, DNS, evidence correlation, structured reports, and a scan endpoint with Turnstile |
+| Caching and the Phishing.Database list | 2026-10-05 | Caching under each provider's rules, safe deduplication, paused failing sources and registry back-off, and a daily hashed copy of Phishing.Database |
+| AI step | 2026-10-05 | A free Workers AI model for messages the rules cannot decide, mapped to the OWASP Top 10 for LLM Applications 2026 |
+| Security hardening | 2026-10-05 | Review against the OWASP API Top 10 and ASVS with 11 findings fixed, Workers Free plan limits enforced by tests, privacy checks in a real browser and in the Worker, monitoring alerts, a recovery runbook and backup drill, and researched answers to the open legal questions ([SECURITY_REVIEW.md](SECURITY_REVIEW.md), [RECOVERY.md](RECOVERY.md)) |
+| Public launch | 2026-10-05 | Live at `scamcam.kevinle.tech` on Cloudflare's free plan, Phishing.Database sync on, policies published, live checks passing, personal site unaffected |
+| Screenshot reading | 2026-10-06 | Screenshots are read in the visitor's browser (Tesseract.js for text, jsQR for QR codes) and never uploaded, with strict file checks against fake images and decompression bombs |
+| Share links | 2026-10-06 | Opt-in links that work for 5, 10, or 15 minutes, encrypted with a key only the link holds, signed reports only, message text only when ticked |
 
-## After launch
+## Next
 
-1. Run one real scan by hand, since Turnstile does not finish in a headless browser.
-2. Watch the first daily and weekly maintenance reports for alerts (`RECOVERY.md`).
+### After launch
+
+1. Bring scans with links under the Free plan's CPU limit for good (see [STATUS.md](STATUS.md#open-items)).
+2. Watch the first daily and weekly maintenance reports for alerts ([RECOVERY.md](RECOVERY.md)).
 3. Close the three rule gaps from the held-out benchmark with a fresh sample from the list.
-4. Add the Live Minutes Turnstile widget to minutes.kevinle.tech.
 
-## Later phases
+The other open items, including the CPU time measurement on the Free plan, are in [STATUS.md](STATUS.md#open-items).
 
-Protect (browser extension, Discord app), Verify, and Intelligence (public API). All free and noncommercial, all
-reusing the same analysis engine, all following each platform's policies.
+### Later phases
+
+The website is the first of four phases in [PROJECT_SPEC.md](PROJECT_SPEC.md#long-term-phases):
+
+1. **Scan**: the website (live now).
+2. **Protect**: a browser extension and a Discord app reusing the same engine.
+3. **Verify**: authorized identity verification and evidence-based transaction safety.
+4. **Intelligence**: a free threat intelligence API for communities and compatible tools.
+
+All of them stay free and noncommercial, reuse the same analysis engine, and follow each platform's policies.

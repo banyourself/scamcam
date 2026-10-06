@@ -507,7 +507,7 @@ async function checkLiveApi(): Promise<string[]> {
   for (const site of ["https://kevinle.tech/", "https://www.kevinle.tech/"]) {
     const response = await fetch(site);
     const html = await response.text();
-    if (response.status !== 200 || html.includes("ScamCam: Put scams in focus")) {
+    if (response.status !== 200 || html.includes("ScamCam - Check the Scan")) {
       failures.push(`${site} answered ${response.status}${html.includes("ScamCam") ? " with ScamCam's page" : ""}`);
     }
   }

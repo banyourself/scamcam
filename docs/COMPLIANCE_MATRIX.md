@@ -1,7 +1,8 @@
 # Compliance matrix
 
 Research summary from 2026-10-05. **This is not legal advice.** Items marked "uncertain" should be reviewed by a
-lawyer or a law school clinic before launch. Draft policy pages (Stage 2) are drafts for review.
+lawyer or a law school clinic before launch. The policy pages were first written as drafts with the website and were
+published at launch on 2026-10-05 without a lawyer's review.
 
 | Law or standard | Likely applies? | Why | What ScamCam does |
 |---|---|---|---|
@@ -13,7 +14,7 @@ lawyer or a law school clinic before launch. Draft policy pages (Stage 2) are dr
 | ePrivacy / PECR | Yes if EU or UK users | Strictly necessary security storage needs no consent | No non-essential cookies, so no banner; Cloudflare's security cookies are listed. `npm run test:privacy` confirms in a real browser that ScamCam sets no cookies and stores only the theme choice (Turnstile test keys; repeat on the live site) |
 | California breach notice (Civ. Code 1798.82) | Applies to any person, but covered data types are not stored | Names with SSNs, credentials, and similar | Store none of those |
 | ADA Title III | Very unlikely | Ninth Circuit requires a nexus to a physical place | Target WCAG 2.2 AA voluntarily |
-| WCAG 2.2 AA | Target | Accessibility for everyone | Semantic HTML, labels, focus styles, reduced motion, contrast checks (Stage 2 audit) |
+| WCAG 2.2 AA | Target | Accessibility for everyone | Semantic HTML, labels, focus styles, reduced motion, contrast checks (automated axe-core audit) |
 | RFC 9116 | Adopted | `security.txt` with Contact and Expires (less than a year out) | `public/.well-known/security.txt`, expiry checked in CI. `Policy` points to the disclosure policy at `/disclosure`. The contact domain has working mail records (MX, SPF, DKIM, and a DMARC reject policy, checked by DNS lookup on 2026-10-05), and a test report from an outside address arrived the same day |
 | OWASP ASVS, API Top 10, NIST CSF 2.0, SP 800-63B | Adopted as guidance | Engineering quality | Mapped in `SECURITY.md` and `TEST_PLAN.md`; SP 800-63B applies only if accounts are added |
 | Provider terms | Yes | Safe Browsing, URLhaus, RDAP servers | See `API_LICENSE_MATRIX.md`; Safe Browsing wording rules are mandatory |
@@ -27,20 +28,21 @@ labeling software "malicious" can be a statement of fact. So reports:
 - never say "fraud", "criminal", or "this person is scamming you", and never name individuals,
 - show the date and source of every finding,
 - say the assessment is automated and can be wrong,
-- offer a way to request review of a result (Contact page, Stage 2), with corrections logged.
+- offer a way to request review of a result (Contact page), with corrections logged.
 
 ## Name and trademark
 
-- USPTO Trademark Search, wordmark "ScamCam", run by Kevin on 2026-10-05: **no results**, live or dead. Still to run:
+- USPTO Trademark Search, wordmark "ScamCam", which I ran on 2026-10-05: **no results**, live or dead. Still to run:
   "SCAM CAM" (with a space) and a design-mark search if a logo is adopted.
 - A 2024 startup called ScamCam (Amsterdam Law Hub listing, LinkedIn; Tracxn lists Vilnius) works on scam protection
   for travelers. Same field, different market. Main naming risk.
 - "Scam-Cam Technologies" (CCTV) and "SCRAM CAM" (offender monitoring) are in unrelated classes.
-- Assessment: low risk in the US after the USPTO search; the EU startup remains the main overlap. Decide before Stage 6.
+- Assessment: low risk in the US after the USPTO search; the EU startup remains the main overlap. Decided before
+  launch: keep the name (question 8 below).
 
 ## Open legal questions, researched
 
-Researched from public sources on 2026-10-05 at Kevin's request, in place of a lawyer. These are the best answers a
+Researched from public sources on 2026-10-05, in place of a lawyer. These are the best answers a
 careful non-lawyer can reach, not legal advice. A lawyer or law school clinic can still confirm them.
 
 | # | Question | Best answer | Change made |
@@ -52,7 +54,7 @@ careful non-lawyer can reach, not legal advice. A lawyer or law school clinic ca
 | 5 | Terms and users under 18 | California lets minors disaffirm contracts (Family Code 6710), and courts have let minors escape game terms that way (*R.A. v. Epic Games*, C.D. Cal. 2019). So the liability limit and governing law clause may not bind a minor. The practical risk is small for a free information tool with no payments. A minimum age would not change COPPA's look at the actual audience and would turn away the young players who most need the tool | Terms: "If you are under 18, please read these terms with a parent or guardian." No minimum age |
 | 6 | Safe harbor for researchers | Meaningful for ScamCam's own service. After *Van Buren v. United States* (2021), CFAA liability turns on authorization, which the owner can give in writing. The Justice Department's May 2022 policy says good-faith security research should not be charged under the CFAA. California Penal Code 502 requires acting "without permission". The Copyright Office renewed the DMCA 1201 security research exemption on October 28, 2024 (37 CFR 201.40). The owner cannot authorize testing of Cloudflare or other providers | Disclosure page: the safe harbor now follows the disclose.io core terms (CFAA and state law authorization, a DMCA 1201 waiver, a waiver of conflicting terms, no reports to law enforcement) and says it covers only ScamCam itself |
 | 7 | Provider terms | Safe Browsing: allowed, because it is "not for sale or revenue generating purposes". Its warnings must use qualifying words, credit "Advisory provided by Google" with the v4 advisory link (still the current one), link to Google's definition of each threat type, and say in the product documentation that the protection is not perfect. Workers AI: Cloudflare does not use the content for training and keeps it only if the site stores it in another Cloudflare service. Cloudflare's Data Processing Addendum is incorporated by reference into the Self-Serve Subscription Agreement, so it covers free accounts. Phishing.Database: MIT license; the notice is required only when copies are distributed, and ScamCam keeps a private hashed copy. URLhaus: free for not-for-profit use with an Auth-Key, within fair-use volumes. RDAP registry terms were not checked | Reports: Google warnings now link to Google's threat definition and say "potentially unsafe". How it works: Google's protection notice. Privacy page: the Workers AI sentence now matches Cloudflare's wording |
-| 8 | Is the name safe? | Probably. Kevin's USPTO search found no "ScamCam" mark, and a web search found only "SCRAM CAM", a registered mark for offender-monitoring devices in an unrelated field. No current web presence or registration was found for the 2024 travel startup. US trademark rights are territorial, so a foreign business without US use has no US rights unless the mark is famous here | Keep the name. If anyone complains, reply politely and consider renaming; nothing is sold, so a rename costs little |
+| 8 | Is the name safe? | Probably. My USPTO search found no "ScamCam" mark, and a web search found only "SCRAM CAM", a registered mark for offender-monitoring devices in an unrelated field. No current web presence or registration was found for the 2024 travel startup. US trademark rights are territorial, so a foreign business without US use has no US rights unless the mark is famous here | Keep the name. If anyone complains, reply politely and consider renaming; nothing is sold, so a rename costs little |
 
 Sources: [Bus. and Prof. Code 22577](https://california.public.law/codes/business_and_professions_code_section_22577),
 [FTC 2025 COPPA amendments summary (Fenwick)](https://www.fenwick.com/insights/publications/coppas-coming-of-age-key-compliance-changes-in-ftcs-final-rule),

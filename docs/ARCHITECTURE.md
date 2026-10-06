@@ -76,14 +76,15 @@ Cache API calls all count toward the 50. A scan stays within both:
 | No Docker, Redis, VMs, Python, Go, or microservices | Nothing in Phase 1 requires them | |
 
 Dependency checklist results (maintained, free, noncommercial use allowed, no known vulnerabilities, no lock-in
-beyond Cloudflare itself) were checked on 2026-10-05. `npm audit` reports 0 vulnerabilities. The Worker bundle is
-about 158 KB compressed, mostly Zod; the budget is reviewed in Stage 4.
+beyond Cloudflare itself) were checked on 2026-10-05. `npm audit` reports 0 vulnerabilities. The Worker bundle was
+about 158 KB compressed in the foundation build, mostly Zod, and 307 KB compressed once caching was added, against
+the 3 MB limit.
 
 ## Design system
 
 ScamCam shares the "case file" idea of kevinle.tech (a manila dossier) and Live Minutes (a navy filing index):
 monospace labels, file references, stamps, and redaction. Its own personality is an **evidence room seen through
-a camera**, matching "Put scams in focus":
+a camera**, matching "Check the Scan":
 
 | Element | ScamCam | Family resemblance |
 |---|---|---|
@@ -124,12 +125,12 @@ reputation of verdicts, and the operator's Cloudflare account.
 | Quota exhaustion (denial of wallet or service) | Bots flood scans to burn D1, AI, or provider quotas | Rate limiting (per visitor and per IPv6 /64, at each Cloudflare location), Turnstile on scans, cached results, daily caps counted for the whole service (AI capped at 2,000 calls, refused when usage cannot be counted), paused failing sources, honest "temporarily unavailable" responses |
 | CPU and subrequest exhaustion | A crafted message makes parsing slow, or many links push a request past the Free plan's 50 subrequests | Parsing that grows in step with input length (tested on 31 crafted inputs and 300 fuzzed ones), capped lookups, memory before the shared cache, at most 24 shared cache calls per request, provider answers read with size caps |
 | Fake shared reports | Someone edits a report to say a scam is safe and shares it as ScamCam's | Shares need an HMAC signature over the unchanged report made in the last 30 minutes; shared reports are encrypted with a key only the link holds and expire within 15 minutes |
-| Malicious image files | A fake image, a script-carrying SVG, or a small file that decodes to a huge image | Images never leave the browser; only PNG, JPEG, WebP, and GIF signatures are accepted; sizes are read from the header before decoding (16,384 pixels a side, 40 megapixels, 10 MB); the browser's own decoder is used; OCR runs in a worker with time limits (see `SECURITY_REVIEW.md`, Stage 7) |
+| Malicious image files | A fake image, a script-carrying SVG, or a small file that decodes to a huge image | Images never leave the browser; only PNG, JPEG, WebP, and GIF signatures are accepted; sizes are read from the header before decoding (16,384 pixels a side, 40 megapixels, 10 MB); the browser's own decoder is used; OCR runs in a worker with time limits (see `SECURITY_REVIEW.md`, Screenshot reading) |
 | Log and header injection | A client sends its own request ID or crafted headers to plant text in logs | The Worker makes its own request IDs, logs only fixed fields, and Cloudflare's per-request invocation logs are off |
 | Abuse of verdicts | Someone uses ScamCam to label a competitor a scam | Signal-based wording, sources and dates shown, dispute path, no accusations against individuals |
 | Data exposure | Private message or secret-bearing URL stored or cached | No raw content storage; no shared caching of private submissions; hashed indicators only |
 | Supply chain | A compromised npm package | Exact versions, lockfile, audit, Dependabot, few dependencies |
 | Secret leakage | Turnstile or API keys in the repo or client | `wrangler secret`, ignored `.dev.vars`, Gitleaks in CI, nothing secret in `src/client` |
 | Clickjacking and XSS on the report page | Framing the site, injected markup | `frame-ancestors 'none'`, CSP without inline script, React escaping |
-| Account compromise of the operator | Cloudflare or GitHub takeover | Out of the codebase: use passkeys or MFA on both accounts (recommended to Kevin) |
+| Account compromise of the operator | Cloudflare or GitHub takeover | Out of the codebase: protect both of my accounts with passkeys or MFA |
 | DNS rebinding | Not applicable while the Worker never resolves and fetches user-supplied hosts | Re-evaluate before any active retrieval feature |

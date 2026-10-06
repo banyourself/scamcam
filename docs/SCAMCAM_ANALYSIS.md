@@ -1,7 +1,7 @@
 # ScamCam Contextual Threat Analysis (SCTA)
 
-SCTA is ScamCam's experimental method for judging a whole interaction, not only a link. The first version was built in
-Stage 3 (`src/engine`); every technique must keep earning its place on a benchmark.
+SCTA is ScamCam's experimental method for judging a whole interaction, not only a link. The first version was built
+with the detection engine (`src/engine`); every technique must keep earning its place on a benchmark.
 
 ## Questions SCTA answers
 
@@ -43,7 +43,7 @@ Each one is kept only if it improves precision or recall on the benchmark withou
 | Privacy-preserving similarity | Compare keyed hashes or shingle sketches instead of raw text | Evaluate with near-duplicates |
 | Explainable confidence | Every verdict lists the signals and their contribution | Build first |
 | Scam-pattern clustering | Group similar indicators for maintenance, offline only | Later |
-| Adaptive source selection | Skip slow or exhausted sources based on budgets and value | Stage 4 |
+| Adaptive source selection | Skip slow or exhausted sources based on budgets and value | Built with caching |
 
 ## Verdict rules
 
@@ -68,7 +68,7 @@ different indicators (for example `steamcommunity.com.evil.example` must not bec
   scan, storage growth, evidence quality (share of verdicts with at least two independent signals), and cost.
 - Targets are set after the first run and recorded here. False positives on legitimate gaming domains must be 0.
 
-## As built in Stage 3
+## Detection engine as built
 
 Code lives in `src/engine`, which has no Worker-specific code so the future browser extension and Discord app can
 reuse it.
@@ -112,13 +112,13 @@ it measures the built-in rules alone.
 
 Before the first run, the scoring was adjusted on these same kinds of cases (user-upload hosts, gift card payments,
 vote scams, hand-over-items, the cl look-alike, negated safety advice). **This set is a tuning set, not an independent
-evaluation.** Stage 4 adds a held-out set built from real, public indicators (URLhaus and Phishing.Database entries
-for positives, popular gaming and general domains for negatives) and tracks the false positive rate on it.
+evaluation.** The held-out set from real, public indicators below (Phishing.Database entries for positives, 178
+legitimate sites for negatives) tracks the false positive rate on data the rules were not tuned on.
 
 Local analysis takes about 0.8 ms per case in Node. Production CPU time on the Workers Free plan (10 ms limit per
-request) must be measured after deployment with Workers observability.
+request) is tracked in `STATUS.md`.
 
-## As built in Stage 4
+## Caching, Phishing.Database, and the AI step as built
 
 ### Caching and deduplication
 
@@ -144,6 +144,11 @@ says the list can be wrong. A match on a shortener, free-hosting suffix, user-up
 context. Official links are never looked up. With about 500,000 entries, the chance that an unlisted name collides
 with a listed key is about 3 in 100 trillion.
 
+At full size (2026-10-05, commit `12a20bf`), 392,179 lines gave 392,063 unique keys in 1,024 shards (the largest
+3.5 KB) and 6.6 MB of SQL with the longest statement at 7,366 characters, built in about 3 seconds and loaded into a
+local D1 in about 3 seconds. Entries include IPv4 addresses (5,466) and host names with underscores (521), and only
+100 junk lines are refused.
+
 ### AI step
 
 | Rule | Value |
@@ -155,19 +160,39 @@ with a listed key is about 3 in 100 trillion.
 | Effect | A family adds one strong warning, so the result can reach Suspicious with low confidence, and the summary says only an AI check raised it. `none` changes nothing. The AI cannot lower a result |
 | Limits | 2,000 calls a day, counted in D1 before each call; no call when the count cannot be written |
 
-### Benchmark results (Stage 4)
+### Benchmark results (October 2026)
 
-The 69-case tuning benchmark still scores precision 1.000 and recall 1.000. The AI evaluation sets, written as
-natural gamer messages, show what the rules miss: rules alone caught 6 of 30 and 3 of 20 scams, and rules with the AI
-caught 24 of 30 and 16 of 20, with no false alarms on 50 normal messages. Full tables are in `BUILD_STATE.md`.
+The 69-case tuning benchmark still scores precision 1.000 and recall 1.000, at about 1.1 ms per case. The AI
+evaluation sets, written as natural gamer messages, show what the rules miss: rules alone caught 6 of 30 and 3 of 20
+scams, and rules with the AI caught 24 of 30 and 16 of 20, with no false alarms on 50 normal messages.
+
+With every outside source answering, a first scan makes 2.75 outside calls on average and 5 at most, and a repeated
+scan makes none. The engine takes 1.25 ms per scan at the median and 3.12 ms at p95 for a first scan in Node, and
+0.79 ms and 2.01 ms for a repeat.
+
+#### AI evaluation (live Workers AI through the local dev server, 2026-10-05)
+
+The messages were written for the test, modeled on scam types that Steam, Discord, and Roblox describe publicly; none
+come from real people. The holdout set was written before any tuning and run once, with the final settings.
+
+| Set | Model and prompt | Rules only: scams caught, false alarms | Rules and AI: scams caught, false alarms | Latency p50 / p95 | Neurons per AI call |
+|---|---|---|---|---|---|
+| Tuning (30 scams, 30 normal) | Granite 4.0 Micro, first prompt | 6 of 30, 1 of 30 | 19 of 30, 4 of 30 | 449 / 1,268 ms | 0.52 |
+| Tuning | Granite 4.0 Micro, second prompt and vote rule fix | 6 of 30, 0 of 30 | 21 of 30, 2 of 30 | 403 / 1,013 ms | 0.52 |
+| Tuning | Qwen3 30B A3B, second prompt | 6 of 30, 0 of 30 | 24 of 30, 0 of 30 | 303 / 497 ms | 2.11 |
+| Holdout (20 scams, 20 normal) | Qwen3 30B A3B, final | 3 of 20, 0 of 20 | 16 of 20, 0 of 20 | 309 / 519 ms | 2.14 |
+
+Latency is the whole scan through the local server, including Turnstile and the AI call. These runs used 189 AI calls
+and about 242 neurons. The live prompt injection sets are in `OWASP_LLM_TOP_10.md`.
 
 ### Held-out benchmark from real indicators
 
 Sampled from Phishing.Database (commit `12a20bf`, seed 20261005) and run once with outside sources off: the rules
-flagged 71 of 200 gaming-impersonation domains, 2 of 200 random phishing domains, and 0 of 178 legitimate sites. The
-labels are the list's, which has known false positives, so recall here means agreement with the list. Gaps found:
-brand names as subdomains of unrelated sites, brand plus gift words on cheap endings, and brand words on free blog
-hosting. They need a fresh sample before any rule change.
+flagged 71 of 200 gaming-impersonation domains (recall 0.355), 2 of 200 random phishing domains (recall 0.010), and
+0 of 178 legitimate sites. The 129 missed gaming domains came back "Unknown", never "No known threat". The labels
+are the list's, which has known false positives, so recall here means agreement with the list. Gaps found: brand
+names as subdomains of unrelated sites, brand plus gift words on cheap endings, and brand words on free blog hosting.
+They need a fresh sample before any rule change.
 
 ### Hidden characters and checker instructions
 

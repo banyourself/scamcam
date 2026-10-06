@@ -1,19 +1,19 @@
 # Deployment
 
-**Deployed on 2026-10-05** with Kevin's approval for each step. Any further change that touches Cloudflare still needs
-his explicit approval first. Redeploy a new version of `main` with `npm run deploy`.
+**Deployed on 2026-10-05**, one step at a time. Any further change that touches Cloudflare needs my explicit approval
+first. Redeploy a new version of `main` with `npm run deploy`.
 
 ## Target
 
 One Cloudflare Worker named `scamcam`, serving the static site and `/api/*`, attached to `scamcam.kevinle.tech` as a
 Worker Custom Domain. Cloudflare creates the DNS record and certificate for that hostname only. It fails if the
-hostname already has a CNAME, so check first that `scamcam` is unused (Kevin confirmed on 2026-10-05 that it is not in
-the DNS). No other DNS records, Pages projects, R2 buckets, or secrets are touched.
+hostname already has a CNAME, so check first that `scamcam` is unused (I confirmed on 2026-10-05 that it is not in the
+DNS). No other DNS records, Pages projects, R2 buckets, or secrets are touched.
 
-Kevin signs in with `npx wrangler login` and types every secret into `npx wrangler secret put` himself, so no secret
-passes through anyone else.
+I sign in with `npx wrangler login` and type every secret into `npx wrangler secret put` myself, so no secret passes
+through anyone else.
 
-## One-time setup (needs approval)
+## One-time setup
 
 Production settings live in the `production` environment of `wrangler.jsonc`. The top-level settings stay for local
 development and tests. `test/node/config.test.ts` checks that production deploys only the `scamcam` Worker to
@@ -21,14 +21,14 @@ development and tests. `test/node/config.test.ts` checks that production deploys
 
 | Step | Who | Command or action | Changes |
 |---|---|---|---|
-| 1. Sign in | Kevin | `npx wrangler login` (done on 2026-10-05) | Grants wrangler access to the account |
+| 1. Sign in | Me | `npx wrangler login` (done on 2026-10-05) | Grants wrangler access to the account |
 | 2. Create the database | Me | `npx wrangler d1 create scamcam --location wnam`, then put the ID in `env.production.d1_databases` | One D1 database |
 | 3. Apply migrations | Me | `npx wrangler d1 migrations apply scamcam --remote --env production` | Tables in that database |
-| 4. Turnstile widget | Kevin, in the dashboard | Turnstile, Add widget: name ScamCam, hostname `scamcam.kevinle.tech`, mode Managed. Share the site key (it is public) so it can go in `env.production.vars.TURNSTILE_SITE_KEY`; keep the secret key for step 6 | One widget |
+| 4. Turnstile widget | Me, in the dashboard | Turnstile, Add widget: name ScamCam, hostname `scamcam.kevinle.tech`, mode Managed. Put the site key (it is public) in `env.production.vars.TURNSTILE_SITE_KEY`; keep the secret key for step 6 | One widget |
 | 5. Deploy | Me | `npm run deploy`. It refuses to run with a placeholder database ID or a Turnstile test key, off `main`, with uncommitted changes, or when `main` differs from GitHub, then runs every test, builds with `CLOUDFLARE_ENV=production`, and deploys. `npm run deploy:dry-run` does everything except the upload | The Worker, and the `scamcam.kevinle.tech` custom domain (one DNS record and one certificate) |
-| 6. Secrets | Kevin types each value | `npx wrangler secret put TURNSTILE_SECRET_KEY --env production`, then the same for `SAFE_BROWSING_API_KEY` and `URLHAUS_AUTH_KEY`. Until the Turnstile secret is set, scans answer "temporarily unavailable" | Three secrets |
+| 6. Secrets | Me, typing each value | `npx wrangler secret put TURNSTILE_SECRET_KEY --env production`, then the same for `SAFE_BROWSING_API_KEY` and `URLHAUS_AUTH_KEY`. Until the Turnstile secret is set, scans answer "temporarily unavailable" | Three secrets |
 | 7. Verify | Me | `npm run check:live`, then the checks below | None |
-| 8. Share signing key | Me, without seeing it | A random 32-byte key piped straight into `npx wrangler secret put SHARE_SIGNING_KEY --env production`; rotating it only stops sharing of reports made before the change | One secret |
+| 8. Share signing key | Me, piped without displaying it | A random 32-byte key piped straight into `npx wrangler secret put SHARE_SIGNING_KEY --env production`; rotating it only stops sharing of reports made before the change | One secret |
 
 ## Live checks after the first deployment
 

@@ -20,7 +20,7 @@ documentation checked on 2026-10-05; re-check before launch.
 | GitHub Actions | 2,000 minutes per month for private repos on Free (3,000 on Pro) | Blocked if no payment method | About 3 minutes per push, plus about 2 minutes a day for the Phishing.Database sync once enabled |
 | GitHub Codespaces | 120 core hours and 15 GB-month (180 and 20 on Pro) | Blocked if no payment method | Optional |
 
-## Cost of one scan (measured in Stage 5)
+## Cost of one scan (measured in October 2026)
 
 | Resource | Per scan | Free limit and headroom |
 |---|---|---|
@@ -55,4 +55,4 @@ Per-visitor limits: 60 API requests and 10 scans per minute. Turnstile is requir
 4. Limit new scans and show "ScamCam is busy right now. Try again later." with no false result.
 
 Zero cost cannot be guaranteed by code alone; it depends on never adding a payment method or upgrading a plan.
-That is an operating rule for this project.
+That is an operating rule in `CONTRIBUTING.md`.

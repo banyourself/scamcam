@@ -1,8 +1,10 @@
-# Security review (Stage 5)
+# Security review
 
-Date: 2026-10-05. Scope: the code on `main` at the end of Stage 5, run on Kevin's PC and in GitHub Actions.
-Nothing is deployed, so live Cloudflare behavior is not covered. This is a self-review backed by automated tests, not
-an independent penetration test. AI risks are covered separately in `OWASP_LLM_TOP_10.md`.
+Date: 2026-10-05, before launch, with sections added on 2026-10-06 for screenshot reading and share links. Scope:
+the code on `main` at the end of the security hardening work, run on my PC and in GitHub Actions. Nothing was
+deployed yet, so live Cloudflare behavior is not covered here; the live checks after launch are in `STATUS.md`. This
+is a self-review backed by automated tests, not an independent penetration test. AI risks are covered separately in
+`OWASP_LLM_TOP_10.md`.
 
 ## Method
 
@@ -47,7 +49,7 @@ an independent penetration test. AI risks are covered separately in `OWASP_LLM_T
 | Cleanup | 10,250 expired rows in one table are removed in two daily runs, with a backlog alert after the first. With a backlog in every table, one run deletes 11,000 rows in 25 batches and stays under 50 queries |
 | Partial list sync | A sync that stops partway leaves a mix of old and new shards that still answers correctly |
 | Recovery | Export and restore of a throwaway database matches on every table (`RECOVERY.md`) |
-| Disclosure contact | `kevinle.tech` has MX records, SPF, a DKIM key (selector `titan1`), and a DMARC reject policy (DNS lookups on 2026-10-05), so `kevin@kevinle.tech` can receive reports and its replies should pass DMARC. On 2026-10-05 a test report from an outside Gmail address arrived, and the reply from kevin@kevinle.tech reached the Gmail inbox |
+| Disclosure contact | `kevinle.tech` has MX records, SPF, a DKIM key (selector `titan1`), and a DMARC reject policy (DNS lookups on 2026-10-05), so the security contact address can receive reports and its replies should pass DMARC. On 2026-10-05 a test report from an outside Gmail address arrived, and the reply from the security contact address reached the Gmail inbox |
 
 ## OWASP API Security Top 10 (2023)
 
@@ -93,15 +95,15 @@ source is reported as not checked instead of going over its free quota.
 
 ## Still open
 
-- Live checks after deployment: headers, cookies (security features on the `kevinle.tech` zone may add Cloudflare
-  cookies), Turnstile with the real widget, `security.txt`, CPU time per request, and that the personal site is
-  unchanged.
+- Live checks after deployment: `npm run check:live` passed on 2026-10-05 for headers, cookies, `security.txt`, the
+  API, the browser, and the personal site (`STATUS.md`). A real scan through the live Turnstile widget is still
+  checked by hand, because Turnstile does not finish in a headless browser.
 - A manual screen reader review.
-- CPU time on the Free plan: live scans measured 11 to 29 ms against a 10 ms limit before the startup warm-up; the warm-up's effect is not yet measured (`BUILD_STATE.md`).
+- CPU time on the Free plan: live scans measured 11 to 29 ms against a 10 ms limit before the startup warm-up; the warm-up's effect is not yet measured (`STATUS.md`).
 - No lawyer has reviewed the policy pages; the open questions were researched instead (`COMPLIANCE_MATRIX.md`).
 - An independent penetration test, if ScamCam grows.
 
-## Stage 7: screenshot reading (2026-10-06)
+## Screenshot reading (2026-10-06)
 
 Visitors can add a screenshot by pasting it, dropping it, or picking a file. The browser reads its text with
 Tesseract.js and any QR code with jsQR, shows the text for review, and the visitor then scans it like a typed message.
@@ -137,7 +139,7 @@ Tesseract.js, tesseract.js-core, and jsQR are Apache 2.0, and their license text
 `/ocr/7.0.0-2/licenses/`. The English model comes from the `@tesseract.js-data/eng` package (MIT), built from
 Tesseract's Apache 2.0 `tessdata`.
 
-## Stage 8: share links (2026-10-06)
+## Share links (2026-10-06)
 
 A visitor can press Share on a report to get a link that works for 5, 10, or 15 minutes (10 by default). The
 message text is left out unless they tick the box.

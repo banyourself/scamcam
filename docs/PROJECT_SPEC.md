@@ -16,10 +16,10 @@ for people with no security background and for minors (see `PRIVACY_DESIGN.md`).
 |---|---|
 | Free and noncommercial | No ads, subscriptions, sponsorships, premium features, or paid API. Ever. |
 | $0 operating cost | Only free plans with hard limits. See `COST_MODEL.md`. |
-| Cloud only | Nothing runs on Kevin's computer. Development works in a browser through GitHub Codespaces. |
+| Cloud only | Nothing in production runs on my computer. Development also works in a browser through GitHub Codespaces. |
 | Evidence first | Deterministic checks and threat intelligence before AI. AI is optional. |
 | Privacy | No accounts for scanning, no trackers, no stored messages or raw URLs. |
-| Separate project | No changes to Kevin's personal website, DNS, Pages, R2, or secrets without approval. |
+| Separate project | No changes to my personal website, DNS, Pages, R2, or secrets without my approval. |
 | Honest results | Never present "not found in a database" as "safe". Always show sources and uncertainty. |
 
 ## Phase 1 scope (ScamCam Scan)
@@ -33,6 +33,9 @@ In scope, in this order:
 
 Out of scope for Phase 1: screenshots, QR codes, file scanning, sandboxing, malware execution, accounts, community
 reporting, browser extension, Discord bot, identity verification, public API.
+
+Screenshot and QR code reading were added after launch, on 2026-10-06. They run entirely in the visitor's browser,
+so images are never uploaded.
 
 ## Risk levels
 

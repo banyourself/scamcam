@@ -56,6 +56,6 @@ export function Link({ to, onClick, ...props }: LinkProps) {
 
 export function useDocumentTitle(title: string): void {
   useEffect(() => {
-    document.title = title === "ScamCam" ? "ScamCam: Put scams in focus" : `${title} | ScamCam`;
+    document.title = title === "ScamCam" ? "ScamCam - Check the Scan" : `${title} | ScamCam`;
   }, [title]);
 }

@@ -69,7 +69,7 @@ export function HomePage() {
     <>
       <section className="mx-auto grid max-w-6xl gap-10 px-4 pt-12 sm:pt-16 lg:grid-cols-[1fr_1.15fr] lg:items-start">
         <div>
-          <p className="kicker">Put scams in focus</p>
+          <p className="kicker">Check the Scan</p>
           <h1 className="display mt-4 text-6xl sm:text-7xl">
             Think it&apos;s
             <br />a scam?

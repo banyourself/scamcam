@@ -1,7 +1,8 @@
 # Recovery runbook
 
-**Nothing is deployed yet.** Every command below with `--remote`, and every change in the Cloudflare dashboard, acts on
-the live service and needs Kevin's approval. The local drill at the end touches nothing outside this PC.
+**ScamCam has been live since 2026-10-05.** Every command below with `--remote`, and every change in the Cloudflare
+dashboard, acts on the live service and needs my approval. The local drill at the end touches nothing outside the
+local machine.
 
 ## What ScamCam keeps, and what losing it costs
 
@@ -70,7 +71,7 @@ that source, and reports list it under "not checked". To switch the AI step off,
 
 Turnstile and the scan limit (10 a minute per visitor at each Cloudflare location) come first, and the daily budgets
 cap provider use for the whole service. Limits can be lowered in `wrangler.jsonc` and deployed. Any WAF rule or zone
-setting would change `kevinle.tech` and needs Kevin's approval.
+setting would change `kevinle.tech` and needs my approval.
 
 ### The list sync fails
 
@@ -115,5 +116,4 @@ export into the second, and compares every table and the migration history. CI r
 | Windows PC, 2026-10-05 | 991 ms, 469 KB | 2,041 ms | All 7 tables matched; no migrations pending |
 | GitHub Actions (Ubuntu), 2026-10-05 | 1,453 ms, 469 KB | 2,860 ms | All 7 tables matched; no migrations pending |
 
-After deployment, with Kevin: run `npx wrangler d1 time-travel info scamcam` once to confirm that restore points
-exist.
+After deployment, run `npx wrangler d1 time-travel info scamcam` once to confirm that restore points exist.

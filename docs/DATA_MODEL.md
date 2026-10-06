@@ -18,11 +18,11 @@ can move to PostgreSQL later without touching routes.
 
 ## Planned tables
 
-Created only when the stage that needs them starts, so no unused tables exist.
+Created only when the feature that needs them is built, so no unused tables exist.
 
-| Table | Stage | Purpose | Uniqueness | Retention |
+| Table | When | Purpose | Uniqueness | Retention |
 |---|---|---|---|---|
-| `threat_indicators` | Only if first-party indicators are added | ScamCam's own reviewed indicators. Provider answers are cached in the Cache API instead (Stage 4), so they cost no D1 writes | `UNIQUE (indicator_type, indicator_value, source)`, idempotent upserts | Reviewed every 30 days |
+| `threat_indicators` | Only if first-party indicators are added | ScamCam's own reviewed indicators. Provider answers are cached in the Cache API instead, so they cost no D1 writes | `UNIQUE (indicator_type, indicator_value, source)`, idempotent upserts | Reviewed every 30 days |
 | `scan_jobs` | Only if scans become asynchronous | Temporary job status and result | Primary key | 1 hour |
 | `voluntary_reports` | Later | User-submitted "this is a scam" or "this was misflagged" reports | Fingerprint per indicator | 7 days unless reviewed |
 
@@ -32,5 +32,5 @@ Created only when the stage that needs them starts, so no unused tables exist.
 - URL indicators are stored as keyed hashes (HMAC with a server secret) so a database copy cannot reveal what
   someone checked, except registrable domains already listed by a public source.
 - `detail_json` holds counts and statuses only, never content.
-- Target under 100 MB of data in Stage 3 and 4; the soft limit that pauses optional writes is 80 MB
+- Target under 100 MB of data for the detection engine and caching; the soft limit that pauses optional writes is 80 MB
   (`STORAGE_SOFT_LIMIT_BYTES`).

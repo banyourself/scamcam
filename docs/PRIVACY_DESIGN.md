@@ -8,7 +8,7 @@ teenagers. The design goal is to keep nothing that is not needed.
 | Data | Why | Stored? |
 |---|---|---|
 | Submitted message text | To find links and scam patterns | No. Processed in memory and discarded |
-| Submitted URL | To check its domain and reputation | Not raw. Only a keyed hash or the registrable domain when an indicator must be cached (Stage 3+) |
+| Submitted URL | To check its domain and reputation | Not raw. Only a keyed hash or the registrable domain when an indicator must be cached |
 | IP address | Rate limiting, Turnstile | Not by ScamCam. Passed to the Cloudflare rate limiter and Turnstile, which do not store it for us |
 | Request metadata | Debugging | Worker logs keep method, route, status, duration, and a request ID made by the Worker for 3 days. No IP, no URL, no query. Cloudflare's own per-request invocation logs are turned off |
 | Error type and route | Reliability | `error_events` for 7 days |
@@ -39,7 +39,7 @@ Gaming audiences include minors. Rules that apply from day one:
 - A warning beside the input not to paste passwords, login codes, or personal details.
 - Server-side redaction of emails, phone numbers, and long digit runs before the AI step, which also never sees links.
 - IP use limited to security (COPPA's internal-operations purpose).
-- A plain-language privacy summary on the Privacy page (Stage 2).
+- A plain-language privacy summary on the Privacy page.
 
 ## Caching rules
 
