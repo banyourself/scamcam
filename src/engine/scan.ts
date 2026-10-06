@@ -8,7 +8,7 @@ import { candidateNames, type DomainListLookup, type DomainListResult } from "./
 import { aimsAtCheckers } from "./injection";
 import { analyzeMessage, familyNames } from "./message-rules";
 import { lookupRdap, type RdapResult } from "./rdap";
-import { searchSafeBrowsing, threatDescriptions, type SafeBrowsingResult } from "./safe-browsing";
+import { searchSafeBrowsing, threatDefinitionUrls, threatDescriptions, type SafeBrowsingResult } from "./safe-browsing";
 import { phishingDatabaseUrl, sourceNames, strengthPoints, type ScamFamily, type Signal } from "./signals";
 import { analyzeLink, type AnalyzedLink } from "./url-analysis";
 import { lookupUrlhausHost, sameUrl, type UrlhausResult } from "./urlhaus";
@@ -436,16 +436,18 @@ export async function scanContent(content: string, options: ScanOptions): Promis
       const threats = safeBrowsingResult.threats.get(link.original);
       if (threats) {
         const description = threatDescriptions[threats[0]!] ?? "a site that may be unsafe";
+        const definition = threatDefinitionUrls[threats[0]!];
         attach(link, [
           {
             id: `gsb-${link.hostname}`,
             source: sourceNames.safeBrowsing,
+            ...(definition ? { sourceUrl: definition } : {}),
             link: link.hostname!,
             direction: "raises",
             strength: "critical",
             fromSafeBrowsing: true,
             title: `Google Safe Browsing warns this is ${description}`,
-            detail: "Google Safe Browsing lists this link as unsafe. Warnings can occasionally be wrong, but treat it as dangerous.",
+            detail: "Google Safe Browsing lists this link as potentially unsafe. Its warnings can occasionally be wrong, but do not open the link or enter any details.",
           },
         ]);
       }

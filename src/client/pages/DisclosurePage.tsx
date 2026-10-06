@@ -24,9 +24,13 @@ export function DisclosurePage() {
       </ul>
       <h2>Safe harbor</h2>
       <p>
-        Research done in good faith that follows these rules is considered authorized, and ScamCam will not pursue or
-        support legal action against you for it. If a third party takes action, ScamCam will make it known that your
-        work was authorized.
+        If you make a good-faith effort to follow this policy, ScamCam considers your research authorized under the
+        Computer Fraud and Abuse Act and similar state laws, including California Penal Code section 502. ScamCam waives
+        any claim under DMCA section 1201 for working around its own protections, and waives any part of its terms that
+        would prevent that research. ScamCam will not take legal action against you or report you to law enforcement for
+        it. ScamCam can only give permission for its own service, not for Cloudflare, Google, abuse.ch, domain registries,
+        or the rest of kevinle.tech. If someone else takes legal action against you for research that followed this
+        policy, ScamCam will make it known that your research was authorized.
       </p>
       <h2>Out of scope</h2>
       <ul>

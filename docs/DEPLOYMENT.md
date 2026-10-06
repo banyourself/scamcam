@@ -43,7 +43,6 @@ Local checks cannot see Cloudflare's own behavior, so these run once the site is
 | Rate limit | Run 11 scans within a minute from one connection | The 11th gets 429 with `Retry-After` |
 | CPU and subrequests | Workers metrics and Workers Logs in the dashboard after a few scans, including one with many links | CPU time per request under 10 ms; no subrequest or query limit errors |
 | Restore points | `npx wrangler d1 time-travel info scamcam` | A current bookmark is shown |
-| Disclosure | Kevin sends a test report to kevin@kevinle.tech from another address | It arrives |
 
 ## Phishing.Database sync (after the first deployment)
 

@@ -86,6 +86,8 @@ describe("scanContent", () => {
     const report = await scanContent(link, scan);
     expect(report.level).toBe("high_risk");
     expect(report.evidence[0]!.title).toBe("Google Safe Browsing warns this is a suspected deceptive or phishing site");
+    expect(report.evidence[0]!.detail).toContain("potentially unsafe");
+    expect(report.evidence[0]!.source.url).toBe("https://developers.google.com/search/docs/monitor-debug/security/social-engineering");
     expect(report.usesGoogleSafeBrowsing).toBe(true);
   });
 

@@ -38,7 +38,7 @@ reporting, browser extension, Discord bot, identity verification, public API.
 
 | Level | Used when |
 |---|---|
-| Confirmed malicious | A trusted source lists this exact URL or domain as malicious now |
+| Listed as malicious | A trusted source lists this exact URL or domain as malicious now |
 | High risk | Strong independent signals agree (for example a fresh lookalike of steamcommunity.com plus a credential request) |
 | Suspicious | Some signals, no confirmation |
 | Unknown | Not enough evidence either way, or sources were unavailable |

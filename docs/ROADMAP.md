@@ -24,10 +24,11 @@ until the current one is evaluated.
 6. Switch on the Phishing.Database sync: create a Cloudflare API token limited to D1 Edit, add it as the GitHub secret
    `CLOUDFLARE_D1_TOKEN` with `CLOUDFLARE_ACCOUNT_ID`, and set the repository variable `PHISHING_DATABASE_SYNC` to
    `enabled` (see `DEPLOYMENT.md`).
-7. Send a test report to kevin@kevinle.tech from another address, as a security researcher would, and confirm that
-   it arrives and that a reply within 7 days is realistic.
-8. Optional before launch: ask a lawyer or a law school clinic the questions in `COMPLIANCE_MATRIX.md`. The policy
-   pages stay marked as drafts until then.
+7. Done on 2026-10-05: a test security report from an outside Gmail address arrived at kevin@kevinle.tech, and the
+   reply reached the Gmail inbox.
+8. Done on 2026-10-05: instead of a lawyer, Kevin asked for researched answers to the open legal questions. They are
+   in `COMPLIANCE_MATRIX.md`, and the pages were updated to match. The draft labels come off and the effective date
+   is set at launch.
 
 ## Later phases
 

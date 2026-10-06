@@ -426,6 +426,13 @@ export async function searchSafeBrowsing(links: string[], options: SafeBrowsingO
   return { status: "ok", threats, complete, called };
 }
 
+export const threatDefinitionUrls: Record<string, string> = {
+  SOCIAL_ENGINEERING: "https://developers.google.com/search/docs/monitor-debug/security/social-engineering",
+  MALWARE: "https://developers.google.com/search/docs/monitor-debug/security/malware",
+  UNWANTED_SOFTWARE: "https://developers.google.com/search/docs/monitor-debug/security/malware",
+  POTENTIALLY_HARMFUL_APPLICATION: "https://developers.google.com/android/play-protect/potentially-harmful-applications",
+};
+
 export const threatDescriptions: Record<string, string> = {
   SOCIAL_ENGINEERING: "a suspected deceptive or phishing site",
   MALWARE: "a site that may install harmful software",

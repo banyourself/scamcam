@@ -19,6 +19,7 @@ export function TermsPage() {
       </p>
 
       <h2>Your use</h2>
+      <p>If you are under 18, please read these terms with a parent or guardian.</p>
       <p>
         Use ScamCam lawfully and follow the <Link to="/acceptable-use">acceptable use policy</Link>. Do not submit
         content you are not allowed to share, and do not paste passwords or other secrets.

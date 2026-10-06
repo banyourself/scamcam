@@ -47,7 +47,7 @@ an independent penetration test. AI risks are covered separately in `OWASP_LLM_T
 | Cleanup | 10,250 expired rows in one table are removed in two daily runs, with a backlog alert after the first. With a backlog in every table, one run deletes 11,000 rows in 24 batches and stays under 50 queries |
 | Partial list sync | A sync that stops partway leaves a mix of old and new shards that still answers correctly |
 | Recovery | Export and restore of a throwaway database matches on every table (`RECOVERY.md`) |
-| Disclosure contact | `kevinle.tech` has MX records, SPF, and a DMARC reject policy (DNS lookup on 2026-10-05), so `kevin@kevinle.tech` can receive reports |
+| Disclosure contact | `kevinle.tech` has MX records, SPF, a DKIM key (selector `titan1`), and a DMARC reject policy (DNS lookups on 2026-10-05), so `kevin@kevinle.tech` can receive reports and its replies should pass DMARC. On 2026-10-05 a test report from an outside Gmail address arrived, and the reply from kevin@kevinle.tech reached the Gmail inbox |
 
 ## OWASP API Security Top 10 (2023)
 
@@ -96,7 +96,6 @@ source is reported as not checked instead of going over its free quota.
 - Live checks after deployment: headers, cookies (security features on the `kevinle.tech` zone may add Cloudflare
   cookies), Turnstile with the real widget, `security.txt`, CPU time per request, and that the personal site is
   unchanged.
-- A dry run of the disclosure process: Kevin sends a test report from another address and confirms that it arrives.
 - A manual screen reader review.
-- Review of the policy drafts by a lawyer or a law school clinic (questions in `COMPLIANCE_MATRIX.md`).
+- No lawyer has reviewed the policy pages; the open questions were researched instead (`COMPLIANCE_MATRIX.md`).
 - An independent penetration test, if ScamCam grows.

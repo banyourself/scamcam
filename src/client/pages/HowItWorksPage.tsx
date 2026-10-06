@@ -18,7 +18,9 @@ export function HowItWorksPage() {
         </li>
         <li>
           <strong>Ask independent sources.</strong> Lists of known phishing and malware sites, Google Safe Browsing, how
-          old the domain is, and its DNS records. ScamCam never opens the link itself.
+          old the domain is, and its DNS records. ScamCam never opens the link itself. Google works to provide the most
+          accurate and up-to-date information about unsafe web resources, but it cannot guarantee that its information is
+          complete and error-free: some risky sites may not be identified, and some safe sites may be identified in error.
         </li>
         <li>
           <strong>Read the message.</strong> Urgency, threats, requests for logins, QR codes, or payment, and stories

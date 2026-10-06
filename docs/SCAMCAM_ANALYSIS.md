@@ -47,7 +47,7 @@ Each one is kept only if it improves precision or recall on the benchmark withou
 
 ## Verdict rules
 
-- Confirmed malicious only when a trusted source lists the exact URL or domain now.
+- "Listed as malicious" (level `confirmed_malicious`) only when a trusted source lists the exact URL or domain now.
 - A clean database result is never "safe". The lowest level is "No known threat detected" with an explanation.
 - Contradictions lower confidence and are shown.
 - Missing sources are shown as "not checked", not silently ignored.
@@ -90,7 +90,7 @@ single link score, so pasting many links does not inflate it.
 
 | Level | Rule |
 |---|---|
-| Confirmed malicious | URLhaus lists the exact link, or a non-shared host, as serving malware right now |
+| Listed as malicious | URLhaus lists the exact link, or a non-shared host, as serving malware right now |
 | High risk | A Google Safe Browsing match, or a score of 6 or more |
 | Suspicious | A score of 3 or more |
 | No known threat detected | Score of 2 or less and either every link is official, Safe Browsing checked the other links with no match, or there were no links and no scam patterns |

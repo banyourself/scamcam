@@ -23,6 +23,11 @@ export function PrivacyPage() {
         You do not need to give ScamCam your name, email, or age. Please do not paste passwords, login codes, or where
         you live. If a message has someone&apos;s email or phone number in it, ScamCam hides it before checking.
       </p>
+      <p>
+        Your device&apos;s IP address is used only to keep ScamCam working and safe: to limit how many checks one visitor
+        can run and to run the bot check. It is never used to contact you, build a profile, or show ads, and ScamCam does
+        not save it. Messages are checked and then thrown away.
+      </p>
 
       <h2>Who runs ScamCam</h2>
       <p>
@@ -99,7 +104,8 @@ export function PrivacyPage() {
         <li>
           <strong>Workers AI</strong> (Cloudflare) receives a message only when ScamCam&apos;s rules cannot decide, with
           emails, phone numbers, long codes, links, and invisible characters removed. Names and usernames are not removed.
-          Cloudflare says it does not store this content or use it to train AI models.
+          Cloudflare says it does not use this content to train AI models, and keeps it only when a site also stores it in
+          another Cloudflare service, which ScamCam does not.
         </li>
         <li>
           <strong>Phishing.Database</strong> is a public list of phishing sites. ScamCam keeps a scrambled copy and checks
@@ -123,9 +129,11 @@ export function PrivacyPage() {
 
       <h2>Legal basis in the EU and UK</h2>
       <p>
-        Checking what you submit is necessary to give you the result you asked for. Security processing, such as rate
-        limits and the bot check, relies on the legitimate interest in keeping a free service safe and available. Results
-        are automated opinions about links and messages, not decisions about you.
+        ScamCam is a US service that does not target the EU or UK, so their data protection laws may not apply. Where
+        they do, ScamCam relies on legitimate interests: checking the link or message you ask about, and keeping a free
+        service safe with rate limits and a bot check. Messages can mention other people, such as a scammer&apos;s
+        username; they are used only for the check and are not stored. Results are automated opinions about links and
+        messages, not decisions about you.
       </p>
 
       <h2>Where information is processed</h2>

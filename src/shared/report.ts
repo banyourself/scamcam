@@ -36,7 +36,7 @@ export const riskLabels: Record<RiskLevel, string> = {
   unknown: "Unknown",
   suspicious: "Suspicious",
   high_risk: "High risk",
-  confirmed_malicious: "Confirmed malicious",
+  confirmed_malicious: "Listed as malicious",
 };
 
 export const riskExplanations: Record<RiskLevel, string> = {
@@ -44,7 +44,7 @@ export const riskExplanations: Record<RiskLevel, string> = {
   unknown: "There is not enough evidence either way, or some sources could not be checked.",
   suspicious: "Some warning signs, but no independent confirmation.",
   high_risk: "Several independent warning signs agree.",
-  confirmed_malicious: "A trusted security source currently lists this as harmful.",
+  confirmed_malicious: "A trusted security source currently lists this as harmful. The report names the source.",
 };
 
 export const uncheckedReasons: Record<UncheckedReason, string> = {
