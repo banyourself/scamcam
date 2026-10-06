@@ -1,7 +1,14 @@
+import { warmUp } from "../engine/warm-up";
 import { app } from "./app";
 import type { AppBindings } from "./env";
 import { logEvent } from "./logging";
 import { runMaintenance, taskForCron } from "./maintenance/tasks";
+
+try {
+  warmUp();
+} catch (error) {
+  logEvent("warm_up_failed", { name: error instanceof Error ? error.name : "unknown" });
+}
 
 export default {
   fetch: app.fetch,
