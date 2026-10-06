@@ -10,7 +10,27 @@ const options = { fetcher: offline, takeBudget: async () => true };
 const char = (code: number) => String.fromCodePoint(code);
 const fill = (unit: string) => unit.repeat(Math.ceil(maxInputLength / unit.length)).slice(0, maxInputLength);
 const limitMs = 250;
-const extractLimitMs = 15;
+const growthLimit = 8;
+
+function fastest(run: () => unknown, rounds = 7): number {
+  const times: number[] = [];
+  for (let round = 0; round < rounds; round += 1) {
+    const started = performance.now();
+    run();
+    times.push(performance.now() - started);
+  }
+  return Math.min(...times);
+}
+
+async function fastestScan(input: string, rounds = 5): Promise<number> {
+  const times: number[] = [];
+  for (let round = 0; round < rounds; round += 1) {
+    const started = performance.now();
+    await scanContent(input, options);
+    times.push(performance.now() - started);
+  }
+  return Math.min(...times);
+}
 
 const pathological: [string, string][] = [
   ["one long word", fill("a")],
@@ -41,6 +61,9 @@ const pathological: [string, string][] = [
   ["quotes", fill("\"'`")],
   ["percent escapes", fill("%25")],
   ["long query", `https://example.com/?${fill("a=1&").slice(0, maxInputLength - 25)}`],
+  ["scheme then words", `http://${fill("ab")}`],
+  ["scheme then emoji", `http://${fill(char(0x1f600))}`],
+  ["mixed marks", fill(`${char(0x1f600)}a${char(0x301)}.`)],
 ];
 
 describe("worst-case inputs", () => {
@@ -52,14 +75,16 @@ describe("worst-case inputs", () => {
     expect(elapsed).toBeLessThan(limitMs);
   });
 
-  it.each(pathological)("extracts links and contact details from %s without slow backtracking", (_, input) => {
-    const times: number[] = [];
-    for (let run = 0; run < 5; run += 1) {
-      const started = performance.now();
-      extractInput(input);
-      times.push(performance.now() - started);
-    }
-    expect(Math.min(...times)).toBeLessThan(extractLimitMs);
+  it.each(pathological)("extraction time for %s grows in step with its length", (_, input) => {
+    const whole = fastest(() => extractInput(input));
+    const quarter = fastest(() => extractInput(input.slice(0, input.length / 4)));
+    expect(whole < 5 || whole / quarter < growthLimit, `${whole.toFixed(2)} ms for all of it, ${quarter.toFixed(2)} ms for a quarter`).toBe(true);
+  });
+
+  it.each(pathological)("scan time for %s grows in step with its length", async (_, input) => {
+    const whole = await fastestScan(input);
+    const quarter = await fastestScan(input.slice(0, input.length / 4));
+    expect(whole < 10 || whole / quarter < growthLimit, `${whole.toFixed(2)} ms for all of it, ${quarter.toFixed(2)} ms for a quarter`).toBe(true);
   });
 });
 

@@ -10,7 +10,7 @@ import { logEvent } from "../logging";
 import { clientAddress, rateLimitKey } from "../middleware/rate-limit";
 import { writesArePaused } from "../repositories/app-state";
 import { d1DomainList } from "../repositories/domain-lists";
-import { recordProviderCall } from "../repositories/provider-usage";
+import { dailyLimit, recordProviderCall } from "../repositories/provider-usage";
 import { verifyTurnstileToken } from "../security/turnstile";
 
 const ScanRequestSchema = z
@@ -39,12 +39,6 @@ const scanRoute = createRoute({
   },
 });
 
-const dailyLimitVariable: Record<BudgetedProvider, keyof AppBindings> = {
-  safe_browsing: "SAFE_BROWSING_DAILY_LIMIT",
-  urlhaus: "URLHAUS_DAILY_LIMIT",
-  workers_ai: "AI_DAILY_LIMIT",
-};
-
 function budgetTaker(env: AppBindings) {
   let paused: boolean | null = null;
   return async (provider: BudgetedProvider): Promise<boolean> => {
@@ -52,9 +46,9 @@ function budgetTaker(env: AppBindings) {
     if (paused) {
       return provider !== "workers_ai";
     }
-    const limit = Number(env[dailyLimitVariable[provider]]);
+    const limit = dailyLimit(env, provider);
     const calls = await recordProviderCall(env.DB, provider).catch(() => Number.POSITIVE_INFINITY);
-    return Number.isFinite(limit) && calls <= limit;
+    return limit !== null && calls <= limit;
   };
 }
 

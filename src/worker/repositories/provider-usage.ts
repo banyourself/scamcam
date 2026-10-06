@@ -1,5 +1,19 @@
 import type { BudgetedProvider } from "../../engine/scan";
+import type { AppBindings } from "../env";
 import { expiresAfter, nowInSeconds, retentionSeconds } from "../retention";
+
+export const budgetedProviders: readonly BudgetedProvider[] = ["safe_browsing", "urlhaus", "workers_ai"];
+
+const dailyLimitVariable = {
+  safe_browsing: "SAFE_BROWSING_DAILY_LIMIT",
+  urlhaus: "URLHAUS_DAILY_LIMIT",
+  workers_ai: "AI_DAILY_LIMIT",
+} as const satisfies Record<BudgetedProvider, keyof AppBindings>;
+
+export function dailyLimit(env: AppBindings, provider: BudgetedProvider): number | null {
+  const limit = Number(env[dailyLimitVariable[provider]]);
+  return Number.isFinite(limit) && limit >= 0 ? limit : null;
+}
 
 export function usageDay(now = new Date()): string {
   return now.toISOString().slice(0, 10);
@@ -22,4 +36,12 @@ export async function providerCallsToday(db: D1Database, provider: BudgetedProvi
     .bind(provider, usageDay(now))
     .first<{ calls: number }>();
   return row?.calls ?? 0;
+}
+
+export async function providerUsageSince(db: D1Database, firstDay: string): Promise<{ provider: BudgetedProvider; day: string; calls: number }[]> {
+  const result = await db
+    .prepare("SELECT provider, day, calls FROM provider_usage WHERE day >= ?1")
+    .bind(firstDay)
+    .all<{ provider: BudgetedProvider; day: string; calls: number }>();
+  return result.results;
 }

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { memoryLookups } from "../../src/engine/cache";
-import { buildShards, domainListKeepSeconds, domainListStaleAfterSeconds } from "../../src/engine/domain-list";
+import { buildShards, domainListKeepSeconds, domainListKey, domainListStaleAfterSeconds, shardOf } from "../../src/engine/domain-list";
 import { runDailyMaintenance, runWeeklyMaintenance } from "../../src/worker/maintenance/tasks";
 import { domainListStatements } from "../../src/worker/repositories/domain-list-sql";
 import { d1DomainList } from "../../src/worker/repositories/domain-lists";
@@ -56,6 +56,24 @@ describe("Phishing.Database in D1", () => {
     await env.DB.prepare("UPDATE domain_lists SET version = 'v2'").run();
     const refreshed = await list.lookup(["cheap-skins.example"]);
     expect(refreshed.status === "ok" && refreshed.listed.size).toBe(0);
+  });
+
+  it("keeps answering from a valid mix of old and new shards when a sync stops partway", async () => {
+    const before = nowInSeconds() - 3600;
+    await loadList("v1", before, ["cheap-skins.example", "steam-gift.example"]);
+    const next = await buildShards(["steam-gift.example", "new-scam.example"]);
+    const statements = domainListStatements({ list: "phishing_database", version: "v2", syncedAt: nowInSeconds(), expiresAt: nowInSeconds() + domainListKeepSeconds, shards: next });
+    const newShard = shardOf(await domainListKey("new-scam.example"));
+    expect(shardOf(await domainListKey("cheap-skins.example"))).not.toBe(newShard);
+    await env.DB.prepare(statements[newShard]!).run();
+    const lookups = memoryLookups();
+    const list = d1DomainList(env.DB, "phishing_database", lookups);
+    const partial = await list.lookup(["cheap-skins.example", "steam-gift.example", "new-scam.example"]);
+    expect(partial.status === "ok" && [...partial.listed].sort()).toEqual(["cheap-skins.example", "new-scam.example", "steam-gift.example"]);
+    expect(partial.status === "ok" && partial.syncedAt).toBe(before);
+    await env.DB.batch(statements.map((statement) => env.DB.prepare(statement)));
+    const finished = await list.lookup(["cheap-skins.example", "steam-gift.example", "new-scam.example"]);
+    expect(finished.status === "ok" && [...finished.listed].sort()).toEqual(["new-scam.example", "steam-gift.example"]);
   });
 
   it("replaces the old copy in place on the next sync", async () => {

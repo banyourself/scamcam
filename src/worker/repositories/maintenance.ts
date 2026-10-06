@@ -71,3 +71,11 @@ export async function staleRunningTasks(db: D1Database, olderThanSeconds: number
     .first<{ total: number }>();
   return row?.total ?? 0;
 }
+
+export async function failedRunsSince(db: D1Database, since: number): Promise<number> {
+  const row = await db
+    .prepare("SELECT COUNT(*) AS total FROM maintenance_runs WHERE status = 'failed' AND started_at >= ?1")
+    .bind(since)
+    .first<{ total: number }>();
+  return row?.total ?? 0;
+}

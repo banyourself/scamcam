@@ -55,6 +55,15 @@ describe("rate limit keys", () => {
     const other = await send("/api/v1/scans", json({ content: "hello there", turnstileToken: "t" }), "2001:db8:abcd:43::1");
     expect(other.response.status).toBe(200);
   });
+
+  it("holds the scan limit when many requests arrive at once", async () => {
+    const results = await Promise.all(
+      Array.from({ length: 16 }, () => send("/api/v1/scans", json({ content: "hello there", turnstileToken: "t" }), "203.0.113.99")),
+    );
+    const statuses = results.map(({ response }) => response.status);
+    expect(statuses.filter((status) => status === 200)).toHaveLength(10);
+    expect(statuses.filter((status) => status === 429)).toHaveLength(6);
+  });
 });
 
 describe("API abuse and cross-origin requests", () => {

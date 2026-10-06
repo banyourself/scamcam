@@ -19,6 +19,8 @@
     "test:worker": "vitest run",
     "test:config": "node --test \"test/node/*.test.ts\"",
     "test:a11y": "vite build && node scripts/a11y.ts",
+    "test:privacy": "vite build && node scripts/privacy-check.ts",
+    "test:recovery": "node scripts/recovery-drill.ts",
     "lists:build": "node scripts/domain-list.ts"
   },
   "dependencies": {

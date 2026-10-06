@@ -1,8 +1,9 @@
 import { createExecutionContext, createScheduledController, env, waitOnExecutionContext } from "cloudflare:test";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker from "../../src/worker/index";
 import { cronSchedule, runMaintenance, taskForCron } from "../../src/worker/maintenance/tasks";
 import { writesArePaused } from "../../src/worker/repositories/app-state";
+import { usageDay } from "../../src/worker/repositories/provider-usage";
 import { nowInSeconds } from "../../src/worker/retention";
 
 async function insertErrorEvent(expiresAt: number) {
@@ -17,8 +18,27 @@ async function latestRun(task: string) {
     .first<{ status: string; detail_json: string }>();
 }
 
+async function insertUsage(provider: string, daysAgo: number, calls: number) {
+  await env.DB.prepare("INSERT INTO provider_usage (provider, day, calls, expires_at) VALUES (?1, ?2, ?3, ?4)")
+    .bind(provider, usageDay(new Date(Date.now() - daysAgo * 86_400_000)), calls, nowInSeconds() + 86_400)
+    .run();
+}
+
+async function detailOf(task: string) {
+  return JSON.parse((await latestRun(task))?.detail_json ?? "{}");
+}
+
 beforeEach(async () => {
-  await env.DB.batch([env.DB.prepare("DELETE FROM error_events"), env.DB.prepare("DELETE FROM maintenance_runs")]);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM error_events"),
+    env.DB.prepare("DELETE FROM maintenance_runs"),
+    env.DB.prepare("DELETE FROM provider_usage"),
+    env.DB.prepare("DELETE FROM domain_lists"),
+  ]);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("schedules", () => {
@@ -78,5 +98,104 @@ describe("weekly maintenance", () => {
     expect(detail.missingExpiry).toEqual({ error_events: 0, maintenance_runs: 0, provider_usage: 0, domain_lists: 0, domain_list_shards: 0 });
     expect(detail.lists).toEqual({ phishing_database: null });
     expect(typeof detail.storage.sizeBytes === "number" || detail.storage.sizeBytes === null).toBe(true);
+  });
+});
+
+describe("bounded cleanup", () => {
+  it("deletes at most 10,000 expired rows per table in one run and finishes the rest the next day", async () => {
+    const past = nowInSeconds() - 60;
+    await env.DB.prepare(
+      "INSERT INTO error_events (code, route, created_at, expires_at) " +
+        "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 10250) SELECT 'Error', '/x', ?1, ?1 FROM n",
+    )
+      .bind(past)
+      .run();
+    await runMaintenance("daily", env);
+    const first = await detailOf("daily");
+    expect(first.deleted.error_events).toBe(10_000);
+    expect(first.alerts).toContain("cleanup_backlog_error_events");
+    await runMaintenance("daily", env);
+    const second = await detailOf("daily");
+    expect(second.deleted.error_events).toBe(250);
+    expect(second.alerts).not.toContain("cleanup_backlog_error_events");
+    const left = await env.DB.prepare("SELECT COUNT(*) AS total FROM error_events").first<{ total: number }>();
+    expect(left?.total).toBe(0);
+  });
+});
+
+describe("monitoring and alerts", () => {
+  it("compares provider usage with the daily limits and logs capacity alerts", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    await insertUsage("safe_browsing", 0, 7000);
+    await insertUsage("safe_browsing", 1, 1000);
+    await insertUsage("urlhaus", 1, 100);
+    await insertUsage("workers_ai", 3, 1990);
+    await runMaintenance("weekly", env);
+    const weekly = await detailOf("weekly");
+    expect(weekly.usage.safe_browsing).toEqual({ calls: 8000, peakDay: 7000, dailyLimit: 8000, peakShare: 0.88 });
+    expect(weekly.usage.urlhaus).toEqual({ calls: 100, peakDay: 100, dailyLimit: 5000, peakShare: 0.02 });
+    expect(weekly.usage.workers_ai.peakDay).toBe(1990);
+    expect(weekly.alerts).toEqual(["safe_browsing_near_daily_limit", "workers_ai_near_daily_limit"]);
+    await runMaintenance("daily", env);
+    expect((await detailOf("daily")).alerts).toEqual(["safe_browsing_near_daily_limit"]);
+    const alerts = log.mock.calls.map(([line]) => JSON.parse(String(line))).filter((entry) => entry.event === "alert");
+    expect(alerts.map((entry) => `${entry.task}:${entry.alert}`)).toEqual([
+      "weekly:safe_browsing_near_daily_limit",
+      "weekly:workers_ai_near_daily_limit",
+      "daily:safe_browsing_near_daily_limit",
+    ]);
+  });
+
+  it("reports errors by code, failed runs, and a stale phishing list", async () => {
+    const now = nowInSeconds();
+    await env.DB.prepare(
+      "INSERT INTO error_events (code, route, created_at, expires_at) " +
+        "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 52) SELECT CASE WHEN i <= 40 THEN 'TypeError' ELSE 'RangeError' END, '/api/v1/scans', ?1, ?2 FROM n",
+    )
+      .bind(now - 3600, now + 86_400)
+      .run();
+    await env.DB.prepare("INSERT INTO maintenance_runs (task, status, started_at, finished_at, expires_at) VALUES ('daily', 'failed', ?1, ?1, ?2)")
+      .bind(now - 86_400 * 2, now + 86_400)
+      .run();
+    await env.DB.prepare("INSERT INTO domain_lists (list, version, entries, synced_at, expires_at) VALUES ('phishing_database', 'v1', 150000, ?1, ?2)")
+      .bind(now - 4 * 86_400, now + 86_400)
+      .run();
+    await runMaintenance("weekly", env);
+    const weekly = await detailOf("weekly");
+    expect(weekly.errors).toEqual({ total: 52, byCode: { TypeError: 40, RangeError: 12 } });
+    expect(weekly.runs).toEqual({ failed: 1, stuck: 0 });
+    expect(weekly.lists.phishing_database).toEqual({ version: "v1", entries: 150000, ageHours: 96 });
+    expect(weekly.alerts).toEqual(["maintenance_failed", "errors_high", "phishing_list_stale"]);
+  });
+
+  it("warns before storage reaches the soft limit", async () => {
+    const size = (await env.DB.prepare("SELECT 1").run()).meta.size_after ?? 0;
+    await runMaintenance("daily", { ...env, STORAGE_SOFT_LIMIT_BYTES: String(Math.ceil(size / 0.9)) });
+    expect((await detailOf("daily")).alerts).toEqual(["storage_near_soft_limit"]);
+    await runMaintenance("daily", { ...env, STORAGE_SOFT_LIMIT_BYTES: "1" });
+    expect((await detailOf("daily")).alerts).toEqual(["storage_over_soft_limit"]);
+    await runMaintenance("daily", env);
+    expect((await detailOf("daily")).alerts).toEqual([]);
+  });
+
+  it("records a failed run and logs an alert when a step throws", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const failing = {
+      prepare: (sql: string) => {
+        if (sql.startsWith("DELETE")) {
+          throw new TypeError("simulated database failure");
+        }
+        return env.DB.prepare(sql);
+      },
+      batch: env.DB.batch.bind(env.DB),
+      exec: env.DB.exec.bind(env.DB),
+    } as unknown as D1Database;
+    await expect(runMaintenance("daily", { ...env, DB: failing })).rejects.toThrow("simulated database failure");
+    const run = await latestRun("daily");
+    expect(run?.status).toBe("failed");
+    expect(JSON.parse(run?.detail_json ?? "{}")).toEqual({ reason: "TypeError" });
+    const lines = log.mock.calls.map(([line]) => String(line));
+    expect(lines.some((line) => line.includes('"event":"alert"') && line.includes('"alert":"maintenance_failed"'))).toBe(true);
+    expect(lines.join(" ")).not.toContain("simulated database failure");
   });
 });

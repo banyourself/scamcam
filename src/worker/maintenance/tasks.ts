@@ -1,24 +1,54 @@
+import { domainListStaleAfterSeconds } from "../../engine/domain-list";
+import type { BudgetedProvider } from "../../engine/scan";
 import { appStateKeys, writeAppState } from "../repositories/app-state";
+import { errorCountsSince } from "../repositories/error-events";
 import {
   countRows,
   countRowsMissingExpiry,
   databaseSizeBytes,
   deleteExpiredRows,
+  failedRunsSince,
   finishMaintenanceRun,
   retentionTables,
   staleRunningTasks,
   startMaintenanceRun,
   type MaintenanceTask,
 } from "../repositories/maintenance";
+import { budgetedProviders, dailyLimit, providerUsageSince, usageDay } from "../repositories/provider-usage";
 import type { AppBindings } from "../env";
 import { domainListStatus } from "../repositories/domain-lists";
 import { logEvent } from "../logging";
-import { nowInSeconds } from "../retention";
+import { cleanupBatchSize, cleanupMaxBatchesPerTable, nowInSeconds } from "../retention";
 
 export const cronSchedule = {
   daily: "17 3 * * *",
   weekly: "41 4 * * 1",
 } as const;
+
+export const alertThresholds = {
+  capacityShare: 0.8,
+  weeklyErrors: 50,
+  stuckRunSeconds: 6 * 60 * 60,
+} as const;
+
+const daySeconds = 24 * 60 * 60;
+
+interface StorageCheck {
+  sizeBytes: number | null;
+  softLimitBytes: number;
+  writesPaused: boolean;
+}
+
+interface UsageSummary {
+  calls: number;
+  peakDay: number;
+  dailyLimit: number | null;
+  peakShare: number | null;
+}
+
+export interface MaintenanceReport extends Record<string, unknown> {
+  alerts: string[];
+}
 
 export function taskForCron(cron: string): MaintenanceTask | null {
   if (cron === cronSchedule.daily) {
@@ -30,7 +60,7 @@ export function taskForCron(cron: string): MaintenanceTask | null {
   return null;
 }
 
-async function checkStorage(env: AppBindings): Promise<Record<string, unknown>> {
+async function checkStorage(env: AppBindings): Promise<StorageCheck> {
   const sizeBytes = await databaseSizeBytes(env.DB);
   const softLimit = Number(env.STORAGE_SOFT_LIMIT_BYTES);
   const overLimit = sizeBytes !== null && Number.isFinite(softLimit) && sizeBytes >= softLimit;
@@ -38,17 +68,58 @@ async function checkStorage(env: AppBindings): Promise<Record<string, unknown>> 
   return { sizeBytes, softLimitBytes: softLimit, writesPaused: overLimit };
 }
 
-export async function runDailyMaintenance(env: AppBindings): Promise<Record<string, unknown>> {
+async function usageSummary(env: AppBindings, days: number): Promise<Record<BudgetedProvider, UsageSummary>> {
+  const rows = await providerUsageSince(env.DB, usageDay(new Date(Date.now() - (days - 1) * daySeconds * 1000)));
+  const entries = budgetedProviders.map((provider): [BudgetedProvider, UsageSummary] => {
+    const calls = rows.filter((row) => row.provider === provider).map((row) => row.calls);
+    const peakDay = Math.max(0, ...calls);
+    const limit = dailyLimit(env, provider);
+    return [
+      provider,
+      {
+        calls: calls.reduce((total, value) => total + value, 0),
+        peakDay,
+        dailyLimit: limit,
+        peakShare: limit ? Math.round((peakDay / limit) * 100) / 100 : null,
+      },
+    ];
+  });
+  return Object.fromEntries(entries) as Record<BudgetedProvider, UsageSummary>;
+}
+
+function storageAlerts(storage: StorageCheck): string[] {
+  if (storage.writesPaused) {
+    return ["storage_over_soft_limit"];
+  }
+  if (storage.sizeBytes !== null && storage.sizeBytes >= storage.softLimitBytes * alertThresholds.capacityShare) {
+    return ["storage_near_soft_limit"];
+  }
+  return [];
+}
+
+function usageAlerts(usage: Record<BudgetedProvider, UsageSummary>): string[] {
+  return budgetedProviders.filter((provider) => (usage[provider].peakShare ?? 0) >= alertThresholds.capacityShare).map((provider) => `${provider}_near_daily_limit`);
+}
+
+function runAlerts(failedRuns: number, stuckRuns: number): string[] {
+  return [...(failedRuns > 0 ? ["maintenance_failed"] : []), ...(stuckRuns > 0 ? ["maintenance_stuck"] : [])];
+}
+
+export async function runDailyMaintenance(env: AppBindings): Promise<MaintenanceReport> {
   const deleted: Record<string, number> = {};
   for (const table of retentionTables) {
     deleted[table] = await deleteExpiredRows(env.DB, table);
   }
   const storage = await checkStorage(env);
-  const stuckRuns = await staleRunningTasks(env.DB, 6 * 60 * 60);
-  return { deleted, storage, stuckRuns };
+  const stuckRuns = await staleRunningTasks(env.DB, alertThresholds.stuckRunSeconds);
+  const failedRuns = await failedRunsSince(env.DB, nowInSeconds() - daySeconds);
+  const usage = await usageSummary(env, 2);
+  const backlog = retentionTables.filter((table) => deleted[table] === cleanupBatchSize * cleanupMaxBatchesPerTable).map((table) => `cleanup_backlog_${table}`);
+  const alerts = [...storageAlerts(storage), ...usageAlerts(usage), ...runAlerts(failedRuns, stuckRuns), ...backlog];
+  return { deleted, storage, stuckRuns, failedRuns, usage, alerts };
 }
 
-export async function runWeeklyMaintenance(env: AppBindings): Promise<Record<string, unknown>> {
+export async function runWeeklyMaintenance(env: AppBindings): Promise<MaintenanceReport> {
   const rows: Record<string, number> = {};
   const missingExpiry: Record<string, number> = {};
   for (const table of retentionTables) {
@@ -56,13 +127,28 @@ export async function runWeeklyMaintenance(env: AppBindings): Promise<Record<str
     missingExpiry[table] = await countRowsMissingExpiry(env.DB, table);
   }
   const storage = await checkStorage(env);
+  const weekAgo = nowInSeconds() - 7 * daySeconds;
+  const usage = await usageSummary(env, 7);
+  const errors = await errorCountsSince(env.DB, weekAgo);
+  const errorTotal = Object.values(errors).reduce((total, count) => total + count, 0);
+  const failedRuns = await failedRunsSince(env.DB, weekAgo);
+  const stuckRuns = await staleRunningTasks(env.DB, alertThresholds.stuckRunSeconds);
   const phishingDatabase = await domainListStatus(env.DB, "phishing_database");
+  const listAgeSeconds = phishingDatabase ? nowInSeconds() - phishingDatabase.syncedAt : null;
   const lists = {
-    phishing_database: phishingDatabase
-      ? { version: phishingDatabase.version, entries: phishingDatabase.entries, ageHours: Math.floor((nowInSeconds() - phishingDatabase.syncedAt) / 3600) }
+    phishing_database: phishingDatabase && listAgeSeconds !== null
+      ? { version: phishingDatabase.version, entries: phishingDatabase.entries, ageHours: Math.floor(listAgeSeconds / 3600) }
       : null,
   };
-  return { rows, missingExpiry, storage, lists };
+  const alerts = [
+    ...storageAlerts(storage),
+    ...usageAlerts(usage),
+    ...runAlerts(failedRuns, stuckRuns),
+    ...(errorTotal >= alertThresholds.weeklyErrors ? ["errors_high"] : []),
+    ...(listAgeSeconds !== null && listAgeSeconds > domainListStaleAfterSeconds ? ["phishing_list_stale"] : []),
+    ...(Object.values(missingExpiry).some((count) => count > 0) ? ["rows_missing_expiry"] : []),
+  ];
+  return { rows, missingExpiry, storage, usage, errors: { total: errorTotal, byCode: errors }, runs: { failed: failedRuns, stuck: stuckRuns }, lists, alerts };
 }
 
 export async function runMaintenance(task: MaintenanceTask, env: AppBindings): Promise<void> {
@@ -71,10 +157,14 @@ export async function runMaintenance(task: MaintenanceTask, env: AppBindings): P
     const detail = task === "daily" ? await runDailyMaintenance(env) : await runWeeklyMaintenance(env);
     await finishMaintenanceRun(env.DB, runId, "succeeded", detail);
     logEvent("maintenance", { task, status: "succeeded", detail });
+    for (const alert of detail.alerts) {
+      logEvent("alert", { task, alert });
+    }
   } catch (error) {
     const reason = error instanceof Error ? error.name : "unknown";
     await finishMaintenanceRun(env.DB, runId, "failed", { reason });
     logEvent("maintenance", { task, status: "failed", reason });
+    logEvent("alert", { task, alert: "maintenance_failed", reason });
     throw error;
   }
 }
