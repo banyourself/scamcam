@@ -27,6 +27,11 @@
       "name": "SCAN_RATE_LIMITER",
       "namespace_id": "1002",
       "simple": { "limit": 10, "period": 60 }
+    },
+    {
+      "name": "SHARE_RATE_LIMITER",
+      "namespace_id": "1003",
+      "simple": { "limit": 10, "period": 60 }
     }
   ],
   "ai": {
@@ -34,7 +39,7 @@
     "remote": true
   },
   "triggers": {
-    "crons": ["17 3 * * *", "41 4 * * 1"]
+    "crons": ["17 3 * * *", "41 4 * * 1", "*/5 * * * *"]
   },
   "vars": {
     "APP_ENV": "development",
@@ -79,13 +84,18 @@
           "name": "SCAN_RATE_LIMITER",
           "namespace_id": "1002",
           "simple": { "limit": 10, "period": 60 }
+        },
+        {
+          "name": "SHARE_RATE_LIMITER",
+          "namespace_id": "1003",
+          "simple": { "limit": 10, "period": 60 }
         }
       ],
       "ai": {
         "binding": "AI"
       },
       "triggers": {
-        "crons": ["17 3 * * *", "41 4 * * 1"]
+        "crons": ["17 3 * * *", "41 4 * * 1", "*/5 * * * *"]
       },
       "vars": {
         "APP_ENV": "production",

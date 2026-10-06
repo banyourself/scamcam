@@ -6,6 +6,7 @@ This is ScamCam's written retention schedule (also required by the 2025 COPPA am
 |---|---|---|
 | Submitted message text | Not stored | Scan request handling; verified by a test that inspects every table |
 | Raw submitted URLs | Not stored | Scan request handling; verified by the same test |
+| Shared reports (only when a visitor presses Share) | 5, 10, or 15 minutes as chosen, then deleted within 5 minutes; encrypted with a key that only the link holds | `shared_reports.expires_at`, a cleanup every 5 minutes, and the read refuses expired rows |
 | IP addresses | Not stored by ScamCam | Rate limiter and Turnstile are Cloudflare services |
 | Temporary scan jobs (if introduced) | 1 hour at most | `expires_at` plus daily cleanup |
 | Abuse-prevention data | 24 hours at most | Not stored in D1 today; the rate limiter keeps short-lived counters |

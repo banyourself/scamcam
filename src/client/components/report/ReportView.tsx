@@ -44,7 +44,9 @@ export function ReportView({ report }: { report: ScanReport }) {
 
       <div className="border-t border-rule px-5 py-4">
         <p className="rule-label">Subject</p>
-        <p className="mt-2 break-all font-mono text-sm text-ink">{report.subject.display}</p>
+        <p className="mt-2 break-all font-mono text-sm text-ink">
+          {report.subject.display || <span className="font-sans text-ink-soft">Message text not shared</span>}
+        </p>
         {report.subject.registrableDomain && (
           <p className="mt-1 text-sm text-ink-soft">
             Registered domain: <span className="font-mono text-ink">{report.subject.registrableDomain}</span>

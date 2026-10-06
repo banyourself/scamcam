@@ -30,7 +30,7 @@ Cache API calls all count toward the 50. A scan stays within both:
   Browsing answers are kept per hash prefix in the Worker's memory, other answers are checked in memory before the
   shared cache, and a request may make at most 24 shared cache calls. A message with 20 links uses 43 subrequests
   (12 fetches, 22 cache calls, 9 queries); a repeated scan in the same Worker instance makes no outside calls.
-- The daily cleanup shares one budget of 24 delete batches across all tables, so a run stays under 35 queries.
+- The daily cleanup shares one budget of 25 delete batches across all tables, so a run stays under 35 queries.
 
 ## Repository layout
 
@@ -123,6 +123,7 @@ reputation of verdicts, and the operator's Cloudflare account.
 | Poisoned community list | A legitimate domain is added to Phishing.Database | Matches never confirm, official sites are never looked up, shared services are context only, the list is size-checked and pinned to a commit |
 | Quota exhaustion (denial of wallet or service) | Bots flood scans to burn D1, AI, or provider quotas | Rate limiting (per visitor and per IPv6 /64, at each Cloudflare location), Turnstile on scans, cached results, daily caps counted for the whole service (AI capped at 2,000 calls, refused when usage cannot be counted), paused failing sources, honest "temporarily unavailable" responses |
 | CPU and subrequest exhaustion | A crafted message makes parsing slow, or many links push a request past the Free plan's 50 subrequests | Parsing that grows in step with input length (tested on 31 crafted inputs and 300 fuzzed ones), capped lookups, memory before the shared cache, at most 24 shared cache calls per request, provider answers read with size caps |
+| Fake shared reports | Someone edits a report to say a scam is safe and shares it as ScamCam's | Shares need an HMAC signature over the unchanged report made in the last 30 minutes; shared reports are encrypted with a key only the link holds and expire within 15 minutes |
 | Malicious image files | A fake image, a script-carrying SVG, or a small file that decodes to a huge image | Images never leave the browser; only PNG, JPEG, WebP, and GIF signatures are accepted; sizes are read from the header before decoding (16,384 pixels a side, 40 megapixels, 10 MB); the browser's own decoder is used; OCR runs in a worker with time limits (see `SECURITY_REVIEW.md`, Stage 7) |
 | Log and header injection | A client sends its own request ID or crafted headers to plant text in logs | The Worker makes its own request IDs, logs only fixed fields, and Cloudflare's per-request invocation logs are off |
 | Abuse of verdicts | Someone uses ScamCam to label a competitor a scam | Signal-based wording, sources and dates shown, dispute path, no accusations against individuals |

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
-export const publicRoutes = ["/", "/how-it-works", "/privacy", "/terms", "/acceptable-use", "/cookies", "/accessibility", "/security", "/disclosure", "/contact", "/missing-page"];
+export const publicRoutes = ["/", "/how-it-works", "/privacy", "/terms", "/acceptable-use", "/cookies", "/accessibility", "/security", "/disclosure", "/contact", "/r/AAAAAAAAAAAAAAAAAAAAAA", "/missing-page"];
 
 const chromeStartSeconds = 60;
 

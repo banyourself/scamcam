@@ -39,7 +39,8 @@ test("cron triggers in wrangler.jsonc match the maintenance schedule", () => {
   const tasks = read("src/worker/maintenance/tasks.ts");
   const daily = /daily: "([^"]+)"/.exec(tasks)?.[1];
   const weekly = /weekly: "([^"]+)"/.exec(tasks)?.[1];
-  assert.deepEqual(wrangler.triggers.crons, [daily, weekly]);
+  const shares = /shares: "([^"]+)"/.exec(tasks)?.[1];
+  assert.deepEqual(wrangler.triggers.crons, [daily, weekly, shares]);
 });
 
 test("Workers Logs keep only ScamCam's own events, not Cloudflare's per-request records", () => {

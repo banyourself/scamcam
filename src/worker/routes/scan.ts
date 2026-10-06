@@ -2,6 +2,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { maxInputLength } from "../../shared/extract";
 import { ApiErrorSchema } from "../../shared/api";
 import { ScanReportSchema } from "../../shared/report-schema";
+import { reportSignatureHeader } from "../../shared/share";
 import { turnstileAction } from "../../shared/turnstile";
 import { reviewMessage, type TextModel } from "../../engine/ai-review";
 import { scanContent, type BudgetedProvider } from "../../engine/scan";
@@ -12,6 +13,7 @@ import { clientAddress, rateLimitKey } from "../middleware/rate-limit";
 import { writesArePaused } from "../repositories/app-state";
 import { d1DomainList } from "../repositories/domain-lists";
 import { dailyLimit, recordProviderCall } from "../repositories/provider-usage";
+import { signReport } from "../security/report-signature";
 import { verifyTurnstileToken } from "../security/turnstile";
 
 const ScanRequestSchema = z
@@ -114,5 +116,10 @@ export const scanRoutes = new OpenAPIHono<AppEnv>().openapi(scanRoute, async (c)
     lookups: c.get("lookups"),
     phishingList: d1DomainList(c.env.DB, "phishing_database", c.get("lookups")),
   });
-  return c.json(ScanReportSchema.parse(report), 200);
+  const checked = ScanReportSchema.parse(report);
+  const signature = await signReport(checked, c.env.SHARE_SIGNING_KEY);
+  if (signature) {
+    c.header(reportSignatureHeader, signature);
+  }
+  return c.json(checked, 200);
 });

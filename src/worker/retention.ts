@@ -9,7 +9,7 @@ export const retentionSeconds = {
 } as const;
 
 export const cleanupBatchSize = 500;
-export const cleanupMaxBatchesPerRun = 24;
+export const cleanupMaxBatchesPerRun = 25;
 
 export function nowInSeconds(): number {
   return Math.floor(Date.now() / 1000);

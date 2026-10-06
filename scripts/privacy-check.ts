@@ -197,6 +197,25 @@ async function checkBrowser(): Promise<string[]> {
       notes.push("the scan step was skipped because Turnstile did not finish in a headless browser; run one scan by hand");
     }
     await sleep(1500);
+    let shareKey = "";
+    if (scanned) {
+      try {
+        await cdp.evaluate(`[...document.querySelectorAll("button")].find((button) => button.textContent.includes("Make share link")).click()`);
+        await waitFor(cdp, `document.querySelector("input[readonly]")?.value?.includes("/r/")`);
+        const shareUrl = await cdp.evaluate<string>(`document.querySelector("input[readonly]").value`);
+        shareKey = shareUrl.split("#")[1] ?? "";
+        await cdp.send("Page.navigate", { url: shareUrl });
+        await waitFor(cdp, `document.querySelector("#report-heading") && document.body.textContent.includes("A report someone shared")`);
+        if (!(await cdp.evaluate<boolean>(`document.body.textContent.includes("did not include the message text")`))) {
+          failures.push("the shared report showed the message although it was not included");
+        }
+        if (await cdp.evaluate<boolean>(`document.body.textContent.toLowerCase().includes("privacy probe")`)) {
+          failures.push("the shared report contains the message text");
+        }
+      } catch (error) {
+        failures.push(`sharing the report failed (${error instanceof Error ? error.message.slice(0, 120) : "unknown"})`);
+      }
+    }
 
     const storage = await cdp.evaluate<PageStorage>(`(async () => ({
       local: Object.entries(localStorage),
@@ -265,6 +284,9 @@ async function checkBrowser(): Promise<string[]> {
         failures.push(`submitted text was put in a URL: ${new URL(request.url).pathname}`);
       }
     }
+    if (shareKey && requests.some((request) => request.url.includes(shareKey) || (request.postData ?? "").includes(shareKey))) {
+      failures.push("the share key was sent to a server");
+    }
     const scans = requests.filter((request) => request.url === `${base}/api/v1/scans`);
     if (scanned && (scans.length !== 1 || scans[0]?.method !== "POST")) {
       failures.push(`expected one POST to /api/v1/scans, saw ${scans.length}`);
@@ -275,7 +297,7 @@ async function checkBrowser(): Promise<string[]> {
       }
     }
 
-    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  browser visit of ${publicRoutes.length} pages, a theme change${scanned ? ", and a scan" : ""}`);
+    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  browser visit of ${publicRoutes.length} pages, a theme change${scanned ? ", a scan, and a share link opened like a friend would" : ""}`);
     console.log(`      origins contacted: ${[...origins].sort().join(", ")}`);
     console.log(`      local storage keys: ${storage.local.map(([key]) => key).join(", ") || "none"}`);
     console.log(

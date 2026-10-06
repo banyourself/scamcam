@@ -57,6 +57,8 @@ jobs:
       - run: npm ci
       - name: Use Cloudflare's public Turnstile test keys
         run: cp .dev.vars.example .dev.vars
+      - name: Create the local database
+        run: npm run db:migrate:local
       - name: axe-core WCAG 2.2 AA audit of every page and a real scan in both themes
         run: npm run test:a11y
         env:
@@ -74,6 +76,8 @@ jobs:
       - run: npm ci
       - name: Use Cloudflare's public Turnstile test keys
         run: cp .dev.vars.example .dev.vars
+      - name: Create the local database
+        run: npm run db:migrate:local
       - name: Browser requests, cookies, storage, security headers, and a secret scan of the build
         run: npm run test:privacy
         env:

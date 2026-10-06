@@ -19,7 +19,7 @@ an independent penetration test. AI risks are covered separately in `OWASP_LLM_T
 | # | Finding | Severity | Fix | Test |
 |---|---|---|---|---|
 | 1 | Too many subrequests for the Workers Free plan. Cloudflare counts outside fetches, D1 queries, and Cache API calls against one limit of 50 per request. Safe Browsing kept one Cache API entry per hash prefix, so a message with 20 links needed about 750 of them, and even one link could need 26. Past the limit, lookups and the D1 budget counters would fail, and reports would wrongly say sources did not respond or were over budget | Medium | Safe Browsing answers are kept per prefix in the Worker's memory, other lookups check memory before the shared cache, registry back-off is kept in memory, and each request may make at most 24 shared cache calls. A 20-link message now uses 43 subrequests (12 fetches, 22 cache calls, 9 queries), and a repeated scan in the same Worker instance makes none | `test/worker/security.test.ts` counts every fetch, cache call, and query for a 20-link scan; `test/client/performance.test.ts` checks every benchmark case and the 20-link cases |
-| 2 | The daily cleanup could run up to 107 D1 queries when tables had a backlog, and D1 allows 50 per invocation on the Free plan | Low | One budget of 24 delete batches is shared by all tables, keeping a run under 35 queries | `test/worker/maintenance.test.ts` |
+| 2 | The daily cleanup could run up to 107 D1 queries when tables had a backlog, and D1 allows 50 per invocation on the Free plan | Low | One budget of 25 delete batches is shared by all tables, keeping a run under 35 queries | `test/worker/maintenance.test.ts` |
 | 3 | Slow regular expressions. On crafted 4,000-character inputs (dots, accent marks, emoji, slashes), link and email extraction did work that grew with the square of the length, up to about 23 ms per scan in Node. The Workers Free plan allows 10 ms of CPU per request | Medium | Cheap checks run first, host names stop at 30 labels, the "email inside a link" check runs in code once per match, and the hidden-link check only starts at word boundaries | `test/client/worst-case.test.ts`: 31 crafted inputs must take time that grows in step with their length, plus 300 fuzzed inputs. The slowest scan now takes under 1 ms |
 | 4 | Each IPv6 address had its own rate limit, and one home network usually has a whole /64 (about 18 quintillion addresses) | Medium | IPv6 visitors are limited per /64; IPv4-mapped addresses count as their IPv4 address | `test/worker/security.test.ts` |
 | 5 | Answers from Safe Browsing, URLhaus, RDAP, DNS, and Turnstile were read without a size limit | Low | Reads stream and stop at 64 KB to 1 MB depending on the source | `test/engine/limited-body.test.ts` |
@@ -44,7 +44,7 @@ an independent penetration test. AI risks are covered separately in `OWASP_LLM_T
 | Errors | Generic messages with a request ID; only the error type and route are stored, for 7 days |
 | Dependencies | `npm audit`: 0 vulnerabilities. Registry signatures verified, an SBOM from every CI run, every GitHub Action pinned to a commit |
 | Concurrency | 16 scans sent at once from one address: exactly 10 get through (local simulator) |
-| Cleanup | 10,250 expired rows in one table are removed in two daily runs, with a backlog alert after the first. With a backlog in every table, one run deletes 11,000 rows in 24 batches and stays under 50 queries |
+| Cleanup | 10,250 expired rows in one table are removed in two daily runs, with a backlog alert after the first. With a backlog in every table, one run deletes 11,000 rows in 25 batches and stays under 50 queries |
 | Partial list sync | A sync that stops partway leaves a mix of old and new shards that still answers correctly |
 | Recovery | Export and restore of a throwaway database matches on every table (`RECOVERY.md`) |
 | Disclosure contact | `kevinle.tech` has MX records, SPF, a DKIM key (selector `titan1`), and a DMARC reject policy (DNS lookups on 2026-10-05), so `kevin@kevinle.tech` can receive reports and its replies should pass DMARC. On 2026-10-05 a test report from an outside Gmail address arrived, and the reply from kevin@kevinle.tech reached the Gmail inbox |
@@ -136,3 +136,33 @@ Tesseract.js and any QR code with jsQR, shows the text for review, and the visit
 Tesseract.js, tesseract.js-core, and jsQR are Apache 2.0, and their license texts are served with the files under
 `/ocr/7.0.0-2/licenses/`. The English model comes from the `@tesseract.js-data/eng` package (MIT), built from
 Tesseract's Apache 2.0 `tessdata`.
+
+## Stage 8: share links (2026-10-06)
+
+A visitor can press Share on a report to get a link that works for 5, 10, or 15 minutes (10 by default). The
+message text is left out unless they tick the box.
+
+### Design
+
+- **Opt-in.** Nothing is stored unless someone presses Share.
+- **Encrypted, with a key ScamCam does not keep.** The server encrypts the shared report with AES-GCM under a new
+  random 128-bit key, stores only the ciphertext, and returns the key once. The link carries the key after `#`, a
+  part of the address that browsers never send to servers, so neither ScamCam's database nor its backups can be
+  read without the link.
+- **Only real reports.** Each scan answer carries an HMAC-SHA256 signature of the exact report, made with a secret
+  only the Worker holds (`SHARE_SIGNING_KEY`). Sharing requires a valid signature over an unchanged report made in the
+  last 30 minutes, so nobody can publish a made-up "this site is safe" report under ScamCam's name.
+- **Real expiry.** Reads refuse expired rows, and a cleanup every 5 minutes deletes them.
+
+### Threats checked
+
+| Threat | Protection | Test |
+|---|---|---|
+| A fake or edited report shared under ScamCam's name | HMAC signature over the exact report; edited, forged, missing, and old signatures are refused | `test/worker/shares.test.ts` |
+| Guessing share links | 128-bit random ids; the same 404 for expired, unknown, and malformed ids; the API rate limit | Unit test of identical 404 answers |
+| Reading stored reports | Only ciphertext is stored; the key is never stored or logged | The test dumps the table and finds neither the message nor the key |
+| Using sharing as free storage | Only signed reports, at most 16 KB, 10 links a minute per visitor, at most 2,000 active links, and no new links while storage writes are paused | Rate limit test |
+| Leaking the key | The key stays in the address fragment; the browser check confirms it never appears in any request | `scripts/privacy-check.ts` |
+| Search engines indexing shared reports | `noindex` in the page and the `X-Robots-Tag` header on `/r/*`, and `robots.txt` disallows `/r/` | Header check |
+| Revealing the message by accident | The message is excluded unless the sharer ticks the box, which warns that names and usernames would be visible | Unit and browser tests |
+| Exceeding the Free plan's cron and query limits | One extra cron (3 of the account's 5); each cleanup run makes at most 10 queries | Config test |

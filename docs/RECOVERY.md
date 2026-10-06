@@ -95,9 +95,10 @@ them for 90 days.
 | `storage_near_soft_limit`, `storage_over_soft_limit` | The database is at 80 percent of the soft limit, or past it with optional writes paused |
 | `maintenance_failed` | A maintenance run failed in the last day (daily) or week (weekly), or the current run failed |
 | `maintenance_stuck` | A run has said "running" for more than 6 hours |
-| `cleanup_backlog_<table>` | The daily cleanup used its budget of 24 delete batches (500 rows each, shared by all tables) before it finished that table; the rest is deleted on the next runs |
+| `cleanup_backlog_<table>` | The daily cleanup used its budget of 25 delete batches (500 rows each, shared by all tables) before it finished that table; the rest is deleted on the next runs |
 | `errors_high` | At least 50 errors in the last 7 days |
 | `phishing_list_stale` | The list copy is more than 3 days old |
+| `share_cleanup_failed` | The 5-minute cleanup of expired share links failed; reads still refuse expired links |
 | `rows_missing_expiry` | A row has no expiry, so cleanup would never delete it |
 
 To read the latest reports: `npx wrangler d1 execute scamcam --remote --command "SELECT task, status, finished_at,

@@ -12,7 +12,7 @@ export function PrivacyPage() {
       <h2>The short version</h2>
       <ul>
         <li>No accounts, ads, analytics, or tracking.</li>
-        <li>What you paste is checked and then thrown away. It is not saved.</li>
+        <li>What you paste is checked and then thrown away. It is not saved unless you choose to share a report.</li>
         <li>Screenshots are read on your own device and are never uploaded.</li>
         <li>ScamCam does not save your IP address.</li>
         <li>Nothing is sold or shared for marketing, ever.</li>
@@ -74,6 +74,11 @@ export function PrivacyPage() {
             <td>Your IP address</td>
             <td>Cloudflare uses it to deliver the site, limit abuse, and run the bot check</td>
             <td>Not saved by ScamCam</td>
+          </tr>
+          <tr>
+            <td>A report you choose to share (the message text only if you tick the box)</td>
+            <td>To show it to whoever has the link</td>
+            <td>Kept encrypted for the 5, 10, or 15 minutes you pick, then deleted within 5 minutes. The key is only in the link, so ScamCam cannot read it</td>
           </tr>
           <tr>
             <td>ScamCam&apos;s own records of each request (time, page, result code, how long it took) and of each AI check (its one-word answer and size)</td>

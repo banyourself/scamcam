@@ -1,6 +1,7 @@
 import { useDeferredValue, useId, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent } from "react";
 import { extractInput, maxInputLength } from "../../../shared/extract";
 import type { ScanReport } from "../../../shared/report";
+import { reportSignatureHeader } from "../../../shared/share";
 import { TurnstileWidget } from "@/components/scan/TurnstileWidget";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,7 +52,7 @@ async function readError(response: Response): Promise<string> {
 
 export interface ScanPanelProps {
   health: ApiHealth;
-  onReport: (report: ScanReport) => void;
+  onReport: (report: ScanReport, signature: string | null) => void;
 }
 
 export function ScanPanel({ health, onReport }: ScanPanelProps) {
@@ -145,7 +146,7 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
         setError(await readError(response));
         return;
       }
-      onReport((await response.json()) as ScanReport);
+      onReport((await response.json()) as ScanReport, response.headers.get(reportSignatureHeader));
     } catch {
       setError("ScamCam could not be reached. Check your connection and try again.");
     } finally {

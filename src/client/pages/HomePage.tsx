@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ScanReport } from "../../shared/report";
 import { ReportView } from "@/components/report/ReportView";
+import { ShareControls } from "@/components/report/ShareControls";
 import { ScanPanel } from "@/components/scan/ScanPanel";
 import { useApiHealth } from "@/hooks/useApiHealth";
 import { Link, useDocumentTitle } from "@/router";
@@ -53,7 +54,8 @@ const reportParts = [
 export function HomePage() {
   useDocumentTitle("ScamCam");
   const health = useApiHealth();
-  const [report, setReport] = useState<ScanReport | null>(null);
+  const [result, setResult] = useState<{ report: ScanReport; signature: string | null } | null>(null);
+  const report = result?.report ?? null;
   const reportSection = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -91,12 +93,13 @@ export function HomePage() {
             </div>
           </dl>
         </div>
-        <ScanPanel health={health} onReport={setReport} />
+        <ScanPanel health={health} onReport={(next, signature) => setResult({ report: next, signature })} />
       </section>
 
       {report && (
         <section ref={reportSection} tabIndex={-1} aria-label="Report" className="mx-auto mt-12 max-w-4xl scroll-mt-6 px-4 focus:outline-none">
           <ReportView report={report} />
+          {result?.signature && <ShareControls key={report.caseNumber} report={report} signature={result.signature} />}
         </section>
       )}
 

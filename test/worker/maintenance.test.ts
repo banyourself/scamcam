@@ -96,7 +96,7 @@ describe("weekly maintenance", () => {
     expect(run?.status).toBe("succeeded");
     const detail = JSON.parse(run?.detail_json ?? "{}");
     expect(detail.rows.error_events).toBe(1);
-    expect(detail.missingExpiry).toEqual({ error_events: 0, maintenance_runs: 0, provider_usage: 0, domain_lists: 0, domain_list_shards: 0 });
+    expect(detail.missingExpiry).toEqual({ error_events: 0, maintenance_runs: 0, provider_usage: 0, domain_lists: 0, domain_list_shards: 0, shared_reports: 0 });
     expect(detail.lists).toEqual({ phishing_database: null });
     expect(typeof detail.storage.sizeBytes === "number" || detail.storage.sizeBytes === null).toBe(true);
   });
@@ -214,7 +214,7 @@ describe("Workers Free plan limits for maintenance", () => {
     await runMaintenance("daily", { ...env, DB: countingDatabase(env.DB, counter) });
     expect(counter.queries).toBeLessThan(freePlanSubrequestLimit);
     const daily = await detailOf("daily");
-    expect(daily.deleted).toEqual({ error_events: 9000, maintenance_runs: 1000, provider_usage: 500, domain_lists: 0, domain_list_shards: 500 });
+    expect(daily.deleted).toEqual({ error_events: 9000, maintenance_runs: 1000, provider_usage: 500, domain_lists: 0, domain_list_shards: 500, shared_reports: 0 });
     expect(daily.alerts).toEqual(["cleanup_backlog_maintenance_runs", "cleanup_backlog_provider_usage", "cleanup_backlog_domain_list_shards"]);
     const weekly = { queries: 0 };
     await runMaintenance("weekly", { ...env, DB: countingDatabase(env.DB, weekly) });

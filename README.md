@@ -14,7 +14,7 @@ Paste a suspicious link or message, or a screenshot of it, and get a plain-langu
 - how sure ScamCam is, and what it could not check,
 - what to do next.
 
-A clean result never means a link is guaranteed safe. Screenshots are read on the visitor's device and never uploaded.
+A clean result never means a link is guaranteed safe. Screenshots are read on the visitor's device and never uploaded. A report can be shared with a link that works for 5, 10, or 15 minutes.
 
 ## Principles
 

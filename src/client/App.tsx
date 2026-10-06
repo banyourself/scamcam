@@ -11,6 +11,7 @@ import { HowItWorksPage } from "@/pages/HowItWorksPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PrivacyPage } from "@/pages/PrivacyPage";
 import { SecurityPage } from "@/pages/SecurityPage";
+import { SharedReportPage } from "@/pages/SharedReportPage";
 import { TermsPage } from "@/pages/TermsPage";
 import { usePath } from "@/router";
 
@@ -33,7 +34,8 @@ const routes: Record<string, ComponentType> = {
 
 export function App() {
   const path = usePath();
-  const Page = routes[path] ?? (path === "/design" && DesignPreviewPage ? DesignPreviewPage : NotFoundPage);
+  const Page =
+    routes[path] ?? (path.startsWith("/r/") ? SharedReportPage : path === "/design" && DesignPreviewPage ? DesignPreviewPage : NotFoundPage);
 
   return (
     <div className="flex min-h-dvh flex-col">

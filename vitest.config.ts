@@ -15,6 +15,7 @@ export default defineConfig({
               bindings: {
                 TEST_MIGRATIONS: await readD1Migrations("./migrations"),
                 TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
+                SHARE_SIGNING_KEY: "test-only-share-signing-key-abcdefghijklmnopqrstuvwxyz",
               },
             },
           })),

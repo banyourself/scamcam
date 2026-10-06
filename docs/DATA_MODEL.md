@@ -13,6 +13,7 @@ can move to PostgreSQL later without touching routes.
 | `app_state` | Small operational flags, such as `writes_paused` when storage passes the soft limit | `key`, `value`, `updated_at` | Overwritten in place |
 | `provider_usage` (migrations `0002` and `0004`) | Daily call counts for quota-limited providers (`safe_browsing`, `urlhaus`, `workers_ai`) | `PRIMARY KEY (provider, day)`, idempotent upsert | 35 days |
 | `domain_lists` (migration `0003`) | One record per synced list: version (source commit), entry count, sync time | `list` primary key | 7 days after the last sync |
+| `shared_reports` (migration `0005`) | Encrypted reports that a visitor chose to share | `id` (128 random bits), `iv`, `ciphertext` (AES-GCM; the key is only in the link), `created_at`, `expires_at` | 5, 10, or 15 minutes; deleted by a cleanup every 5 minutes |
 | `domain_list_shards` (migration `0003`) | Sorted 8-byte SHA-256 keys of listed domains, 1,024 rows per list | `PRIMARY KEY (list, shard)`, replaced in place by each sync | 7 days after the last sync |
 
 ## Planned tables

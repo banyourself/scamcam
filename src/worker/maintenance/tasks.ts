@@ -23,6 +23,7 @@ import { cleanupMaxBatchesPerRun, nowInSeconds } from "../retention";
 export const cronSchedule = {
   daily: "17 3 * * *",
   weekly: "41 4 * * 1",
+  shares: "*/5 * * * *",
 } as const;
 
 export const alertThresholds = {
