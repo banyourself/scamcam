@@ -12,24 +12,36 @@ const defaultBackoffSeconds = 300;
 const maxBackoffSeconds = 3600;
 const maxResponseBytes = 512 * 1024;
 
-const BootstrapSchema = z.object({ services: z.array(z.tuple([z.array(z.string()), z.array(z.string())])) });
 const DomainSchema = z.object({
   events: z.array(z.object({ eventAction: z.string(), eventDate: z.string().optional() })).optional(),
   status: z.array(z.string()).optional(),
 });
-const ServicePairsSchema = z.array(z.tuple([z.string(), z.string()]));
 const AnswerSchema = z.union([
   z.object({ status: z.literal("ok"), registeredAt: z.string().nullable(), statuses: z.array(z.string()) }),
   z.object({ status: z.literal("not_found") }),
 ]);
 
 type RdapAnswer = z.infer<typeof AnswerSchema>;
-type ServicePairs = z.infer<typeof ServicePairsSchema>;
+type ServicePairs = [string, string][];
 
 export type RdapResult = RdapAnswer | { status: "not_applicable" } | { status: "unavailable" };
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function bootstrapServices(value: unknown): [string[], string[]][] | null {
+  const services = typeof value === "object" && value !== null ? (value as { services?: unknown }).services : undefined;
+  if (!Array.isArray(services)) {
+    return null;
+  }
+  return services.every((service) => Array.isArray(service) && service.length === 2 && isStringArray(service[0]) && isStringArray(service[1]))
+    ? (services as [string[], string[]][])
+    : null;
+}
+
 function isServicePairs(value: unknown): value is ServicePairs {
-  return ServicePairsSchema.safeParse(value).success;
+  return Array.isArray(value) && value.every((pair) => Array.isArray(pair) && pair.length === 2 && typeof pair[0] === "string" && typeof pair[1] === "string");
 }
 
 function isAnswer(value: unknown): value is RdapAnswer {
@@ -42,12 +54,12 @@ async function fetchBootstrap(fetcher: typeof fetch): Promise<ServicePairs | nul
     if (!response.ok) {
       return null;
     }
-    const parsed = BootstrapSchema.safeParse(await readLimitedJson(response, maxResponseBytes));
-    if (!parsed.success) {
+    const services = bootstrapServices(await readLimitedJson(response, maxResponseBytes));
+    if (!services) {
       return null;
     }
     const pairs: ServicePairs = [];
-    for (const [tlds, urls] of parsed.data.services) {
+    for (const [tlds, urls] of services) {
       const secure = urls.find((url) => url.startsWith("https://"));
       if (secure) {
         for (const entry of tlds) {
