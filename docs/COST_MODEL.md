@@ -14,10 +14,10 @@ documentation checked on 2026-10-05; re-check before launch.
 | Workers Logs | 200,000 events per day, kept 3 days | Logging stops | One log line per API request |
 | D1 | 5 million rows read and 100,000 written per day; 500 MB per database | Queries error until 00:00 UTC; inserts blocked when full | Writes only for errors, maintenance, and cached indicators |
 | KV | 100,000 reads and 1,000 writes per day | That operation fails | Not used yet |
-| Workers AI | 10,000 neurons per day | Calls fail; not billed on Free | Optional, inconclusive cases only, Stage 4 |
+| Workers AI | 10,000 neurons per day on Free and Paid | Calls fail on Free; billed at $0.011 per 1,000 neurons on Paid | Unclear messages only, capped at 2,000 calls a day (about 4,300 neurons at 2.14 per call, under 6,400 even with the longest messages) |
 | Turnstile | Unlimited challenges, 20 widgets | n/a | One widget |
 | Rate limiting binding | No plan restriction or price found | | 60 API requests and 10 scans per minute per client |
-| GitHub Actions | 2,000 minutes per month for private repos on Free (3,000 on Pro) | Blocked if no payment method | About 3 minutes per push |
+| GitHub Actions | 2,000 minutes per month for private repos on Free (3,000 on Pro) | Blocked if no payment method | About 3 minutes per push, plus about 2 minutes a day for the Phishing.Database sync once enabled |
 | GitHub Codespaces | 120 core hours and 15 GB-month (180 and 20 on Pro) | Blocked if no payment method | Optional |
 
 ## Cost of one scan (Stage 3)
@@ -26,8 +26,10 @@ documentation checked on 2026-10-05; re-check before launch.
 |---|---|---|
 | Worker requests | 1 (`POST /api/v1/scans`), plus 1 health check per page load | 100,000 per day |
 | Subrequests | At most 12: Turnstile 1, Safe Browsing 1 (all links in one call), URLhaus up to 3, RDAP up to 3 (plus the IANA bootstrap once per 12 hours per instance), DNS up to 3 | 50 per request |
-| D1 reads | 1 (the `writes_paused` flag) | 5 million per day |
-| D1 writes | Up to 4 (1 Safe Browsing count, up to 3 URLhaus counts), only when those keys are set | 100,000 per day, so about 25,000 fully checked scans a day |
+| D1 reads | 3 (the `writes_paused` flag, the list record, and one list shard) | 5 million per day |
+| D1 writes | Up to 5 (Safe Browsing, up to 3 URLhaus, and the AI count), only for calls that are actually made | 100,000 per day, so about 20,000 fully checked scans a day |
+| Cache API | A few reads and writes | No quota found in the docs |
+| Workers AI | At most 1 call (about 2.1 neurons), only for messages the rules cannot decide | 10,000 neurons per day; ScamCam stops at 2,000 calls |
 | Safe Browsing calls | 1, capped by `SAFE_BROWSING_DAILY_LIMIT` (8,000) | Google Cloud quota |
 | URLhaus calls | Up to 3, capped by `URLHAUS_DAILY_LIMIT` (5,000) | Fair use |
 | CPU | About 0.8 ms of local analysis measured in Node | 10 ms per request on Free; verify after deployment |

@@ -11,7 +11,9 @@ can move to PostgreSQL later without touching routes.
 | `error_events` | Count failures by type and route | `code`, `route`, `created_at`, `expires_at` | 7 days |
 | `maintenance_runs` | Record every daily and weekly task | `task`, `status`, `detail_json`, `started_at`, `finished_at`, `expires_at` | 90 days |
 | `app_state` | Small operational flags, such as `writes_paused` when storage passes the soft limit | `key`, `value`, `updated_at` | Overwritten in place |
-| `provider_usage` (migration `0002`) | Daily call counts for quota-limited providers (`safe_browsing`, `urlhaus`) | `PRIMARY KEY (provider, day)`, idempotent upsert | 35 days |
+| `provider_usage` (migrations `0002` and `0004`) | Daily call counts for quota-limited providers (`safe_browsing`, `urlhaus`, `workers_ai`) | `PRIMARY KEY (provider, day)`, idempotent upsert | 35 days |
+| `domain_lists` (migration `0003`) | One record per synced list: version (source commit), entry count, sync time | `list` primary key | 7 days after the last sync |
+| `domain_list_shards` (migration `0003`) | Sorted 8-byte SHA-256 keys of listed domains, 1,024 rows per list | `PRIMARY KEY (list, shard)`, replaced in place by each sync | 7 days after the last sync |
 
 ## Planned tables
 
@@ -19,7 +21,7 @@ Created only when the stage that needs them starts, so no unused tables exist.
 
 | Table | Stage | Purpose | Uniqueness | Retention |
 |---|---|---|---|---|
-| `threat_indicators` | 4 | Cached public indicators: registrable domains and keyed URL hashes with a verdict and source | `UNIQUE (indicator_type, indicator_value, source)`, idempotent upserts | Provider-defined expiry; first-party entries reviewed every 30 days |
+| `threat_indicators` | Only if first-party indicators are added | ScamCam's own reviewed indicators. Provider answers are cached in the Cache API instead (Stage 4), so they cost no D1 writes | `UNIQUE (indicator_type, indicator_value, source)`, idempotent upserts | Reviewed every 30 days |
 | `scan_jobs` | Only if scans become asynchronous | Temporary job status and result | Primary key | 1 hour |
 | `voluntary_reports` | Later | User-submitted "this is a scam" or "this was misflagged" reports | Fingerprint per indicator | 7 days unless reviewed |
 

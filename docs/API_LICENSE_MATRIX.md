@@ -30,7 +30,7 @@ includes "unavailable". The scan orchestrator turns results into evidence, so a 
 removed without changing the report code. Results are evidence, never the final verdict on their own. A shared
 adapter interface with per-source cache policies arrives with caching in Stage 4.
 
-## Implementation status (Stage 3)
+## Implementation status (Stage 4)
 
 | Source | Status | Notes |
 |---|---|---|
@@ -39,5 +39,11 @@ adapter interface with per-source cache policies arrives with caching in Stage 4
 | URLhaus host lookup | Working locally with a live key (2026-10-05) | Sends only the hostname. Live lookups of clean hosts return "no results"; a live match has not been seen yet. Capped by `URLHAUS_DAILY_LIMIT`. Matches on shared hosts (free hosting, chat file hosts) are shown as context, never as confirmation |
 | RDAP | Working | IANA bootstrap cached for 12 hours per Worker instance; one lookup per registrable domain; 404 means not registered; 429 and errors show as "did not respond" |
 | Cloudflare DNS over HTTPS | Working | One A-record lookup per hostname |
-| Phishing.Database | Deferred to Stage 4 | Needs a daily sync into D1 that fits the free write and CPU limits |
+| Phishing.Database | Built, switched on at deployment | The "new today" and "last hour" feeds have not changed since December 2025, so the daily sync uses `phishing-domains-ACTIVE.txt` (about 11 MB, updated several times a day) at a pinned commit. Stored as hashed shards; matches are labeled as a community list that can be wrong; MIT license credited in reports |
 | Everything marked Not used or Deferred above | Unchanged | |
+
+## AI model
+
+| Model | Use | Terms | Data |
+|---|---|---|---|
+| `@cf/qwen/qwen3-30b-a3b-fp8` on Workers AI | One-label classification of unclear messages | Qwen3 is released under Apache 2.0; Workers AI is covered by Cloudflare's terms and its free daily allocation | Cloudflare says it does not use Workers AI content to train models and does not store it unless the app adds a storage service, which ScamCam does not |

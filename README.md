@@ -25,8 +25,9 @@ A clean result never means a link is guaranteed safe.
 
 ## Status
 
-Stages 0 to 3 are done: plan, foundation, website, and detection. Checking works locally with every source
-connected, including Google Safe Browsing and URLhaus; it is not deployed yet. See
+Stages 0 to 4 are done: plan, foundation, website, detection, and optimization. Checking works locally with
+every source connected, including Google Safe Browsing, URLhaus, and a free AI step for unclear messages; it is not
+deployed yet. See
 [docs/BUILD_STATE.md](docs/BUILD_STATE.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Stack

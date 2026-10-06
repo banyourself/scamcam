@@ -28,7 +28,8 @@ history, screenshots, cookies other than strictly necessary security cookies fro
 | Domain registries (RDAP) | The registrable domain only (for example `example.com`) | Up to 3 per scan |
 | Cloudflare DNS over HTTPS | The hostname only | Up to 3 per scan |
 | Cloudflare Turnstile | The Turnstile token and the visitor's IP address | Every scan |
-| Workers AI | Redacted message text, only for inconclusive cases, never stored or used for training per Cloudflare's data use policy | Stage 4, optional |
+| Workers AI | The message with emails, phone numbers, and codes hidden and links replaced by `[link]` | Only when the rules cannot decide; Cloudflare says it does not store this content or use it to train models |
+| Phishing.Database (GitHub) | Nothing from users. A daily GitHub Actions job downloads the public list | After deployment |
 
 ## Children
 
@@ -36,7 +37,7 @@ Gaming audiences include minors. Rules that apply from day one:
 
 - No accounts, chat, profiles, public posts, or user-generated content.
 - A warning beside the input not to paste passwords, login codes, or personal details.
-- Server-side redaction of emails, phone numbers, and long digit runs before any optional AI step (Stage 3).
+- Server-side redaction of emails, phone numbers, and long digit runs before the AI step, which also never sees links.
 - IP use limited to security (COPPA's internal-operations purpose).
 - A plain-language privacy summary on the Privacy page (Stage 2).
 
@@ -45,3 +46,6 @@ Gaming audiences include minors. Rules that apply from day one:
 - Never put private messages or secret-bearing URLs into shared caches.
 - Cache only public indicators (registrable domain reputation, provider results) under each provider's terms.
 - Normalize conservatively so distinct indicators are not merged (`SCAMCAM_ANALYSIS.md`).
+- Provider answers live in a named Cloudflare cache under SHA-256 keys, so the cache never holds the names that were
+  looked up. Values hold only the provider's answer.
+- AI answers (one label) are kept only in the Worker's memory, for an hour, under a hash of the cleaned message.

@@ -118,9 +118,55 @@ for positives, popular gaming and general domains for negatives) and tracks the 
 Local analysis takes about 0.8 ms per case in Node. Production CPU time on the Workers Free plan (10 ms limit per
 request) must be measured after deployment with Workers observability.
 
+## As built in Stage 4
+
+### Caching and deduplication
+
+| Source | Cached under | Kept for | Notes |
+|---|---|---|---|
+| Google Safe Browsing | Each 4-byte hash prefix | Google's `cacheDuration` (usually 300 seconds), at most a day | Prefixes with no match are cached too, as the v5 reference requires; only uncached prefixes are sent; a warning is never shown from an expired entry |
+| URLhaus | Hostname hash | 15 minutes | Failures are not cached |
+| RDAP | Registrable domain hash | 24 hours, or 1 hour for a missing domain | A 429 pauses that registry for its `Retry-After` (otherwise 5 minutes) |
+| DNS | Hostname hash | The answer's TTL, 60 to 3,600 seconds; missing names 60 to 900 | |
+| RDAP bootstrap | Fixed key | 12 hours, plus a copy in memory | |
+| AI answers | SHA-256 of the cleaned message | 1 hour, in the Worker's memory only | Never written to a shared cache |
+
+Identical lookups running at the same time share one request. A source that fails three times in a row is skipped
+for a minute and reported as "did not respond".
+
+### Phishing.Database
+
+Each list entry is lowercased and checked as a hostname, then reduced to the first 8 bytes of its SHA-256 hash. Keys
+are sorted into 1,024 shards by their first 10 bits and stored as one D1 row each. A link is checked by its hostname
+and each parent down to the registrable domain, so `login.evil.example` matches a listed `evil.example`, but
+`b.shared.example` does not match a listed `a.shared.example`. A match is a strong warning (4 points) with wording that
+says the list can be wrong. A match on a shortener, free-hosting suffix, user-upload host, or official domain is only
+context. Official links are never looked up. With about 500,000 entries, the chance that an unlisted name collides
+with a listed key is about 3 in 100 trillion.
+
+### AI step
+
+| Rule | Value |
+|---|---|
+| When | No message rule matched, no link has a strong or critical warning, the level is Unknown or No known threat, and at least 20 characters remain without links |
+| Input | The redacted message with links replaced by `[link]`, at most 1,200 characters, between markers that are removed from the message itself |
+| Model | `@cf/qwen/qwen3-30b-a3b-fp8`, temperature 0, at most 12 output tokens, thinking off, 5-second limit |
+| Output | Exactly one label: one of the 10 scam families or `none`; anything else is ignored |
+| Effect | A family adds one strong warning, so the result can reach Suspicious with low confidence, and the summary says only an AI check raised it. `none` changes nothing. The AI cannot lower a result |
+| Limits | 2,000 calls a day, counted in D1 before each call; no call when the count cannot be written |
+
+### Benchmark results (Stage 4)
+
+The 69-case tuning benchmark still scores precision 1.000 and recall 1.000. The AI evaluation sets, written as
+natural gamer messages, show what the rules miss: rules alone caught 6 of 30 and 3 of 20 scams, and rules with the AI
+caught 24 of 30 and 16 of 20, with no false alarms on 50 normal messages. Full tables are in `BUILD_STATE.md`.
+
 ### Known limits
 
 - Links that redirect (shorteners, official redirectors such as Steam's link filter) are not followed, by design.
 - New scam domains with no look-alike name and no message context are "unknown" until a list or Safe Browsing knows them.
-- Message rules are English only.
+- Message rules are English only, and they miss most scams that are worded differently from their patterns; the AI
+  step covers much of that gap.
+- The AI step is a small model on hand-written evaluation sets. It can be wrong, and its label can be less precise
+  than the scam it caught.
 - The official domain lists are hand-maintained and must be reviewed when platforms add domains.

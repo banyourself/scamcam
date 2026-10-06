@@ -25,8 +25,9 @@ export function HowItWorksPage() {
           that match known scam scripts.
         </li>
         <li>
-          <strong>Only if it is still unclear,</strong> a small AI model may help classify the message. It never decides
-          the verdict on its own, and it is skipped when the free daily limit is reached.
+          <strong>Only if it is still unclear,</strong> a small AI model reads the message, with personal details hidden
+          and links removed. It can add a warning but never make something look safer, on its own it can raise a message
+          to Suspicious at most, and it is skipped when the free daily limit is reached.
         </li>
       </ol>
 
@@ -63,9 +64,9 @@ export function HowItWorksPage() {
 
       <h2>Status</h2>
       <p>
-        ScamCam is being built in public stages. The link and message checks, domain age, and DNS lookups work now.
-        Google Safe Browsing and URLhaus are added when their free keys are connected; until then every report says
-        that they were not checked.
+        ScamCam is being built in public stages and is not live yet. The link and message checks, Google Safe Browsing,
+        URLhaus, domain age, DNS, and the AI step all work in testing. The Phishing.Database list starts once its daily
+        update is switched on at launch; until then reports say it is not connected.
       </p>
     </DocumentPage>
   );

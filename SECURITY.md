@@ -35,6 +35,8 @@ proof, rate limits on purpose-built endpoints, and anything on `kevinle.tech` ou
 | Secrets | Never committed; `wrangler secret` in production and an ignored `.dev.vars` locally; Gitleaks runs in CI |
 | Dependencies | Exact versions with a lockfile, `npm audit` in CI, Dependabot weekly |
 | Data | No raw URLs, messages, or IP addresses are stored (see `docs/RETENTION_POLICY.md`); a test scans every table after a scan to prove it |
+| Caching | Provider answers are kept in a named cache under SHA-256 keys, follow each provider's freshness rules, and are never written for failures |
+| AI | Runs only for messages the rules cannot decide, sees redacted text without links, treats the message as untrusted data, accepts one known label, can add a warning but never lower a result, is capped at 2,000 calls a day, and does not run when its usage cannot be counted |
 | Scanning | Turnstile required for every scan (fails closed when missing or unreachable), 10 scans per minute per visitor, submitted links are never fetched, outbound calls go only to fixed provider hosts with timeouts, input limited to 4,000 characters, the report is validated against its schema before it is returned, and only domain names or hash prefixes leave ScamCam |
 
 The threat model is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#threat-model).

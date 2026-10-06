@@ -46,14 +46,19 @@ export function PrivacyPage() {
             <td>Not stored. Emails, phone numbers, and long codes are hidden before any check.</td>
           </tr>
           <tr>
+            <td>The message with personal details hidden and links removed</td>
+            <td>Only when ScamCam&apos;s own rules cannot decide, a small AI model on Cloudflare (Workers AI) reads it to look for scam patterns</td>
+            <td>Not stored. ScamCam remembers only the model&apos;s one-word answer, in memory, for up to an hour</td>
+          </tr>
+          <tr>
             <td>A scrambled fingerprint of a link (a hash)</td>
             <td>To ask Google Safe Browsing without sending the link. Only the first 4 bytes of the fingerprint are sent</td>
-            <td>Not stored</td>
+            <td>Google&apos;s answer is kept for as long as Google allows, usually a few minutes</td>
           </tr>
           <tr>
             <td>The name of the website in a link, such as example.com</td>
             <td>To look up how old the domain is (domain registries), whether it exists (Cloudflare DNS), and whether it is known for malware (URLhaus)</td>
-            <td>Not stored by ScamCam</td>
+            <td>The answers are kept for 15 minutes to a day under a scrambled key, so the name itself is not stored</td>
           </tr>
           <tr>
             <td>Your IP address</td>
@@ -92,8 +97,13 @@ export function PrivacyPage() {
           example <em>login.example.com</em>, never the rest of the link or your message.
         </li>
         <li>
-          <strong>Workers AI</strong> (Cloudflare), if used, receives the message with personal details hidden and does
-          not keep it or train on it.
+          <strong>Workers AI</strong> (Cloudflare) receives a message only when ScamCam&apos;s rules cannot decide, with
+          personal details hidden and links removed. Cloudflare says it does not store this content or use it to train AI
+          models.
+        </li>
+        <li>
+          <strong>Phishing.Database</strong> is a public list of phishing sites. ScamCam keeps a scrambled copy and checks
+          links against it without sending them anywhere.
         </li>
       </ul>
 

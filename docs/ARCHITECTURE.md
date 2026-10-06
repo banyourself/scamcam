@@ -6,12 +6,15 @@
 Browser ──HTTPS──> Cloudflare edge ──> one Worker "scamcam"
                                          ├── static assets (React SPA, _headers, security.txt)  free, unlimited
                                          └── /api/*  Hono app (Zod, OpenAPI)
-                                               ├── D1 "scamcam"     short-lived operational data only
+                                               ├── D1 "scamcam"     operational data and the hashed Phishing.Database copy
                                                ├── Rate limiting bindings (API and scans)
+                                               ├── Named cache "scamcam-lookups"  provider answers under hashed keys
+                                               ├── Workers AI (Qwen3 30B A3B)     only for messages the rules cannot decide
                                                └── POST /api/v1/scans -> src/engine: passive lookups only
                                                    (Turnstile, Safe Browsing hash prefixes, URLhaus host,
                                                    RDAP domain, DNS hostname)
 Cron triggers ──> same Worker scheduled() ──> daily cleanup, weekly maintenance
+GitHub Actions (daily) ──> Phishing.Database list ──> scripts/domain-list.ts ──> D1 shards
 ```
 
 Only paths under `/api/*` invoke the Worker (`run_worker_first`). Everything else is served as a static asset, which
@@ -23,7 +26,7 @@ Cloudflare does not count against the Workers request quota.
 |---|---|
 | `src/client` | React app: `App.tsx`, `router.tsx`, `pages`, `components` (`layout`, `scan`, `report`, `ui`), `hooks`, `lib` |
 | `src/shared` | Types, labels, link extraction and redaction (`extract.ts`) shared by the site and the API; Zod schemas in `*-schema.ts` and `api.ts` so the site never bundles Zod |
-| `src/engine` | The analysis engine with no Worker-specific code: URL and message analysis, Safe Browsing, RDAP, DNS, URLhaus, verdicts (see `SCAMCAM_ANALYSIS.md`) |
+| `src/engine` | The analysis engine with no Worker-specific code: URL and message analysis, Safe Browsing, RDAP, DNS, URLhaus, the lookup cache, Phishing.Database matching, the AI step, verdicts (see `SCAMCAM_ANALYSIS.md`) |
 | `src/worker` | Worker entry (`index.ts`), Hono app (`app.ts`), `routes` (health, scans), `middleware`, `security`, `repositories`, `maintenance` |
 | `migrations` | Versioned D1 schema |
 | `public` | `_headers`, `.well-known/security.txt`, `robots.txt`, icon |
@@ -31,6 +34,8 @@ Cloudflare does not count against the Workers request quota.
 | `test/client` | Site logic and server-rendered component tests |
 | `test/node` | Configuration checks (cron parity, security.txt expiry, CSP, no em dashes) |
 | `scripts/a11y.ts` | axe-core WCAG 2.2 AA audit in headless Chrome |
+| `scripts/domain-list.ts` | Builds the hashed Phishing.Database shards and the SQL that loads them |
+| `scripts/ai-eval.ts` | Live AI evaluation through a local dev server (`test/fixtures` holds the messages) |
 | `docs` | This documentation |
 
 ## Technology decisions
@@ -44,6 +49,10 @@ Cloudflare does not count against the Workers request quota.
 | D1 | Free, SQL, migrations, 7-day Time Travel. Repositories isolate SQL so PostgreSQL stays possible | KV only (no queries), external Postgres (cost, another vendor) |
 | Workers rate limiting binding | No storage writes per request, no cost found in the docs | D1 counters (a write per request), WAF rule (Free plan allows one IP rule) |
 | `tldts` for the Public Suffix List | MIT, maintained, fast, includes private suffixes such as pages.dev | `psl` (slower releases), a hand-made suffix list (wrong for multi-part endings) |
+| Named Cache API cache for provider answers | Free, no write quota, expiry through `Cache-Control`, kept apart from the site's page cache; keys are hashes on the site's own origin | KV (1,000 writes a day on Free), D1 (a write per lookup) |
+| Hashed Phishing.Database shards in D1, built by GitHub Actions | A daily sync writes about 1,025 rows and a check reads one; the 11 MB list is far too much for a Worker's 10 ms of CPU on Free | One row per domain (about 500,000 writes per refresh), KV, static assets (stale between deploys) |
+| Workers AI with Qwen3 30B A3B for unclear messages | Free allocation, Apache 2.0, caught 80 percent of scams in the evaluation sets with no false alarms, about 2.1 neurons a call | Granite 4.0 Micro (cheaper, more false alarms), larger models (5 to 10 times the neurons) |
+| Remote bindings off in tests and CI | Tests use a fake model and CI has no Cloudflare login; the local dev server still reaches the real model | Running CI against a real account |
 | Own Protocol Buffers reader for Safe Browsing answers | Safe Browsing v5 answers only in binary Protocol Buffers. The reader is about 60 lines, rejects malformed input, and was checked against Google's live answers | `protobufjs` (a large dependency for three small messages) |
 | Own punycode decoder and Safe Browsing canonicalizer | Small, tested against RFC 3492 vectors and Google's published examples, no `nodejs_compat` needed | `punycode` package or Node compatibility mode |
 | Turnstile | Free, privacy-focused, no cookie banner needed when used for security | reCAPTCHA (tracking concerns), hCaptcha |
@@ -97,8 +106,8 @@ reputation of verdicts, and the operator's Cloudflare account.
 |---|---|---|
 | SSRF / active retrieval | A submitted URL points at an internal or attacker server | The Worker never fetches submitted URLs. Lookups go only to fixed provider hosts. |
 | Injection | SQL in a message, script in a URL shown in the report | Bound parameters only; table names come from a fixed list; React escapes output; no `dangerouslySetInnerHTML`; strict CSP |
-| Prompt injection (Stage 4) | A message tells the AI to report "safe" | AI is optional and last; output must match a strict schema; the verdict is computed from evidence, never taken from the model |
-| Quota exhaustion (denial of wallet or service) | Bots flood scans to burn D1, AI, or provider quotas | Rate limiting, Turnstile on scans, cached results, daily caps, honest "temporarily unavailable" responses |
+| Prompt injection | A message tells the AI to report "safe" or to say something else | The AI runs only when the rules found nothing; the message is marked as untrusted data between markers that the message cannot contain; only one known label is accepted; a label can add one warning but never lower a result; the verdict is computed from evidence |
+| Quota exhaustion (denial of wallet or service) | Bots flood scans to burn D1, AI, or provider quotas | Rate limiting, Turnstile on scans, cached results, daily caps (AI capped at 2,000 calls, refused when usage cannot be counted), paused failing sources, honest "temporarily unavailable" responses |
 | Abuse of verdicts | Someone uses ScamCam to label a competitor a scam | Signal-based wording, sources and dates shown, dispute path, no accusations against individuals |
 | Data exposure | Private message or secret-bearing URL stored or cached | No raw content storage; no shared caching of private submissions; hashed indicators only |
 | Supply chain | A compromised npm package | Exact versions, lockfile, audit, Dependabot, few dependencies |
