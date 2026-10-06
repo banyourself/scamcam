@@ -7,7 +7,7 @@ import { scanContent, type BudgetedProvider } from "../../engine/scan";
 import type { AppBindings, AppEnv } from "../env";
 import { errorBody } from "../errors";
 import { logEvent } from "../logging";
-import { clientAddress } from "../middleware/rate-limit";
+import { clientAddress, rateLimitKey } from "../middleware/rate-limit";
 import { writesArePaused } from "../repositories/app-state";
 import { d1DomainList } from "../repositories/domain-lists";
 import { recordProviderCall } from "../repositories/provider-usage";
@@ -18,6 +18,7 @@ const ScanRequestSchema = z
     content: z.string().trim().min(1).max(maxInputLength),
     turnstileToken: z.string().max(2048).optional(),
   })
+  .strict()
   .openapi("ScanRequest");
 
 const errorResponse = (description: string) => ({ description, content: { "application/json": { schema: ApiErrorSchema } } });
@@ -73,7 +74,7 @@ function aiModelFor(env: AppBindings, injected: TextModel | null): TextModel | n
 
 export const scanRoutes = new OpenAPIHono<AppEnv>().openapi(scanRoute, async (c) => {
   const body = c.req.valid("json");
-  const { success } = await c.env.SCAN_RATE_LIMITER.limit({ key: clientAddress(c.req.raw) });
+  const { success } = await c.env.SCAN_RATE_LIMITER.limit({ key: rateLimitKey(c.req.raw) });
   if (!success) {
     c.header("Retry-After", "60");
     return c.json(errorBody(c, "rate_limited", "You have checked a lot of things in the last minute. Wait a minute and try again."), 429);

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { cacheKey, readCached, recallFromMemory, recordOutcome, rememberInMemory, sharedLoad, sourceIsOpen, writeCached, type Lookups } from "./cache";
+import { readLimitedJson } from "./limited-body";
 
 export const rdapBootstrapUrl = "https://data.iana.org/rdap/dns.json";
 export const rdapBootstrapSource = "rdap:bootstrap";
@@ -9,6 +10,7 @@ const registeredCacheSeconds = 24 * 60 * 60;
 const missingCacheSeconds = 60 * 60;
 const defaultBackoffSeconds = 300;
 const maxBackoffSeconds = 3600;
+const maxResponseBytes = 512 * 1024;
 
 const BootstrapSchema = z.object({ services: z.array(z.tuple([z.array(z.string()), z.array(z.string())])) });
 const DomainSchema = z.object({
@@ -44,7 +46,7 @@ async function fetchBootstrap(fetcher: typeof fetch): Promise<ServicePairs | nul
     if (!response.ok) {
       return null;
     }
-    const parsed = BootstrapSchema.safeParse(await response.json());
+    const parsed = BootstrapSchema.safeParse(await readLimitedJson(response, maxResponseBytes));
     if (!parsed.success) {
       return null;
     }
@@ -139,7 +141,7 @@ export async function lookupRdap(domain: string, fetcher: typeof fetch, lookups:
         recordOutcome(lookups, source, false);
         return { status: "unavailable" };
       }
-      const parsed = DomainSchema.safeParse(await response.json());
+      const parsed = DomainSchema.safeParse(await readLimitedJson(response, maxResponseBytes));
       if (!parsed.success) {
         recordOutcome(lookups, source, false);
         return { status: "unavailable" };

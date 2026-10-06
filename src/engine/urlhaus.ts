@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { cacheKey, readCached, recordOutcome, sharedLoad, sourceIsOpen, writeCached, type Lookups } from "./cache";
+import { readLimitedJson } from "./limited-body";
 
 export const urlhausHostEndpoint = "https://urlhaus-api.abuse.ch/v1/host/";
 export const urlhausSource = "urlhaus";
 export const urlhausCacheSeconds = 15 * 60;
+const maxResponseBytes = 1024 * 1024;
 
 const HostSchema = z.object({
   query_status: z.string(),
@@ -52,7 +54,7 @@ async function queryUrlhaus(host: string, authKey: string, fetcher: typeof fetch
     if (!response.ok) {
       return null;
     }
-    const parsed = HostSchema.safeParse(await response.json());
+    const parsed = HostSchema.safeParse(await readLimitedJson(response, maxResponseBytes));
     if (!parsed.success) {
       return null;
     }

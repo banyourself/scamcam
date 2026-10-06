@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { readLimitedJson } from "../../engine/limited-body";
 
 const verifyEndpoint = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const maxTokenLength = 2048;
+const maxResponseBytes = 64 * 1024;
 
 const SiteverifyResponseSchema = z.object({
   success: z.boolean(),
@@ -39,7 +41,7 @@ export async function verifyTurnstileToken(options: TurnstileOptions): Promise<T
       body: form,
       signal: AbortSignal.timeout(5000),
     });
-    payload = await response.json();
+    payload = await readLimitedJson(response, maxResponseBytes);
   } catch {
     return { ok: false, reason: "unreachable" };
   }

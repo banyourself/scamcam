@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { cacheKey, readCached, recordOutcome, sharedLoad, sourceIsOpen, writeCached, type Lookups } from "./cache";
+import { readLimitedJson } from "./limited-body";
 
 export const dohEndpoint = "https://cloudflare-dns.com/dns-query";
 export const dnsSource = "dns";
@@ -22,6 +23,7 @@ const minCacheSeconds = 60;
 const maxCacheSeconds = 3600;
 const maxMissingCacheSeconds = 900;
 const defaultMissingCacheSeconds = 300;
+const maxResponseBytes = 64 * 1024;
 
 function isAnswer(value: unknown): value is DnsAnswer {
   return AnswerSchema.safeParse(value).success;
@@ -41,7 +43,7 @@ async function queryDns(hostname: string, fetcher: typeof fetch): Promise<{ answ
     if (!response.ok) {
       return null;
     }
-    const parsed = DohSchema.safeParse(await response.json());
+    const parsed = DohSchema.safeParse(await readLimitedJson(response, maxResponseBytes));
     if (!parsed.success) {
       return null;
     }

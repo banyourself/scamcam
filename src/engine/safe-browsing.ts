@@ -1,5 +1,6 @@
 import { getDomain } from "tldts";
 import { cacheKey, readCached, recordOutcome, sharedLoad, sourceIsOpen, writeCached, type Lookups } from "./cache";
+import { readLimitedBytes } from "./limited-body";
 import { readMessage, readPackedVarints, type WireField } from "./protobuf";
 
 export const safeBrowsingEndpoint = "https://safebrowsing.googleapis.com/v5/hashes:search";
@@ -320,11 +321,7 @@ async function querySafeBrowsing(prefixes: string[], apiKey: string, fetcher: ty
     if (!response.ok || !(response.headers.get("content-type") ?? "").includes("protobuf")) {
       return null;
     }
-    const body = new Uint8Array(await response.arrayBuffer());
-    if (body.length > maxResponseBytes) {
-      return null;
-    }
-    return decodeSearchResponse(body);
+    return decodeSearchResponse(await readLimitedBytes(response, maxResponseBytes));
   } catch {
     return null;
   }

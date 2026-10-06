@@ -17,11 +17,11 @@ export interface ExtractedInput {
   hidden: Omit<HiddenCharacters, "text">;
 }
 
-const emailPattern = /(?<!:\/\/[^\s@]*)(?<![\p{L}\p{N}._%+-])[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu;
+const emailPattern = /(?<![\p{L}\p{N}._%+-])(?<!:\/\/[^\s@]*)[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu;
 const phonePattern = /(?<![\p{L}\p{N}/=?&#.-])(?!\d{1,3}(?:\.\d{1,3}){3}(?![\d.]))\+?\d[\d ().-]{7,}\d(?![\p{L}\p{N}])/gu;
 const codePattern = /(?<![\p{L}\p{N}/.=-])\d{6,}(?![\p{L}\p{N}])/gu;
 const linkPattern =
-  /(?:https?:\/\/(?:[^\s/@]+@)?)?(?:(?<![\p{L}\p{N}.])\d{1,3}(?:\.\d{1,3}){3}(?![\p{L}\p{N}.])|(?:[\p{L}\p{N}_](?:[\p{L}\p{N}_-]{0,61}[\p{L}\p{N}_])?\.)+(?:xn--[a-z0-9-]{2,59}|\p{L}{2,63}))(?::\d{2,5})?(?:[/?#][^\s<>"'`]*)?/giu;
+  /(?:https?:\/\/(?:[^\s/@]+@)?)?(?:(?<![\p{L}\p{N}.])\d{1,3}(?:\.\d{1,3}){3}(?![\p{L}\p{N}.])|(?:[\p{L}\p{N}_](?:[\p{L}\p{N}_-]{0,61}[\p{L}\p{N}_])?\.){1,30}(?:xn--[a-z0-9-]{2,59}|\p{L}{2,63}))(?::\d{2,5})?(?:[/?#][^\s<>"'`]*)?/giu;
 const trailingPunctuation = /[.,;:!?)\]}'"]+$/u;
 
 function countAndReplace(text: string, pattern: RegExp, replacement: string): [string, number] {
