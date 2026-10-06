@@ -75,7 +75,8 @@ describe("weekly maintenance", () => {
     expect(run?.status).toBe("succeeded");
     const detail = JSON.parse(run?.detail_json ?? "{}");
     expect(detail.rows.error_events).toBe(1);
-    expect(detail.missingExpiry).toEqual({ error_events: 0, maintenance_runs: 0, provider_usage: 0 });
+    expect(detail.missingExpiry).toEqual({ error_events: 0, maintenance_runs: 0, provider_usage: 0, domain_lists: 0, domain_list_shards: 0 });
+    expect(detail.lists).toEqual({ phishing_database: null });
     expect(typeof detail.storage.sizeBytes === "number" || detail.storage.sizeBytes === null).toBe(true);
   });
 });
