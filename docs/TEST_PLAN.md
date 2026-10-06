@@ -8,13 +8,15 @@
 | Client | Vitest (node environment, React server rendering) | | `npm run test:worker` runs both Vitest projects |
 | Engine | Vitest in workerd with a fake network that records every outgoing request | | part of `npm run test:worker` |
 | Benchmark | `test/client/benchmark.test.ts`: 69 labeled cases with outside sources switched off; fails on any false positive or recall under 0.9 | Node | part of `npm run test:worker`; print metrics with `npx vitest run --project client test/client/benchmark.test.ts --silent=false --reporter=verbose` |
+| Held-out benchmark | `test/client/heldout-benchmark.test.ts`: 200 gaming-impersonation and 200 random domains sampled from Phishing.Database (commit `12a20bf`, seed 20261005) and 178 legitimate sites, rules only; fails on any false positive | Node | part of `npm run test:worker`; print metrics with `--silent=false --reporter=verbose` |
+| Prompt injection | `test/engine/injection.test.ts` and `test/client/hidden.test.ts`, plus the live `attack` and `attack-holdout` sets in `scripts/ai-eval.ts` | Live sets need a Cloudflare login | `node scripts/ai-eval.ts --set attack` |
 | Performance | `test/client/performance.test.ts`: every benchmark case with all outside sources answering, cold and warm; fails if a scan could approach the subrequest limit or a repeated scan makes any outside call | Node | part of `npm run test:worker` |
 | AI evaluation | `scripts/ai-eval.ts` against a local dev server with the real Workers AI binding; tuning set `test/fixtures/ai-eval-cases.ts`, holdout set `test/fixtures/ai-holdout-cases.ts` | Needs a Cloudflare login; uses a few hundred free neurons | `node scripts/ai-eval.ts --set dev` or `--set holdout` |
 | Accessibility | `scripts/a11y.ts`: builds, serves, and runs axe-core (WCAG 2.0, 2.1, 2.2 A and AA) in headless Chrome on every page, dark and light, at 1280 and 320 px, plus a real scan through Turnstile's test keys and the report it produces; fails on any violation, sideways scrolling, or a page that rendered the wrong route | Node 24+ and Chrome; the scan step needs internet | `npm run test:a11y` |
 | Config | `node --test` | Node 24+ | `npm run test:config` |
 | Types | `tsc -b` with strict settings | | `npm run typecheck` |
 | Build | Vite with the Cloudflare plugin | | `npm run build` |
-| Supply chain | `npm audit --audit-level=high`, Gitleaks | CI | |
+| Supply chain | `npm audit --audit-level=high`, `npm audit signatures`, a CycloneDX SBOM artifact, Gitleaks, and a config test that every GitHub Action is pinned to a commit | CI | |
 
 CI runs all of these on every push and pull request (`.github/workflows/ci.yml`).
 
@@ -28,7 +30,7 @@ CI runs all of these on every push and pull request (`.github/workflows/ci.yml`)
 | Rate limits | A client is limited after the configured rate with `Retry-After`; another client is unaffected; Stage 3: 10 scans per minute, and the Safe Browsing daily budget is counted in D1 and reported as over budget | |
 | Bot protection | Turnstile fails closed without a secret, rejects missing, oversized, failed, malformed, and wrong-hostname tokens, handles network failure; Stage 3: the scan endpoint returns 403 or 503 accordingly, checks the hostname in production, and a real end-to-end scan passes with Turnstile's test keys | |
 | Cleanup and retention | Daily task deletes only expired rows and records the run; storage soft limit pauses and resumes writes; weekly task reports counts and missing expiries; scheduled handler runs the right task and ignores unknown schedules | Retention for indicators and reports |
-| Configuration | Cron parity between code and `wrangler.jsonc`; no public deploy target; `security.txt` fields and expiry; CSP has no `unsafe-*`; no em dashes | |
+| Configuration | Cron parity between code and `wrangler.jsonc`; no public deploy target; `security.txt` fields and expiry; CSP has no `unsafe-*`; no em dashes; no raw invisible or text direction characters in project files; every GitHub Action pinned to a commit | |
 | Accessibility and mobile | Stage 2: axe audit of 11 public pages and the report preview in both themes at two widths (48 checks); verified to fail when an image without alt text and low-contrast text are planted | Manual screen reader pass before launch |
 | Site logic | Stage 2: link extraction (schemes, look-alikes, punycode, duplicates, cap), redaction of emails, phones, and codes without breaking URLs, truncation; report view writes the level in words, labels exhibits with source and time, lists unchecked sources, never calls a clean result safe, shows Google attribution only with Safe Browsing evidence, escapes hostile content | |
 | Privacy | Stage 3: after a scan, every D1 table is inspected for the submitted text; every outgoing request is checked so it never contains the link path, query, or message | |

@@ -2,6 +2,8 @@ import { writeFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { parseArgs } from "node:util";
 import { aiEvalCases, type AiEvalCase } from "../test/fixtures/ai-eval-cases.ts";
+import { aiAttackHoldoutCases } from "../test/fixtures/ai-attack-holdout-cases.ts";
+import { aiAttackCases } from "../test/fixtures/ai-attack-cases.ts";
 import { aiHoldoutCases } from "../test/fixtures/ai-holdout-cases.ts";
 
 interface Report {
@@ -17,7 +19,8 @@ const { values } = parseArgs({
     details: { type: "string" },
   },
 });
-const cases: AiEvalCase[] = values.set === "holdout" ? aiHoldoutCases : aiEvalCases;
+const sets: Record<string, AiEvalCase[]> = { dev: aiEvalCases, holdout: aiHoldoutCases, attack: aiAttackCases, "attack-holdout": aiAttackHoldoutCases };
+const cases: AiEvalCase[] = sets[values.set ?? "dev"] ?? aiEvalCases;
 const flaggedLevels = new Set(["suspicious", "high_risk", "confirmed_malicious"]);
 const aiSource = "AI pattern check (Workers AI)";
 

@@ -39,7 +39,7 @@ adapter interface with per-source cache policies arrives with caching in Stage 4
 | URLhaus host lookup | Working locally with a live key (2026-10-05) | Sends only the hostname. Live lookups of clean hosts return "no results"; a live match has not been seen yet. Capped by `URLHAUS_DAILY_LIMIT`. Matches on shared hosts (free hosting, chat file hosts) are shown as context, never as confirmation |
 | RDAP | Working | IANA bootstrap cached for 12 hours per Worker instance; one lookup per registrable domain; 404 means not registered; 429 and errors show as "did not respond" |
 | Cloudflare DNS over HTTPS | Working | One A-record lookup per hostname |
-| Phishing.Database | Built, switched on at deployment | The "new today" and "last hour" feeds have not changed since December 2025, so the daily sync uses `phishing-domains-ACTIVE.txt` (about 11 MB, updated several times a day) at a pinned commit. Stored as hashed shards; matches are labeled as a community list that can be wrong; MIT license credited in reports |
+| Phishing.Database | Built, switched on at deployment | The "new today" and "last hour" feeds have not changed since December 2025, so the daily sync uses `phishing-domains-ACTIVE.txt` (about 11 MB, updated several times a day) at a pinned commit. Stored as hashed shards; matches are labeled as a community list that can be wrong; MIT license credited in reports. Checked at full size on 2026-10-05: 392,063 entries, including IPv4 addresses and host names with underscores |
 | Everything marked Not used or Deferred above | Unchanged | |
 
 ## AI model

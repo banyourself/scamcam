@@ -50,6 +50,10 @@ describe("extractInput", () => {
     expect(extractInput("my ip is 203.0.113.9").redactions.phoneNumbers).toBe(0);
   });
 
+  it("keeps underscores inside host names", () => {
+    expect(extractInput("look at 10000susan_gilbert.goodluckseeker.example/login").links).toEqual(["10000susan_gilbert.goodluckseeker.example/login"]);
+  });
+
   it("returns nothing for plain text", () => {
     expect(extractInput("gg wp, see you tomorrow").links).toEqual([]);
   });

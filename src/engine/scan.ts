@@ -2,9 +2,10 @@ import { extractInput } from "../shared/extract";
 import type { Evidence, ScanReport, UncheckedSource } from "../shared/report";
 import { freeHostingSuffixes, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
 import type { AiReviewResult } from "./ai-review";
-import { cacheKey, memoryLookups, recallFromMemory, rememberInMemory, type Lookups } from "./cache";
+import { cacheKey, memoryLookups, recallFromMemory, recordOutcome, rememberInMemory, sourceIsOpen, type Lookups } from "./cache";
 import { isPrivateAddress, lookupDns, type DnsResult } from "./dns";
 import { candidateNames, type DomainListLookup, type DomainListResult } from "./domain-list";
+import { aimsAtCheckers } from "./injection";
 import { analyzeMessage, familyNames } from "./message-rules";
 import { lookupRdap, type RdapResult } from "./rdap";
 import { searchSafeBrowsing, threatDescriptions, type SafeBrowsingResult } from "./safe-browsing";
@@ -30,6 +31,7 @@ const maxNetworkLinks = 3;
 const maxListedLinks = 10;
 const minReviewCharacters = 20;
 const aiMemorySeconds = 60 * 60;
+const aiSource = "workers_ai";
 const maxEvidence = 14;
 const day = 24 * 60 * 60 * 1000;
 
@@ -188,6 +190,51 @@ function phishingListSignals(link: AnalyzedLink, names: string[], result: Domain
   ];
 }
 
+function hiddenCharacterSignals(hidden: ReturnType<typeof extractInput>["hidden"]): Signal[] {
+  const base = { source: sourceNames.message };
+  const signals: Signal[] = [];
+  if (hidden.direction > 0) {
+    signals.push({
+      ...base,
+      id: "hidden-direction",
+      direction: "raises",
+      strength: "strong",
+      title: "Contains characters that flip the text direction",
+      detail: "Invisible direction controls can make a file or link name read differently from what it really is, for example a program that looks like a picture.",
+    });
+  }
+  if (hidden.inLinks > 0) {
+    signals.push({
+      ...base,
+      id: "hidden-in-link",
+      direction: "raises",
+      strength: "strong",
+      title: "A link has invisible characters inside it",
+      detail: "Invisible characters inside a web address are used to slip past link filters. The real address may not be what it looks like.",
+    });
+  } else if (hidden.inWords > 0) {
+    signals.push({
+      ...base,
+      id: "hidden-in-words",
+      direction: "raises",
+      strength: "moderate",
+      title: "Contains invisible characters inside words",
+      detail: "Scammers hide invisible characters inside words so that chat filters miss them. ScamCam removed them before checking.",
+    });
+  }
+  if (hidden.smuggled > 0) {
+    signals.push({
+      ...base,
+      id: "hidden-data",
+      direction: "raises",
+      strength: "moderate",
+      title: "Contains hidden data",
+      detail: "The message carries invisible characters that can hide text or instructions. ScamCam removed them before checking.",
+    });
+  }
+  return signals;
+}
+
 function aiSignal(label: ScamFamily): Signal {
   return {
     id: `ai-${label}`,
@@ -210,7 +257,13 @@ async function reviewWithMemory(text: string, review: (text: string) => Promise<
   if (isReviewResult(remembered)) {
     return remembered;
   }
+  if (!sourceIsOpen(lookups, aiSource)) {
+    return { status: "unavailable" };
+  }
   const result = await review(text);
+  if (result.status !== "over_budget") {
+    recordOutcome(lookups, aiSource, result.status !== "unavailable");
+  }
   if (result.status === "ok") {
     rememberInMemory(lookups, key, result, aiMemorySeconds);
   }
@@ -247,6 +300,23 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     messageText = messageText.split(link).join(" [link] ");
   }
   const message = analyzeMessage(messageText);
+  const targetsCheckers = aimsAtCheckers(messageText);
+  const ruleSignals = [
+    ...message.signals,
+    ...hiddenCharacterSignals(extracted.hidden),
+    ...(targetsCheckers
+      ? [
+          {
+            id: "checker-instructions",
+            source: sourceNames.message,
+            direction: "raises",
+            strength: "strong",
+            title: "Tries to tell automated checkers what to answer",
+            detail: "The message contains text aimed at scam filters or AI checkers, such as fake system notes or answers to give. Ordinary messages do not do that, so ScamCam did not ask its AI about it.",
+          } satisfies Signal,
+        ]
+      : []),
+  ];
   const urlOnly = extracted.links.length === 1 && messageText.replaceAll("[link]", "").trim() === "";
   const networkLinks = pickNetworkLinks(readable);
   const notChecked: UncheckedSource[] = [];
@@ -405,12 +475,13 @@ export async function scanContent(content: string, options: ScanOptions): Promis
         safeBrowsingResult?.status === "ok" && safeBrowsingResult.complete && nonOfficial.every((link) => !safeBrowsingResult.threats.has(link.original)),
       officialBrandNames: [...new Set(readable.map((link) => link.officialBrand?.name).filter((name): name is string => Boolean(name)))],
     });
-  let messageSignals = message.signals;
+  let messageSignals = ruleSignals;
   let verdict = verdictFor(messageSignals, message.families);
   const reviewText = messageText.replace(/\s+/g, " ").trim();
   const strongLinkWarning = linkSignals.some((signals) => signals.some((signal) => signal.direction === "raises" && strengthPoints[signal.strength] >= 4));
   if (
     options.aiReview &&
+    !targetsCheckers &&
     reviewText.replaceAll("[link]", "").trim().length >= minReviewCharacters &&
     message.families.length === 0 &&
     !strongLinkWarning &&
@@ -419,7 +490,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     const review = await reviewWithMemory(reviewText, options.aiReview, lookups);
     if (review.status === "ok" && review.label !== "none") {
       const label: ScamFamily = review.label;
-      messageSignals = [...message.signals, aiSignal(label)];
+      messageSignals = [...ruleSignals, aiSignal(label)];
       verdict = verdictFor(messageSignals, [label]);
       if (verdict.level === "suspicious") {
         verdict.summary = `An AI check thinks this looks like the ${familyNames[label]} scam. Nothing else confirms it.`;

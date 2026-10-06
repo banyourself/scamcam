@@ -15,14 +15,15 @@ export interface DomainListLookup {
   lookup(names: string[]): Promise<DomainListResult>;
 }
 
-const hostnamePattern = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/;
+const hostnamePattern = /^(?=.{1,253}$)(?:[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/;
+const ipv4Pattern = /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
 
 export function normalizeListEntry(line: string): string | null {
   const entry = line.trim().toLowerCase().replace(/\.$/, "");
   if (entry === "" || entry.startsWith("#") || entry.startsWith("!")) {
     return null;
   }
-  return hostnamePattern.test(entry) ? entry : null;
+  return hostnamePattern.test(entry) || ipv4Pattern.test(entry) ? entry : null;
 }
 
 export async function domainListKey(name: string): Promise<Uint8Array> {

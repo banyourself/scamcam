@@ -46,7 +46,7 @@ export function PrivacyPage() {
             <td>Not stored. Emails, phone numbers, and long codes are hidden before any check.</td>
           </tr>
           <tr>
-            <td>The message with personal details hidden and links removed</td>
+            <td>The message with emails, phone numbers, long codes, links, and invisible characters removed (names and usernames stay)</td>
             <td>Only when ScamCam&apos;s own rules cannot decide, a small AI model on Cloudflare (Workers AI) reads it to look for scam patterns</td>
             <td>Not stored. ScamCam remembers only the model&apos;s one-word answer, in memory, for up to an hour</td>
           </tr>
@@ -98,8 +98,8 @@ export function PrivacyPage() {
         </li>
         <li>
           <strong>Workers AI</strong> (Cloudflare) receives a message only when ScamCam&apos;s rules cannot decide, with
-          personal details hidden and links removed. Cloudflare says it does not store this content or use it to train AI
-          models.
+          emails, phone numbers, long codes, links, and invisible characters removed. Names and usernames are not removed.
+          Cloudflare says it does not store this content or use it to train AI models.
         </li>
         <li>
           <strong>Phishing.Database</strong> is a public list of phishing sites. ScamCam keeps a scrambled copy and checks

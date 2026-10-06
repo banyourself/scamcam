@@ -66,6 +66,7 @@ Run all checks with `npm run check`.
 | [RETENTION_POLICY.md](docs/RETENTION_POLICY.md) | How long anything is kept |
 | [COST_MODEL.md](docs/COST_MODEL.md) | Free-tier limits and cost controls |
 | [SCAMCAM_ANALYSIS.md](docs/SCAMCAM_ANALYSIS.md) | ScamCam Contextual Threat Analysis (SCTA) |
+| [OWASP_LLM_TOP_10.md](docs/OWASP_LLM_TOP_10.md) | How the AI step covers the OWASP Top 10 for LLM Applications 2026 |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | How deployment will work, and what needs approval |
 | [TEST_PLAN.md](docs/TEST_PLAN.md) | What is tested and how |
 

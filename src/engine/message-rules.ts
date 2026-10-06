@@ -180,7 +180,7 @@ const rules: MessageRule[] = [
   },
 ];
 
-const zeroWidth = /[​-‍⁠﻿]/g;
+const zeroWidth = /[\u200B-\u200D\u2060\uFEFF]/g;
 const foldMap: Record<string, string> = { "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", $: "s" };
 
 const negatedClause = /\b(?:never|don't|dont|do not|won't|will never|should not|shouldn't|must not|stop)\b[^.!?,;\n]{0,80}/g;

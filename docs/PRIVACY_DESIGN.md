@@ -28,7 +28,7 @@ history, screenshots, cookies other than strictly necessary security cookies fro
 | Domain registries (RDAP) | The registrable domain only (for example `example.com`) | Up to 3 per scan |
 | Cloudflare DNS over HTTPS | The hostname only | Up to 3 per scan |
 | Cloudflare Turnstile | The Turnstile token and the visitor's IP address | Every scan |
-| Workers AI | The message with emails, phone numbers, and codes hidden and links replaced by `[link]` | Only when the rules cannot decide; Cloudflare says it does not store this content or use it to train models |
+| Workers AI | The message with emails, phone numbers, long codes, and invisible characters removed and links replaced by `[link]`; names and usernames stay | Only when the rules cannot decide and the message does not try to instruct checkers; Cloudflare says it does not store this content or use it to train models |
 | Phishing.Database (GitHub) | Nothing from users. A daily GitHub Actions job downloads the public list | After deployment |
 
 ## Children

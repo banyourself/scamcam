@@ -161,6 +161,20 @@ The 69-case tuning benchmark still scores precision 1.000 and recall 1.000. The 
 natural gamer messages, show what the rules miss: rules alone caught 6 of 30 and 3 of 20 scams, and rules with the AI
 caught 24 of 30 and 16 of 20, with no false alarms on 50 normal messages. Full tables are in `BUILD_STATE.md`.
 
+### Held-out benchmark from real indicators
+
+Sampled from Phishing.Database (commit `12a20bf`, seed 20261005) and run once with outside sources off: the rules
+flagged 71 of 200 gaming-impersonation domains, 2 of 200 random phishing domains, and 0 of 178 legitimate sites. The
+labels are the list's, which has known false positives, so recall here means agreement with the list. Gaps found:
+brand names as subdomains of unrelated sites, brand plus gift words on cheap endings, and brand words on free blog
+hosting. They need a fresh sample before any rule change.
+
+### Hidden characters and checker instructions
+
+Invisible characters are removed before any check. Inside a link or as a direction trick they raise a strong warning,
+inside words or as hidden data a moderate one. Text aimed at scam filters or AI checkers raises a strong warning and
+skips the AI.
+
 ### Known limits
 
 - Links that redirect (shorteners, official redirectors such as Steam's link filter) are not followed, by design.

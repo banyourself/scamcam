@@ -33,6 +33,18 @@ test("the list builder writes one statement per shard plus the list record", () 
   }
 });
 
+test("the list builder refuses a list that is far larger than expected", () => {
+  const folder = mkdtempSync(join(tmpdir(), "scamcam-list-"));
+  try {
+    writeFileSync(join(folder, "list.txt"), fixture(300));
+    const result = spawnSync(process.execPath, [script, "--input", join(folder, "list.txt"), "--out", join(folder, "list.sql"), "--min-entries", "1", "--max-entries", "100"], { encoding: "utf8" });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /more than the maximum/);
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+});
+
 test("the list builder refuses a list that looks cut off", () => {
   const folder = mkdtempSync(join(tmpdir(), "scamcam-list-"));
   try {

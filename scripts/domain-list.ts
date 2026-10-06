@@ -10,17 +10,19 @@ const { values } = parseArgs({
     version: { type: "string" },
     "synced-at": { type: "string" },
     "min-entries": { type: "string", default: "100000" },
+    "max-entries": { type: "string", default: "5000000" },
   },
 });
 
 if (!values.input || !values.out) {
-  console.error("Usage: node scripts/domain-list.ts --input <list.txt> --out <list.sql> [--version <id>] [--synced-at <unix seconds>] [--min-entries <n>]");
+  console.error("Usage: node scripts/domain-list.ts --input <list.txt> --out <list.sql> [--version <id>] [--synced-at <unix seconds>] [--min-entries <n>] [--max-entries <n>]");
   process.exit(2);
 }
 
 const syncedAt = values["synced-at"] ? Number(values["synced-at"]) : Math.floor(Date.now() / 1000);
 const version = values.version ?? `local-${syncedAt}`;
 const minEntries = Number(values["min-entries"]);
+const maxEntries = Number(values["max-entries"]);
 const lines = readFileSync(values.input, "utf8").split(/\r?\n/);
 const names: string[] = [];
 let invalid = 0;
@@ -35,6 +37,10 @@ for (const line of lines) {
 const unique = new Set(names).size;
 if (unique < minEntries) {
   console.error(`Only ${unique} valid entries, fewer than the minimum of ${minEntries}. The download may be incomplete, so nothing was written.`);
+  process.exit(1);
+}
+if (unique > maxEntries) {
+  console.error(`${unique} valid entries is more than the maximum of ${maxEntries}. This may not be the expected list, so nothing was written.`);
   process.exit(1);
 }
 

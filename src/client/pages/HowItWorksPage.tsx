@@ -25,9 +25,10 @@ export function HowItWorksPage() {
           that match known scam scripts.
         </li>
         <li>
-          <strong>Only if it is still unclear,</strong> a small AI model reads the message, with personal details hidden
-          and links removed. It can add a warning but never make something look safer, on its own it can raise a message
-          to Suspicious at most, and it is skipped when the free daily limit is reached.
+          <strong>Only if it is still unclear,</strong> a small AI model reads the message, with emails, phone numbers,
+          long codes, links, and invisible characters removed. Names and usernames are not removed, so do not paste
+          anything you would not show a stranger. The AI can add a warning but never make something look safer, on its own
+          it can raise a message to Suspicious at most, and it is skipped when the free daily limit is reached.
         </li>
       </ol>
 
