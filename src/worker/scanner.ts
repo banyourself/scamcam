@@ -11,16 +11,16 @@ export class Scanner extends DurableObject<AppBindings> {
   private readonly lookupState = createLookupState();
   private readonly lookupCache = memoryLookupCache(Date.now, cachedLookups);
 
-  async scan(content: string): Promise<ScanOutcome> {
+  async scan(content: string, fromScreenshot = false): Promise<ScanOutcome> {
     return runScan(this.env, content, {
       fetcher: (input, init) => fetch(input, init),
       lookups: { cache: this.lookupCache, state: this.lookupState, clock: Date.now },
       aiModel: null,
-    });
+    }, fromScreenshot);
   }
 }
 
-export async function scanInScanner(namespace: DurableObjectNamespace<Scanner>, content: string): Promise<ScanOutcome> {
+export async function scanInScanner(namespace: DurableObjectNamespace<Scanner>, content: string, fromScreenshot = false): Promise<ScanOutcome> {
   const stub = namespace.get(namespace.idFromName(scannerName), { locationHint: scannerLocation });
-  return (await stub.scan(content)) as ScanOutcome;
+  return (await stub.scan(content, fromScreenshot)) as ScanOutcome;
 }

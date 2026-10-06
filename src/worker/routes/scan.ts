@@ -17,6 +17,7 @@ const ScanRequestSchema = z
   .object({
     content: z.string().trim().min(1).max(maxInputLength),
     turnstileToken: z.string().max(2048).optional(),
+    fromScreenshot: z.boolean().optional(),
   })
   .strict()
   .openapi("ScanRequest");
@@ -39,13 +40,13 @@ const scanRoute = createRoute({
   },
 });
 
-async function scanFor(c: Context<AppEnv>, content: string): Promise<ScanOutcome> {
-  const inline = () => runScan(c.env, content, { fetcher: c.get("fetcher"), lookups: c.get("lookups"), aiModel: c.get("aiModel") });
+async function scanFor(c: Context<AppEnv>, content: string, fromScreenshot: boolean): Promise<ScanOutcome> {
+  const inline = () => runScan(c.env, content, { fetcher: c.get("fetcher"), lookups: c.get("lookups"), aiModel: c.get("aiModel") }, fromScreenshot);
   if (c.get("scans") === "inline" || !c.env.SCANNER) {
     return inline();
   }
   try {
-    return await scanInScanner(c.env.SCANNER, content);
+    return await scanInScanner(c.env.SCANNER, content, fromScreenshot);
   } catch (error) {
     logEvent("alert", { task: "scan", alert: "scanner_unavailable", reason: error instanceof Error ? error.name : "unknown" });
     return inline();
@@ -74,7 +75,7 @@ export const scanRoutes = new OpenAPIHono<AppEnv>().openapi(scanRoute, async (c)
     }
     return c.json(errorBody(c, "bot_check_failed", "The security check did not pass. Complete it again and resubmit."), 403);
   }
-  const { report, signature } = await scanFor(c, body.content);
+  const { report, signature } = await scanFor(c, body.content, body.fromScreenshot ?? false);
   if (signature) {
     c.header(reportSignatureHeader, signature);
   }

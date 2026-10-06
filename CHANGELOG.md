@@ -3,6 +3,24 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-06: Hidden link text and screenshot links
+
+- Link text that shows one address but opens another, like Discord's `[rockstargames.com/gift](https://gta2026.net)`
+  or Slack's `<real|shown>`, is rated high risk with the summary "This link pretends to go to rockstargames.com."
+  Only the real address is checked.
+- Links read from a screenshot no longer count as official, because a picture shows only a link's text. The report
+  says so and explains how to copy the link itself. Links decoded from a QR code keep their credit.
+- `gta2026.net` (8 days old, on hold at its registry, not resolving) had been rated no known threat. A domain under 90
+  days old that is already on hold is now a moderate warning, two or more points of warnings make a result Unknown,
+  and summaries no longer say "None of ScamCam's checks found a problem" next to a warning.
+- Rockstar Games is a known brand, including names such as `gta2026`, and "free GTA 6 giveaway" offers count as free
+  reward scams.
+- Screenshots: the area of a decoded QR code is painted over before reading text, so its pattern no longer turns into
+  stray letters; links wrapped onto two lines are joined; `https:/` is repaired. The AI's "QR code login takeover"
+  guess is ignored when ScamCam decoded the QR code itself.
+- Verified: 517 Vitest tests in 30 files and 14 Node tests pass. The browser check now reads a generated QR code
+  card, finds no stray text, scans it, and confirms it is not called a QR code scam.
+
 ## 2026-10-06: QR code fixes
 
 - A screenshot of a harmless QR code, such as one for a LinkedIn profile, was rated Suspicious, because the

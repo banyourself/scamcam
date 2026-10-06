@@ -9,6 +9,7 @@ export interface ScreenshotText {
 const maxOcrSide = 2400;
 const smallSide = 1000;
 const readTimeoutMs = 90_000;
+const qrMargin = 0.12;
 
 function darkShare(data: Uint8ClampedArray): number {
   let dark = 0;
@@ -73,6 +74,14 @@ export async function readScreenshot(file: Blob, onProgress: (share: number) => 
     if (darkShare(image.data) > 0.5) {
       invert(image.data);
       context.putImageData(image, 0, 0);
+    }
+    if (qr) {
+      const corners = [qr.location.topLeftCorner, qr.location.topRightCorner, qr.location.bottomRightCorner, qr.location.bottomLeftCorner];
+      const xs = corners.map((corner) => corner.x);
+      const ys = corners.map((corner) => corner.y);
+      const margin = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) * qrMargin;
+      context.fillStyle = "#ffffff";
+      context.fillRect(Math.min(...xs) - margin, Math.min(...ys) - margin, Math.max(...xs) - Math.min(...xs) + 2 * margin, Math.max(...ys) - Math.min(...ys) + 2 * margin);
     }
 
     const { createWorker, OEM } = await import("tesseract.js");

@@ -32,7 +32,9 @@ ScamCam itself cannot read what was shared.
 2. **Check the links.** Look-alike and disguised addresses (other alphabets, misspellings, the `@` trick, brand names
    on the wrong domain), free hosting, short links, IP loggers, downloads, and endings that are abused far more than
    most. Links that only pass through a redirect, such as Steam's link filter, a Google redirect, or an email
-   scanner's safe link, are decoded so the real destination is checked.
+   scanner's safe link, are decoded so the real destination is checked. Link text that shows one address but opens
+   another, like Discord's `[rockstargames.com](https://another-site.example)` trick, is flagged, and a link read from
+   a screenshot never counts as official, because a picture cannot show where a link really goes.
 3. **Ask independent sources.** Google Safe Browsing, Cloudflare's 1.1.1.2 security filter, abuse.ch URLhaus, the
    Phishing.Database community list, RDAP registry data for domain age, and DNS. Lookups are passive: ScamCam never
    opens a submitted link.

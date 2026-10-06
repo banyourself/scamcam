@@ -66,6 +66,7 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
   const [error, setError] = useState("");
   const [reading, setReading] = useState<number | null>(null);
   const [readNote, setReadNote] = useState("");
+  const [fromScreenshot, setFromScreenshot] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const deferred = useDeferredValue(text);
   const extracted = useMemo(() => extractInput(deferred), [deferred]);
@@ -94,6 +95,7 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
         return;
       }
       setText((current) => combineWithReadText(current, result.text, result.qrTexts));
+      setFromScreenshot(true);
       setReadNote("Read from your screenshot on this device. Check the text and fix any mistakes, then press Check it.");
     } catch (problem) {
       setError(problem instanceof ScreenshotError ? problem.message : "This screenshot could not be read. Try again, or type the text instead.");
@@ -140,7 +142,7 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
       const response = await fetch("/api/v1/scans", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ content: text, ...(token ? { turnstileToken: token } : {}) }),
+        body: JSON.stringify({ content: text, ...(token ? { turnstileToken: token } : {}), ...(fromScreenshot ? { fromScreenshot: true } : {}) }),
       });
       if (!response.ok) {
         setError(await readError(response));
@@ -188,7 +190,12 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
           name="content"
           value={text}
           maxLength={maxInputLength}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => {
+            setText(event.target.value);
+            if (event.target.value.trim() === "") {
+              setFromScreenshot(false);
+            }
+          }}
           onPaste={pasted}
           aria-describedby={`${hintId} ${previewId}`}
           spellCheck={false}

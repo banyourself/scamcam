@@ -53,7 +53,7 @@ function brandLabelsTouched(hostname: string, brand: Brand): boolean {
     const parts = form.split(/[.-]/);
     return brand.tokens.some((token) => {
       const target = form === hostname ? token : skeleton(token);
-      return token.length >= 5 ? form.includes(target) : parts.includes(target);
+      return token.length >= 5 ? form.includes(target) : parts.some((part) => part === target || (part.startsWith(target) && /^\d+$/.test(part.slice(target.length))));
     });
   });
 }

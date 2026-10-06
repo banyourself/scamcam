@@ -11,6 +11,7 @@ export interface VerdictInput {
   allLinksOfficial: boolean;
   safeBrowsingCleared: boolean;
   officialBrandNames: string[];
+  linksFromPicture?: boolean;
 }
 
 export interface Verdict {
@@ -51,10 +52,13 @@ const familyAdvice: Record<ScamFamily, string> = {
   wallet_drainer: "Never connect your wallet or sign anything on a site someone sent you. Check the project's official account yourself.",
 };
 
-function recommendationsFor(level: RiskLevel, families: ScamFamily[], brandIds: string[]): string[] {
+function recommendationsFor(level: RiskLevel, families: ScamFamily[], brandIds: string[], linksFromPicture: boolean): string[] {
   const tips: string[] = [];
   if (level === "confirmed_malicious" || level === "high_risk") {
     tips.push("Do not open the link, log in, or download anything from it.");
+  }
+  if (linksFromPicture) {
+    tips.push("A screenshot only shows a link's text. To see where it really goes, copy the link itself (right-click or long-press it, then Copy Link) and check that.");
   }
   for (const family of families) {
     tips.push(familyAdvice[family]);
@@ -92,6 +96,7 @@ export function decideVerdict(input: VerdictInput): Verdict {
   const safeBrowsingHit = raises.find((signal) => signal.fromSafeBrowsing);
   const filterHit = raises.find((signal) => signal.source === sourceNames.dnsFilter);
   const lookalike = raises.find((signal) => signal.lookalike);
+  const disguise = raises.find((signal) => signal.pretendsToBe);
 
   let level: RiskLevel;
   let confidence: ScanReport["confidence"];
@@ -104,6 +109,9 @@ export function decideVerdict(input: VerdictInput): Verdict {
   } else if (score >= 3) {
     level = "suspicious";
     confidence = independentSources.size >= 2 ? "medium" : "low";
+  } else if (score >= 2) {
+    level = "unknown";
+    confidence = "low";
   } else if (input.linkCount === 0) {
     level = "no_known_threat";
     confidence = "low";
@@ -127,7 +135,9 @@ export function decideVerdict(input: VerdictInput): Verdict {
     summary = "A security source currently lists this link as harmful.";
   } else if (level === "high_risk" || level === "suspicious") {
     const lookalikeBrand = brandName(lookalike?.brandId);
-    if (topFamily) {
+    if (disguise?.pretendsToBe) {
+      summary = `This link pretends to go to ${disguise.pretendsToBe}.`;
+    } else if (topFamily) {
       summary = `This matches the ${familyNames[topFamily]} scam.`;
     } else if (lookalikeBrand) {
       summary = `This looks like a fake ${lookalikeBrand} site.`;
@@ -140,18 +150,18 @@ export function decideVerdict(input: VerdictInput): Verdict {
     }
   } else if (level === "no_known_threat") {
     if (input.linkCount === 0) {
-      summary = "No known scam patterns were found in this message.";
+      summary = score > 0 ? "Only a minor warning sign was found in this message." : "No known scam patterns were found in this message.";
     } else if (input.allLinksOfficial && input.officialBrandNames.length === 1) {
       summary = `This link goes to ${input.officialBrandNames[0]}'s official website.`;
     } else if (input.allLinksOfficial) {
       summary = "These links go to official websites.";
     } else {
-      summary = "None of ScamCam's checks found a problem.";
+      summary = score > 0 ? "No source lists it, and ScamCam found only a minor warning sign." : "None of ScamCam's checks found a problem.";
     }
   } else {
-    summary = "ScamCam could not find enough evidence either way.";
+    summary = score > 0 ? "There are some warning signs, but not enough to call it a scam." : "ScamCam could not find enough evidence either way.";
   }
 
   const brandIds = [...new Set(all.map((signal) => signal.brandId).filter((id): id is string => Boolean(id)))];
-  return { level, confidence, summary, recommendations: recommendationsFor(level, input.families, brandIds), score, contradiction };
+  return { level, confidence, summary, recommendations: recommendationsFor(level, input.families, brandIds, Boolean(input.linksFromPicture)), score, contradiction };
 }

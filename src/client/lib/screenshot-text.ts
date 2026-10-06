@@ -2,11 +2,31 @@ import { maxInputLength, qrLabel } from "../../shared/extract";
 
 const maxQrText = 500;
 
+const brokenScheme = /\b(https?):\/(?!\/)/gi;
+const unfinishedLink = /[a-z0-9-]+\.[a-z]{2,}(?:\/\S*)?[/?=&_-]$/i;
+const linkRest = /^[\w%~+#.]*[/?=&_-][\w%~+#./?=&_-]*$/;
+
+function joinWrappedLinks(lines: string[]): string[] {
+  const joined: string[] = [];
+  for (const line of lines) {
+    const previous = joined.at(-1);
+    const first = line.split(" ")[0] ?? "";
+    if (previous !== undefined && unfinishedLink.test(previous) && linkRest.test(first)) {
+      joined[joined.length - 1] = `${previous}${line}`;
+    } else {
+      joined.push(line);
+    }
+  }
+  return joined;
+}
+
 export function cleanReadText(text: string): string {
-  return text
+  const lines = text
     .replace(/\r\n?/g, "\n")
+    .replace(brokenScheme, "$1://")
     .split("\n")
-    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .map((line) => line.replace(/[ \t]+/g, " ").trim());
+  return joinWrappedLinks(lines)
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

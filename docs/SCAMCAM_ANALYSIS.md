@@ -224,7 +224,17 @@ skips the AI.
 | Message names a brand, link goes elsewhere | Weak warning, moderate when a scam family also matched | A message about Steam or Discord whose link belongs to neither, and does not imitate them by name |
 | Endings abused far more than most | Weak warning, linked to Interisle's Phishing Landscape 2025 | .xin, .bond, .help, .win, and .cfd have the highest phishing rate for their size |
 | Login QR codes | Critical warning in the QR code login takeover family, and no "official" credit | A Discord (`discord.com/ra/...`) or Steam (`s.team/q/...`) login QR code logs in whoever made it, so sharing one is the takeover itself |
+| Link text that hides the real address | Critical warning, and the summary names the site it pretends to be | Discord's `[shown](real)` and Slack's `<real\|shown>` formats; only flagged when the shown text is a different domain from the real one, and only the real address is checked |
+| Links read from screenshots | No "official" credit, a note on each official-looking link, and advice to copy the link itself | A screenshot shows only a link's text, so `rockstargames.com/gift` in a picture may open anything. Links decoded from a QR code in the screenshot are real and keep their credit |
+| A new domain already on hold | Moderate warning when the domain is under 90 days old (weak when older) | Registries and registrars suspend new domains after abuse reports or failed owner checks; `gta2026.net`, 8 days old and on hold, had been rated no known threat |
+| Small warnings no longer read as "no problem" | Two or more points of warnings make the result Unknown, and summaries mention any minor warning | The report said "None of ScamCam's checks found a problem" next to two warnings |
+| Rockstar Games | Brand with `rockstargames.com` and GTA tokens, including names such as `gta2026` | Free GTA 6 giveaways and early access offers are a common lure ahead of the game's release |
+| AI and decoded QR codes | An AI "QR code login takeover" label is ignored when ScamCam decoded the QR code itself | The decoded link is checked directly, and login QR codes are caught by their address |
 | QR codes read from screenshots | The `QR code: ` label that the screenshot reader adds is removed before the message rules run | The label alone made the "asks you to scan a QR code" rule fire on harmless QR codes, such as one for a LinkedIn profile |
+
+Screenshot reading also improved: the area of a decoded QR code is painted over before the text is read, so its
+pattern no longer comes out as stray letters, links that a chat app wrapped onto two lines are joined back together,
+and a misread `https:/` is repaired.
 
 Each rule has tests that it fires and tests that ordinary messages stay quiet, such as asking a friend to press
 Windows+R and type `dxdiag`, an event invite that asks for a "yes", a Steam wallet balance, and an email's "paste this

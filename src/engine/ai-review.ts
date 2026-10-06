@@ -6,7 +6,7 @@ export const scamFamilyDescriptions: Record<ScamFamily, string> = {
   fake_trade: "a trade that needs extra steps, verification, or confirmation outside the normal trade window",
   malware_game: "asks the reader to download, test, or run a game, program, or file",
   account_cookie: "asks for browser cookies, tokens, or anything copied from developer tools",
-  qr_takeover: "asks the reader to scan a QR code to log in or claim something",
+  qr_takeover: "asks the reader to scan a QR code to log in, link a device, verify an account, or claim something; a code that only opens a profile or a website is none",
   middleman: "brings in a middleman or escrow person to hold items or money during a trade",
   vote_scam: "asks the reader to vote for a team or contest through a link or a login",
   payment_pressure: "pushes the reader to send money, gift cards, or crypto, or to refund a payment",

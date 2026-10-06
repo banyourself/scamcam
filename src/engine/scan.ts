@@ -1,4 +1,4 @@
-import { extractInput, withoutQrLabels } from "../shared/extract";
+import { extractInput, maskedLinks, qrValues, withoutQrLabels } from "../shared/extract";
 import type { Evidence, ScanReport, UncheckedSource } from "../shared/report";
 import { brandsNamedIn, freeHostingSuffixes, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
 import type { AiReviewResult } from "./ai-review";
@@ -26,6 +26,7 @@ export interface ScanOptions {
   phishingList?: DomainListLookup;
   aiReview?: (text: string) => Promise<AiReviewResult>;
   now?: Date;
+  fromScreenshot?: boolean;
 }
 
 const maxNetworkLinks = 3;
@@ -37,6 +38,7 @@ const aiMemorySeconds = 60 * 60;
 const aiSource = "workers_ai";
 const maxEvidence = 14;
 const day = 24 * 60 * 60 * 1000;
+const freshHoldDays = 90;
 
 function caseNumber(now: Date): string {
   const date = now.toISOString().slice(2, 10).replaceAll("-", "");
@@ -79,9 +81,10 @@ function rdapSignals(link: AnalyzedLink, result: RdapResult, now: Date): Signal[
     return [];
   }
   const signals: Signal[] = [];
+  const parsedAge = result.registeredAt ? Math.floor((now.getTime() - Date.parse(result.registeredAt)) / day) : Number.NaN;
+  const ageDays = Number.isFinite(parsedAge) && parsedAge >= 0 ? parsedAge : null;
   if (result.registeredAt) {
-    const ageDays = Math.floor((now.getTime() - Date.parse(result.registeredAt)) / day);
-    if (Number.isFinite(ageDays) && ageDays >= 0) {
+    if (ageDays !== null) {
       if (ageDays < 30) {
         signals.push({
           ...base,
@@ -104,13 +107,16 @@ function rdapSignals(link: AnalyzedLink, result: RdapResult, now: Date): Signal[
     }
   }
   if (result.statuses.some((status) => /hold/i.test(status))) {
+    const fresh = ageDays !== null && ageDays < freshHoldDays;
     signals.push({
       ...base,
       id: `rdap-hold-${domain}`,
       direction: "raises",
-      strength: "weak",
-      title: `${domain} is on hold at its registry`,
-      detail: "Domains are often put on hold after abuse reports or unpaid renewals.",
+      strength: fresh ? "moderate" : "weak",
+      title: fresh ? `${domain} was suspended soon after it was registered` : `${domain} is on hold at its registry`,
+      detail: fresh
+        ? "Its registry or registrar put this new domain on hold, which usually follows abuse reports or an owner who could not be verified. It is offline now, but scam pages often come back at a new address."
+        : "Domains are often put on hold after abuse reports or unpaid renewals.",
     });
   }
   return signals;
@@ -183,6 +189,66 @@ function withDestinations(originals: string[]): AnalyzedLink[] {
     }
   }
   return links;
+}
+
+function linksOutsideLinkText(text: string, links: string[]): string[] {
+  let outside = text;
+  for (const entry of [...maskedLinks(text)].reverse()) {
+    outside = `${outside.slice(0, entry.start)} ${entry.target} ${outside.slice(entry.end)}`;
+  }
+  return links.filter((link) => outside.includes(link));
+}
+
+function addDisguiseSignals(text: string, links: AnalyzedLink[]): void {
+  for (const entry of maskedLinks(text)) {
+    const target = analyzeLink(entry.target);
+    const destination = links.find((link) => link.href !== null && link.href === target.href);
+    const shownLink = extractInput(entry.shown).links[0];
+    if (!destination?.hostname || destination.officialBrand || !shownLink) {
+      continue;
+    }
+    const shown = analyzeLink(shownLink);
+    if (!shown.hostname || shown.registrableDomain === destination.registrableDomain) {
+      continue;
+    }
+    const shownName = shown.displayHostname ?? shown.hostname;
+    destination.signals.push({
+      id: `disguised-${destination.hostname}`,
+      source: sourceNames.domain,
+      link: destination.hostname,
+      direction: "raises",
+      strength: "critical",
+      pretendsToBe: shownName,
+      ...(shown.officialBrand ? { brandId: shown.officialBrand.id } : {}),
+      title: `Shows ${shownName} but opens ${destination.displayHostname}`,
+      detail: `The link text is written to look like ${shownName}, but clicking it opens ${destination.displayHostname}. Discord, email, and many other apps let anyone put a different address behind link text.`,
+    });
+  }
+}
+
+function markPictureLinks(links: AnalyzedLink[], originals: string[], qrTexts: string[]): Set<AnalyzedLink> {
+  const fromPicture = new Set<AnalyzedLink>();
+  for (const link of links) {
+    if (!link.hostname || !originals.includes(link.original) || qrTexts.some((value) => value.includes(link.original))) {
+      continue;
+    }
+    fromPicture.add(link);
+    if (link.signals.some((signal) => signal.direction === "lowers")) {
+      link.signals = [
+        ...link.signals.filter((signal) => signal.direction !== "lowers"),
+        {
+          id: `picture-${link.hostname}`,
+          source: sourceNames.domain,
+          link: link.hostname,
+          direction: "context",
+          strength: "weak",
+          title: `${link.displayHostname} is only what the screenshot shows`,
+          detail: "Chat apps and email can show one address and open another. A screenshot only shows the text, so ScamCam does not count this link as official. Copy the link itself and check it here instead.",
+        },
+      ];
+    }
+  }
+  return fromPicture;
 }
 
 function brandMismatchSignals(link: AnalyzedLink, named: ReturnType<typeof brandsNamedIn>, hasScamFamily: boolean): Signal[] {
@@ -370,7 +436,10 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   const lookups = options.lookups ?? memoryLookups();
   const checkedAt = now.toISOString();
   const extracted = extractInput(content);
-  const links = withDestinations(extracted.links);
+  const realLinks = linksOutsideLinkText(extracted.redactedText, extracted.links);
+  const links = withDestinations(realLinks);
+  addDisguiseSignals(extracted.redactedText, links);
+  const pictureLinks = options.fromScreenshot ? markPictureLinks(links, realLinks, qrValues(extracted.redactedText)) : new Set<AnalyzedLink>();
   const readable = links.filter((link) => link.hostname);
   let messageText = withoutQrLabels(extracted.redactedText);
   for (const link of extracted.links) {
@@ -552,7 +621,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     attach(link, brandMismatchSignals(link, namedBrands, message.families.length > 0));
   }
   const linkSignals = links.map((link) => [...link.signals, ...(extraSignals.get(link) ?? [])]);
-  const nonOfficial = readable.filter((link) => !link.officialBrand);
+  const nonOfficial = readable.filter((link) => !link.officialBrand || pictureLinks.has(link));
   const verdictFor = (messageSignals: Signal[], families: ScamFamily[]) =>
     decideVerdict({
       messageSignals,
@@ -563,6 +632,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
       safeBrowsingCleared:
         safeBrowsingResult?.status === "ok" && safeBrowsingResult.complete && nonOfficial.every((link) => !safeBrowsingResult.threats.has(link.original)),
       officialBrandNames: [...new Set(readable.map((link) => link.officialBrand?.name).filter((name): name is string => Boolean(name)))],
+      linksFromPicture: pictureLinks.size > 0,
     });
   let messageSignals = ruleSignals;
   const linkFamilies = linkSignals.flat().flatMap((signal) => (signal.family ? [signal.family] : []));
@@ -578,7 +648,8 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     (verdict.level === "unknown" || verdict.level === "no_known_threat")
   ) {
     const review = await reviewWithMemory(reviewText, options.aiReview, lookups);
-    if (review.status === "ok" && review.label !== "none") {
+    const decodedQr = qrValues(extracted.redactedText).length > 0;
+    if (review.status === "ok" && review.label !== "none" && !(review.label === "qr_takeover" && decodedQr)) {
       const label: ScamFamily = review.label;
       messageSignals = [...ruleSignals, aiSignal(label)];
       verdict = verdictFor(messageSignals, [label]);

@@ -26,6 +26,7 @@ describe("message rules", () => {
     ["connect your wallet to claim the free airdrop before it ends", ["wallet-connect"]],
     ["sync your metamask on the event page to get the NFT", ["wallet-connect"]],
     ["Your package is on hold. Please reply Y, then exit the text message and reopen it to activate the link", ["link-activation"]],
+    ["Free GTA 6 Rockstar giveaway - grab it before it ends", ["free-reward"]],
   ])("flags %j", (text, expected) => {
     expect(ids(text)).toEqual(expect.arrayContaining(expected));
   });
@@ -45,6 +46,7 @@ describe("message rules", () => {
     "my steam wallet balance is low again",
     "If the button does not work, copy and paste this link into your browser",
     "never paste commands from strangers into powershell",
+    "there are free games on the epic store this weekend",
   ])("stays quiet for %j", (text) => {
     expect(analyzeMessage(text).signals.filter((signal) => signal.strength !== "weak")).toEqual([]);
   });

@@ -89,6 +89,12 @@ describe("text read from screenshots", () => {
     expect(cleanReadText("  hey   bro\r\n\r\n\r\n\r\nsend me\tyour code  \n")).toBe("hey bro\n\nsend me your code");
   });
 
+  it("rejoins links that a chat app wrapped onto two lines and repairs a misread scheme", () => {
+    expect(cleanReadText("Free GTA 6 giveaway - rockstargames.com/\ngta6-gift/72618")).toBe("Free GTA 6 giveaway - rockstargames.com/gta6-gift/72618");
+    expect(cleanReadText("open (https:/gta2026.net) now")).toBe("open (https://gta2026.net) now");
+    expect(cleanReadText("visit steamcommunity.com/\nand log in there")).toBe("visit steamcommunity.com/\nand log in there");
+  });
+
   it("adds the read text and any QR code after what was already typed, within the input limit", () => {
     expect(combineWithReadText("is this real?", "Free nitro at discord-gift.example", ["https://discord-gift.example/claim"])).toBe(
       "is this real?\n\nFree nitro at discord-gift.example\n\nQR code: https://discord-gift.example/claim",

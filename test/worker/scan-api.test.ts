@@ -53,6 +53,15 @@ describe("POST /api/v1/scans", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store, no-transform");
   });
 
+  it("accepts a screenshot flag and refuses a malformed one", async () => {
+    const { response } = await scan({ content: "https://steamcommunity.com/id/kevin", turnstileToken: "t", fromScreenshot: true });
+    expect(response.status).toBe(200);
+    const report = await response.json<{ evidence: { title: string }[] }>();
+    expect(report.evidence.map((item) => item.title)).toContain("steamcommunity.com is only what the screenshot shows");
+    const bad = await scan({ content: "hello there", turnstileToken: "t", fromScreenshot: "yes" });
+    expect(bad.response.status).toBe(400);
+  });
+
   it("stores nothing that was submitted", async () => {
     await scan({ content: "send me your password at https://steam-login.example/secret-path-123", turnstileToken: "token" });
     const tables = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE '_cf%' AND name NOT LIKE 'sqlite%' AND name != 'd1_migrations'").all<{ name: string }>();

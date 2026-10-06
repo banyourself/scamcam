@@ -392,6 +392,14 @@ describe("QR codes in scans", () => {
     expect(report.subject.display).toBe("https://www.linkedin.com/in/kevin-example/");
   });
 
+  it("ignores an AI guess of a QR login scam when the QR code itself was decoded and checked", async () => {
+    const qrGuess: AiReviewResult = { status: "ok", label: "qr_takeover", promptTokens: 300, completionTokens: 2, neurons: 0.5 };
+    const content = "Kevin\nStudent and cybersecurity club member\nScan to view my profile\n\nQR code: https://www.linkedin.com/in/kevin-example/";
+    const report = await scanContent(content, options({}, { aiReview: reviewer(qrGuess), fromScreenshot: true }).scan);
+    expect(report.evidence.some((item) => item.id.startsWith("ai-"))).toBe(false);
+    expect(report.level).not.toBe("suspicious");
+  });
+
   it("still flags a message that asks you to scan a QR code", async () => {
     const report = await scanContent("scan this QR code with the discord app to verify your account", options().scan);
     expect(report.evidence.some((item) => item.id === "message-qr-login")).toBe(true);
@@ -411,5 +419,66 @@ describe("QR codes in scans", () => {
   it("keeps other official Discord links official", async () => {
     const report = await scanContent("https://discord.com/channels/123/456", options().scan);
     expect(report.level).toBe("no_known_threat");
+  });
+});
+
+describe("disguised and hidden links", () => {
+  it("rates a brand-new domain that is already suspended as suspicious, not safe", async () => {
+    const { scan } = options({ registeredDaysAgo: 8, rdapStatus: ["client hold"], dnsStatus: 3 }, { safeBrowsingKey: "key" });
+    const report = await scanContent("https://gta2026.net", scan);
+    expect(report.level).toBe("suspicious");
+    const titles = report.evidence.map((item) => item.title);
+    expect(titles).toContain("gta2026.net was suspended soon after it was registered");
+    expect(titles).toContain("Mentions Rockstar Games but is not an official Rockstar Games site");
+    expect(report.summary).not.toBe("None of ScamCam's checks found a problem.");
+  });
+
+  it("keeps a hold on an old domain as a small warning", async () => {
+    const report = await scanContent("https://old-shop.example/", options({ rdapStatus: ["client hold"] }).scan);
+    expect(report.evidence.map((item) => item.title)).toContain("old-shop.example is on hold at its registry");
+  });
+
+  it("catches Discord link text that shows one site and opens another", async () => {
+    const report = await scanContent("Free GTA 6 Rockstar giveaway - [rockstargames.com/gta6-gift/72618](https://gta2026.net)", options().scan);
+    expect(report.level).toBe("high_risk");
+    expect(report.summary).toBe("This link pretends to go to rockstargames.com.");
+    expect(report.evidence[0]?.title).toBe("Shows rockstargames.com but opens gta2026.net");
+    expect(report.evidence.some((item) => item.signal === "lowers_risk")).toBe(false);
+    expect(report.subject.registrableDomain).toBe("gta2026.net");
+  });
+
+  it("catches the same trick in Slack's link format", async () => {
+    const report = await scanContent("check your trade <https://trade-check.example/login|steamcommunity.com/tradeoffer>", options().scan);
+    expect(report.evidence.map((item) => item.title)).toContain("Shows steamcommunity.com but opens trade-check.example");
+  });
+
+  it.each([
+    "[click here](https://steamcommunity.com/id/kevin)",
+    "[steamcommunity.com/id/kevin](https://steamcommunity.com/id/kevin)",
+  ])("leaves honest link text alone: %s", async (content) => {
+    const report = await scanContent(content, options().scan);
+    expect(report.evidence.some((item) => item.id.startsWith("disguised"))).toBe(false);
+    expect(report.level).toBe("no_known_threat");
+  });
+
+  it("never calls a link read from a screenshot official", async () => {
+    const report = await scanContent("Free GTA 6 Rockstar giveaway - rockstargames.com/gta6-gift/72618", options({}, { fromScreenshot: true }).scan);
+    expect(report.level).not.toBe("no_known_threat");
+    expect(report.evidence.map((item) => item.title)).toContain("rockstargames.com is only what the screenshot shows");
+    expect(report.evidence.some((item) => item.signal === "lowers_risk")).toBe(false);
+    expect(report.recommendations[0]).toContain("copy the link itself");
+  });
+
+  it("still trusts a link that came from a QR code in a screenshot", async () => {
+    const report = await scanContent("QR code: https://steamcommunity.com/id/kevin", options({}, { fromScreenshot: true }).scan);
+    expect(report.level).toBe("no_known_threat");
+    expect(report.confidence).toBe("high");
+  });
+
+  it("says when only a minor warning sign was found", async () => {
+    const { scan } = options({ safeBrowsing: () => ({}) }, { safeBrowsingKey: "key" });
+    const report = await scanContent("http://shop-example.example/", scan);
+    expect(report.level).toBe("no_known_threat");
+    expect(report.summary).toBe("No source lists it, and ScamCam found only a minor warning sign.");
   });
 });

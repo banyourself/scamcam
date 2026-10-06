@@ -129,10 +129,10 @@ const rules: MessageRule[] = [
     strength: "moderate",
     family: "free_reward",
     folded: true,
-    title: "Offers free Nitro, Robux, skins, or items",
+    title: "Offers free Nitro, Robux, skins, games, or a giveaway",
     detail: "Free gifts sent by link are almost always fake and lead to pages that steal your login.",
     patterns: [
-      /\bfree\b[^.!?\n]{0,25}\b(?:nitro|robux|skins?|v-?bucks|minecoins|gift ?cards?|knife|knives|items?|crates?|cases?|steam (?:games?|wallet)|gems|coins)\b/,
+      /\bfree\b[^.!?\n]{0,25}\b(?:nitro|robux|skins?|v-?bucks|minecoins|gift ?cards?|knife|knives|items?|crates?|cases?|steam (?:games?|wallet)|gems|coins|giveaways?|gta ?(?:v|vi|5|6)|beta keys?|early access)\b/,
       /\b(?:nitro|robux|skins?|v-?bucks)\b[^.!?\n]{0,20}\b(?:giveaway|airdrop|for free|free)\b/,
       /\b(?:you(?:'ve| have)? won|claim (?:your|it|now|here|fast|them)|winners? (?:get|will))\b/,
     ],

@@ -4,6 +4,36 @@ export const maxInputLength = 4000;
 export const maxLinks = 20;
 export const qrLabel = "QR code: ";
 
+export interface MaskedLink {
+  shown: string;
+  target: string;
+  start: number;
+  end: number;
+}
+
+const markdownLinkPattern = /\[([^\]\n]{1,300})\]\(\s*<?(https?:\/\/[^\s<>()]+)>?\s*\)/giu;
+const slackLinkPattern = /<(https?:\/\/[^\s<>|]+)\|([^<>\n]{1,300})>/giu;
+
+export function maskedLinks(text: string): MaskedLink[] {
+  const found: MaskedLink[] = [];
+  for (const match of text.matchAll(markdownLinkPattern)) {
+    const start = match.index ?? 0;
+    found.push({ shown: match[1]!, target: match[2]!, start, end: start + match[0].length });
+  }
+  for (const match of text.matchAll(slackLinkPattern)) {
+    const start = match.index ?? 0;
+    found.push({ shown: match[2]!, target: match[1]!, start, end: start + match[0].length });
+  }
+  return found.sort((a, b) => a.start - b.start);
+}
+
+export function qrValues(text: string): string[] {
+  return text
+    .split("\n")
+    .filter((line) => line.startsWith(qrLabel))
+    .map((line) => line.slice(qrLabel.length).trim());
+}
+
 export function withoutQrLabels(text: string): string {
   return text
     .split("\n")
@@ -30,7 +60,7 @@ const tokenSeparator = /[\s@]/u;
 const phonePattern = /(?<![\p{L}\p{N}/=?&#.-])(?!\d{1,3}(?:\.\d{1,3}){3}(?![\d.]))\+?\d[\d ().-]{7,}\d(?![\p{L}\p{N}])/gu;
 const codePattern = /(?<![\p{L}\p{N}/.=-])\d{6,}(?![\p{L}\p{N}])/gu;
 const linkPattern =
-  /(?:https?:\/\/(?:[^\s/@]+@)?)?(?:(?<![\p{L}\p{N}.])\d{1,3}(?:\.\d{1,3}){3}(?![\p{L}\p{N}.])|(?:[\p{L}\p{N}_](?:[\p{L}\p{N}_-]{0,61}[\p{L}\p{N}_])?\.){1,30}(?:xn--[a-z0-9-]{2,59}|\p{L}{2,63}))(?::\d{2,5})?(?:[/?#][^\s<>"'`]*)?/giu;
+  /(?:https?:\/\/(?:[^\s/@]+@)?)?(?:(?<![\p{L}\p{N}.])\d{1,3}(?:\.\d{1,3}){3}(?![\p{L}\p{N}.])|(?:[\p{L}\p{N}_](?:[\p{L}\p{N}_-]{0,61}[\p{L}\p{N}_])?\.){1,30}(?:xn--[a-z0-9-]{2,59}|\p{L}{2,63}))(?::\d{2,5})?(?:[/?#][^\s<>"'`[\]|]*)?/giu;
 const trailingPunctuation = /[.,;:!?)\]}'"]+$/u;
 
 function countAndReplace(text: string, pattern: RegExp, replacement: string, keep: (offset: number) => boolean = () => false): [string, number] {

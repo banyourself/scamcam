@@ -29,6 +29,7 @@ export interface Signal {
   confirms?: boolean;
   fromSafeBrowsing?: boolean;
   lookalike?: boolean;
+  pretendsToBe?: string;
 }
 
 export const strengthPoints: Record<Strength, number> = { critical: 6, strong: 4, moderate: 2, weak: 1 };

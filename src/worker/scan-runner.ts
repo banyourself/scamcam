@@ -48,7 +48,7 @@ function aiModelFor(env: AppBindings, injected: TextModel | null): TextModel | n
   return { run: (model, input) => binding.run(model, input) };
 }
 
-export async function runScan(env: AppBindings, content: string, dependencies: ScanDependencies): Promise<ScanOutcome> {
+export async function runScan(env: AppBindings, content: string, dependencies: ScanDependencies, fromScreenshot = false): Promise<ScanOutcome> {
   const takeBudget = budgetTaker(env);
   const model = aiModelFor(env, dependencies.aiModel);
   const report = await scanContent(content, {
@@ -73,6 +73,7 @@ export async function runScan(env: AppBindings, content: string, dependencies: S
       : undefined,
     lookups: dependencies.lookups,
     phishingList: d1DomainList(env.DB, "phishing_database", dependencies.lookups),
+    fromScreenshot,
   });
   const checked = ScanReportSchema.parse(report);
   return { report: checked, signature: await signReport(checked, env.SHARE_SIGNING_KEY) };

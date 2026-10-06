@@ -38,6 +38,8 @@ const testSiteKey = /^[123]x0{20}[A-F]{2}$/;
 const cloudflareCookiesSeen = new Set<string>();
 const notes: string[] = [];
 const turnstileOrigin = "https://challenges.cloudflare.com";
+const qrCard = readFileSync(new URL("../test/fixtures/qr-card.png", import.meta.url)).toString("base64");
+const qrCardLink = "https://www.linkedin.com/in/kevin-example/";
 const probe = "privacy probe 7q4: send me your 2fa code at steam-trade-probe.example/probe-path-7q4 so i can verify the trade";
 const probeMarkers = ["privacy probe", "7q4", "steam-trade-probe", "probe-path", "2fa code"];
 const allowedStorageKeys = new Set(["scamcam-theme"]);
@@ -389,6 +391,9 @@ const screenshotScript = `(() => {
       context.fillText(kind === "light" ? "verify at steam-trade-probe.example" : "claim at discord-gift-probe.example", 40, 180);
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
       file = new File([blob], "shot.png", { type: "image/png" });
+    } else if (kind === "qrcard") {
+      const bytes = Uint8Array.from(atob(window.__qrCard), (char) => char.charCodeAt(0));
+      file = new File([bytes], "card.png", { type: "image/png" });
     } else if (kind === "svg") {
       file = new File(['<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><text>hi</text></svg>'], "shot.svg", { type: "image/svg+xml" });
     } else {
@@ -420,6 +425,7 @@ async function checkScreenshots(): Promise<string[]> {
     await cdp.send("Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
     await openPage(cdp, base, "/");
     await cdp.evaluate(screenshotScript);
+    await cdp.evaluate(`window.__qrCard = ${JSON.stringify(qrCard)}`);
     const box = `document.querySelector("textarea").value.toLowerCase()`;
     for (const [kind, expected] of [
       ["light", "steam-trade-probe.example"],
@@ -433,6 +439,17 @@ async function checkScreenshots(): Promise<string[]> {
         const alert = await cdp.evaluate<string>(`document.querySelector("[role=alert]")?.textContent ?? ""`);
         failures.push(`the ${kind} screenshot was not read (box: ${JSON.stringify(value)}, alert: ${JSON.stringify(alert)})`);
       }
+    }
+    await cdp.evaluate(`window.__paste("qrcard")`);
+    try {
+      await waitFor(cdp, `${box}.includes(${JSON.stringify(`qr code: ${qrCardLink}`)})`);
+      const read = await cdp.evaluate<string>(`document.querySelector("textarea").value`);
+      const stray = read.split("\n").filter((line) => line.trim() !== "" && !/[a-z]{3}/i.test(line));
+      if (stray.length > 0) {
+        failures.push(`the QR code was also read as stray text: ${JSON.stringify(stray)}`);
+      }
+    } catch {
+      failures.push("the QR code card was not read");
     }
     for (const kind of ["svg", "fake"]) {
       await cdp.evaluate(`window.__paste(${JSON.stringify(kind)})`);
@@ -470,8 +487,29 @@ async function checkScreenshots(): Promise<string[]> {
     if (!workers.some((url) => url.endsWith(`${ocrBase}/worker.min.js`))) {
       failures.push(`the OCR worker was not seen (${workers.join(", ") || "no workers"})`);
     }
+    let scannedCard = false;
+    if (!live) {
+      await cdp.evaluate(`window.__paste("qrcard")`);
+      await waitFor(cdp, `${box}.includes(${JSON.stringify(qrCardLink)})`);
+      await waitFor(cdp, `!document.querySelector("form button[type=submit]").disabled`);
+      const before = requests.length;
+      await cdp.evaluate(`document.querySelector("form button[type=submit]").click()`);
+      await waitFor(cdp, `document.querySelector("section[aria-label=Report] #report-heading") || document.querySelector("[role=alert]")`);
+      const report = await cdp.evaluate<string>(`document.querySelector("section[aria-label=Report]")?.textContent ?? document.querySelector("[role=alert]")?.textContent ?? ""`);
+      if (report.includes("Asks you to scan a QR code") || report.includes("QR code login takeover")) {
+        failures.push(`a harmless QR code from a screenshot was reported as a QR code login scam (${report.replace(/\s+/g, " ").slice(0, 400)})`);
+      }
+      const scan = requests.slice(before).find((request) => request.url === `${base}/api/v1/scans`);
+      const fields = Object.keys(JSON.parse(scan?.postData ?? "{}") as Record<string, unknown>).sort();
+      if (fields.join(",") !== "content,fromScreenshot,turnstileToken") {
+        failures.push(`the screenshot scan sent unexpected fields: ${fields.join(", ") || "none"}`);
+      }
+      scannedCard = true;
+    }
     const ocrFetches = requests.filter((request) => request.url.includes("/ocr/")).map((request) => new URL(request.url).pathname);
-    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  screenshots read on the device (light and dark), SVG and fake images refused, nothing uploaded or stored`);
+    console.log(
+      `${failures.length > 0 ? "FAIL" : "pass"}  screenshots read on the device (light, dark, and a QR code card${scannedCard ? " that was then scanned" : ""}), SVG and fake images refused, nothing uploaded or stored`,
+    );
     console.log(`      OCR files fetched: ${[...new Set(ocrFetches)].join(", ") || "none seen"}`);
     return failures;
   });

@@ -81,6 +81,13 @@ export const brands: Brand[] = [
     tokens: ["playstation", "psn"],
   },
   {
+    id: "rockstar",
+    name: "Rockstar Games",
+    officialDomains: ["rockstargames.com"],
+    lookalikeLabels: ["rockstargames"],
+    tokens: ["rockstar", "rockstargames", "gta", "gtav", "gtavi", "gta5", "gta6", "gtaonline"],
+  },
+  {
     id: "nintendo",
     name: "Nintendo",
     officialDomains: ["nintendo.com", "nintendo.net"],

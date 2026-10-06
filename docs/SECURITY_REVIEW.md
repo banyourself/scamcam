@@ -187,3 +187,12 @@ The scan engine moved into the `Scanner` Durable Object, and five checks were ad
 | Too many decoded links | At most 5 decoded destinations and 3 levels per scan; network lookups stay capped at 3 hosts | Subrequest test (44 in the Worker fallback) |
 | Malformed wrapper parameters | Only absolute `http` and `https` destinations on a different domain are accepted; bad percent or base64 encodings are ignored | `test/engine/redirects.test.ts` |
 | New outside source | Cloudflare's security resolver receives only the hostname, like the existing DNS lookup, and its answer is read with the same size cap and schema | Privacy test of every outgoing request |
+
+## Link text and screenshot links (2026-10-06)
+
+| Threat | Protection | Test |
+|---|---|---|
+| Link text that shows a trusted address and opens another | Discord and Slack link formats are read; the shown text is not checked as a link, and the real address gets a critical warning when the domains differ | `test/engine/scan.test.ts` |
+| A screenshot of an official-looking link | Links read from a picture never count as official; links decoded from a QR code still do | Same file and the browser check |
+| Lowering a result with the new `fromScreenshot` field | The field is a strict boolean, and setting it can only remove "official" credit, never add any | `test/worker/scan-api.test.ts` |
+| Slow parsing of crafted link text | Both link formats use bounded patterns (shown text up to 300 characters, no nesting) on input that is already capped at 4,000 characters | Existing slow-input tests |

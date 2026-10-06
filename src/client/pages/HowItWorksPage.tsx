@@ -23,7 +23,10 @@ export function HowItWorksPage() {
           <strong>Look at the link itself.</strong> ScamCam finds the real domain (the part someone actually registered),
           decodes look-alike characters, and compares it with the domains Steam, Discord, Roblox, and Minecraft really use.
           If the link only passes through a redirect, such as Steam&apos;s link filter, a Google redirect, or an email
-          scanner&apos;s safe link, ScamCam works out where it really leads and checks that address too.
+          scanner&apos;s safe link, ScamCam works out where it really leads and checks that address too. It also catches
+          link text that shows one address but opens another, such as Discord&apos;s{" "}
+          <code>[rockstargames.com](https://another-site.example)</code> trick. A link read from a screenshot is never treated
+          as official, because a picture only shows the text of a link, not where it goes.
         </li>
         <li>
           <strong>Ask independent sources.</strong> Lists of known phishing and malware sites, Google Safe Browsing,

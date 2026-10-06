@@ -91,7 +91,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Check | Latest recorded result |
 |---|---|
-| Vitest (worker, engine, and client projects) | 503 tests in 30 files pass (2026-10-06, with the QR code fixes) |
+| Vitest (worker, engine, and client projects) | 517 tests in 30 files pass (2026-10-06, with hidden link text and screenshot links) |
 | Node config and script tests (`npm run test:config`) | 14 pass |
 | Accessibility (`npm run test:a11y`) | Passes; 52 axe-core checks were recorded with screenshot reading |
 | Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot step and the share step (scan, share, open) |
