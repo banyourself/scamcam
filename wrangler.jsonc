@@ -29,6 +29,10 @@
       "simple": { "limit": 10, "period": 60 }
     }
   ],
+  "ai": {
+    "binding": "AI",
+    "remote": true
+  },
   "triggers": {
     "crons": ["17 3 * * *", "41 4 * * 1"]
   },
@@ -38,7 +42,10 @@
     "STORAGE_SOFT_LIMIT_BYTES": "80000000",
     "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
     "SAFE_BROWSING_DAILY_LIMIT": "8000",
-    "URLHAUS_DAILY_LIMIT": "5000"
+    "URLHAUS_DAILY_LIMIT": "5000",
+    "AI_MODE": "inconclusive",
+    "AI_MODEL": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "AI_DAILY_LIMIT": "2000"
   },
   "observability": {
     "enabled": true,

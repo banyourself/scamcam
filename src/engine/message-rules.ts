@@ -168,7 +168,7 @@ const rules: MessageRule[] = [
     family: "vote_scam",
     title: "Asks you to vote for someone",
     detail: "\"Vote for my team\" links are a known trick that leads to fake Steam or Discord login pages.",
-    patterns: [/\bvote (?:for )?(?:me|my team|us|our team)\b/, near("vote", "tournament|team|contest|competition")],
+    patterns: [/\bvote (?:for )?(?:my team|us|our team)\b/, /\bvote for me\b[^.!?\n]{0,60}\[link\]/, near("vote", "tournament|team|contest|competition")],
   },
   {
     id: "login-link",

@@ -2,9 +2,11 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { maxInputLength } from "../../shared/extract";
 import { ApiErrorSchema } from "../../shared/api";
 import { ScanReportSchema } from "../../shared/report-schema";
+import { reviewMessage, type TextModel } from "../../engine/ai-review";
 import { scanContent, type BudgetedProvider } from "../../engine/scan";
 import type { AppBindings, AppEnv } from "../env";
 import { errorBody } from "../errors";
+import { logEvent } from "../logging";
 import { clientAddress } from "../middleware/rate-limit";
 import { writesArePaused } from "../repositories/app-state";
 import { d1DomainList } from "../repositories/domain-lists";
@@ -39,6 +41,7 @@ const scanRoute = createRoute({
 const dailyLimitVariable: Record<BudgetedProvider, keyof AppBindings> = {
   safe_browsing: "SAFE_BROWSING_DAILY_LIMIT",
   urlhaus: "URLHAUS_DAILY_LIMIT",
+  workers_ai: "AI_DAILY_LIMIT",
 };
 
 function budgetTaker(env: AppBindings) {
@@ -46,12 +49,26 @@ function budgetTaker(env: AppBindings) {
   return async (provider: BudgetedProvider): Promise<boolean> => {
     paused ??= await writesArePaused(env.DB).catch(() => true);
     if (paused) {
-      return true;
+      return provider !== "workers_ai";
     }
     const limit = Number(env[dailyLimitVariable[provider]]);
     const calls = await recordProviderCall(env.DB, provider).catch(() => Number.POSITIVE_INFINITY);
     return Number.isFinite(limit) && calls <= limit;
   };
+}
+
+function aiModelFor(env: AppBindings, injected: TextModel | null): TextModel | null {
+  if (env.AI_MODE !== "inconclusive") {
+    return null;
+  }
+  if (injected) {
+    return injected;
+  }
+  if (!env.AI) {
+    return null;
+  }
+  const binding = env.AI as unknown as TextModel;
+  return { run: (model, input) => binding.run(model, input) };
 }
 
 export const scanRoutes = new OpenAPIHono<AppEnv>().openapi(scanRoute, async (c) => {
@@ -75,11 +92,28 @@ export const scanRoutes = new OpenAPIHono<AppEnv>().openapi(scanRoute, async (c)
     }
     return c.json(errorBody(c, "bot_check_failed", "The security check did not pass. Complete it again and resubmit."), 403);
   }
+  const takeBudget = budgetTaker(c.env);
+  const model = aiModelFor(c.env, c.get("aiModel"));
   const report = await scanContent(body.content, {
     fetcher: c.get("fetcher"),
     safeBrowsingKey: c.env.SAFE_BROWSING_API_KEY,
     urlhausKey: c.env.URLHAUS_AUTH_KEY,
-    takeBudget: budgetTaker(c.env),
+    takeBudget,
+    aiReview: model
+      ? async (text) => {
+          const started = Date.now();
+          const result = await reviewMessage(text, { model, modelId: c.env.AI_MODEL, takeBudget: () => takeBudget("workers_ai") });
+          logEvent("ai_review", {
+            model: c.env.AI_MODEL,
+            status: result.status,
+            ...(result.status === "ok"
+              ? { label: result.label, promptTokens: result.promptTokens, completionTokens: result.completionTokens, neurons: result.neurons }
+              : {}),
+            ms: Date.now() - started,
+          });
+          return result;
+        }
+      : undefined,
     lookups: c.get("lookups"),
     phishingList: d1DomainList(c.env.DB, "phishing_database", c.get("lookups")),
   });

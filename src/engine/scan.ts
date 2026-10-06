@@ -1,18 +1,19 @@
 import { extractInput } from "../shared/extract";
 import type { Evidence, ScanReport, UncheckedSource } from "../shared/report";
 import { freeHostingSuffixes, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
-import { memoryLookups, type Lookups } from "./cache";
+import type { AiReviewResult } from "./ai-review";
+import { cacheKey, memoryLookups, recallFromMemory, rememberInMemory, type Lookups } from "./cache";
 import { isPrivateAddress, lookupDns, type DnsResult } from "./dns";
 import { candidateNames, type DomainListLookup, type DomainListResult } from "./domain-list";
-import { analyzeMessage } from "./message-rules";
+import { analyzeMessage, familyNames } from "./message-rules";
 import { lookupRdap, type RdapResult } from "./rdap";
 import { searchSafeBrowsing, threatDescriptions, type SafeBrowsingResult } from "./safe-browsing";
-import { phishingDatabaseUrl, sourceNames, strengthPoints, type Signal } from "./signals";
+import { phishingDatabaseUrl, sourceNames, strengthPoints, type ScamFamily, type Signal } from "./signals";
 import { analyzeLink, type AnalyzedLink } from "./url-analysis";
 import { lookupUrlhausHost, sameUrl, type UrlhausResult } from "./urlhaus";
 import { decideVerdict } from "./verdict";
 
-export type BudgetedProvider = "safe_browsing" | "urlhaus";
+export type BudgetedProvider = "safe_browsing" | "urlhaus" | "workers_ai";
 
 export interface ScanOptions {
   fetcher: typeof fetch;
@@ -21,11 +22,14 @@ export interface ScanOptions {
   takeBudget: (provider: BudgetedProvider) => Promise<boolean>;
   lookups?: Lookups;
   phishingList?: DomainListLookup;
+  aiReview?: (text: string) => Promise<AiReviewResult>;
   now?: Date;
 }
 
 const maxNetworkLinks = 3;
 const maxListedLinks = 10;
+const minReviewCharacters = 20;
+const aiMemorySeconds = 60 * 60;
 const maxEvidence = 14;
 const day = 24 * 60 * 60 * 1000;
 
@@ -182,6 +186,35 @@ function phishingListSignals(link: AnalyzedLink, names: string[], result: Domain
       detail: "Phishing.Database is a free community list of phishing sites. Lists like this can contain mistakes, so ScamCam treats it as a warning sign, not proof.",
     },
   ];
+}
+
+function aiSignal(label: ScamFamily): Signal {
+  return {
+    id: `ai-${label}`,
+    source: sourceNames.ai,
+    direction: "raises",
+    strength: "strong",
+    family: label,
+    title: `An AI check thinks this looks like the ${familyNames[label]} scam`,
+    detail: "A small AI model compared the message with common gaming scams. It can be wrong, so treat this as one warning sign and read the rest of the report.",
+  };
+}
+
+function isReviewResult(value: unknown): value is AiReviewResult {
+  return typeof value === "object" && value !== null && (value as AiReviewResult).status === "ok";
+}
+
+async function reviewWithMemory(text: string, review: (text: string) => Promise<AiReviewResult>, lookups: Lookups): Promise<AiReviewResult> {
+  const key = await cacheKey("ai-review", text);
+  const remembered = recallFromMemory(lookups, key);
+  if (isReviewResult(remembered)) {
+    return remembered;
+  }
+  const result = await review(text);
+  if (result.status === "ok") {
+    rememberInMemory(lookups, key, result, aiMemorySeconds);
+  }
+  return result;
 }
 
 function toEvidence(signal: Signal, checkedAt: string): Evidence {
@@ -361,16 +394,42 @@ export async function scanContent(content: string, options: ScanOptions): Promis
 
   const linkSignals = links.map((link) => [...link.signals, ...(extraSignals.get(link) ?? [])]);
   const nonOfficial = readable.filter((link) => !link.officialBrand);
-  const verdict = decideVerdict({
-    messageSignals: message.signals,
-    linkSignals,
-    families: message.families,
-    linkCount: readable.length,
-    allLinksOfficial: readable.length > 0 && nonOfficial.length === 0,
-    safeBrowsingCleared:
-      safeBrowsingResult?.status === "ok" && safeBrowsingResult.complete && nonOfficial.every((link) => !safeBrowsingResult.threats.has(link.original)),
-    officialBrandNames: [...new Set(readable.map((link) => link.officialBrand?.name).filter((name): name is string => Boolean(name)))],
-  });
+  const verdictFor = (messageSignals: Signal[], families: ScamFamily[]) =>
+    decideVerdict({
+      messageSignals,
+      linkSignals,
+      families,
+      linkCount: readable.length,
+      allLinksOfficial: readable.length > 0 && nonOfficial.length === 0,
+      safeBrowsingCleared:
+        safeBrowsingResult?.status === "ok" && safeBrowsingResult.complete && nonOfficial.every((link) => !safeBrowsingResult.threats.has(link.original)),
+      officialBrandNames: [...new Set(readable.map((link) => link.officialBrand?.name).filter((name): name is string => Boolean(name)))],
+    });
+  let messageSignals = message.signals;
+  let verdict = verdictFor(messageSignals, message.families);
+  const reviewText = messageText.replace(/\s+/g, " ").trim();
+  const strongLinkWarning = linkSignals.some((signals) => signals.some((signal) => signal.direction === "raises" && strengthPoints[signal.strength] >= 4));
+  if (
+    options.aiReview &&
+    reviewText.replaceAll("[link]", "").trim().length >= minReviewCharacters &&
+    message.families.length === 0 &&
+    !strongLinkWarning &&
+    (verdict.level === "unknown" || verdict.level === "no_known_threat")
+  ) {
+    const review = await reviewWithMemory(reviewText, options.aiReview, lookups);
+    if (review.status === "ok" && review.label !== "none") {
+      const label: ScamFamily = review.label;
+      messageSignals = [...message.signals, aiSignal(label)];
+      verdict = verdictFor(messageSignals, [label]);
+      if (verdict.level === "suspicious") {
+        verdict.summary = `An AI check thinks this looks like the ${familyNames[label]} scam. Nothing else confirms it.`;
+      }
+    } else if (review.status === "over_budget") {
+      notChecked.push({ name: sourceNames.ai, reason: "over_budget" });
+    } else if (review.status !== "ok") {
+      notChecked.push({ name: sourceNames.ai, reason: "unavailable" });
+    }
+  }
   if (verdict.contradiction) {
     generalSignals.push({
       id: "contradiction",
@@ -383,7 +442,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   }
 
   const primary = [...readable].sort((a, b) => linkScore(b) - linkScore(a))[0];
-  const signals = [...message.signals, ...linkSignals.flat(), ...generalSignals]
+  const signals = [...messageSignals, ...linkSignals.flat(), ...generalSignals]
     .filter((signal, index, list) => list.findIndex((other) => other.id === signal.id) === index)
     .sort((a, b) => order(a) - order(b))
     .slice(0, maxEvidence);

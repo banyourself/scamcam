@@ -1,5 +1,6 @@
 import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
+import type { TextModel } from "../../src/engine/ai-review";
 import { memoryLookupCache, type LookupCache } from "../../src/engine/cache";
 import { ScanReportSchema } from "../../src/shared/report-schema";
 import { createApp } from "../../src/worker/app";
@@ -14,9 +15,14 @@ async function scan(
   bindings: Partial<typeof env> = {},
   ip = `198.51.100.${nextAddress++}`,
   lookupCache: LookupCache | "edge" = memoryLookupCache(),
+  aiModel?: TextModel,
 ) {
   const fake = fakeNetwork(network);
-  const app = createApp(lookupCache === "edge" ? { fetcher: fake.fetcher } : { fetcher: fake.fetcher, lookupCache });
+  const app = createApp({
+    fetcher: fake.fetcher,
+    ...(lookupCache === "edge" ? {} : { lookupCache }),
+    ...(aiModel ? { aiModel } : {}),
+  });
   const ctx = createExecutionContext();
   const response = await app.fetch(
     new Request(`${origin}/api/v1/scans`, {
@@ -122,6 +128,45 @@ describe("POST /api/v1/scans", () => {
       { provider: "safe_browsing", calls: 1 },
       { provider: "urlhaus", calls: 1 },
     ]);
+  });
+
+  it("runs the AI check on inconclusive messages and counts it against the daily AI limit", async () => {
+    const calls: string[] = [];
+    const model: TextModel = {
+      async run(id) {
+        calls.push(id);
+        return { response: "payment_pressure", usage: { prompt_tokens: 320, completion_tokens: 2 } };
+      },
+    };
+    const content = "i sent you 40 dollars by accident on paypal, can you send it back to my other account please";
+    const on = await scan({ content, turnstileToken: "t" }, {}, { AI_MODE: "inconclusive" }, undefined, undefined, model);
+    const report = await on.response.json<{ level: string; evidence: { source: { name: string } }[] }>();
+    expect(calls).toEqual(["@cf/qwen/qwen3-30b-a3b-fp8"]);
+    expect(report.level).toBe("suspicious");
+    expect(report.evidence[0]!.source.name).toBe("AI pattern check (Workers AI)");
+    const usage = await env.DB.prepare("SELECT calls FROM provider_usage WHERE provider = 'workers_ai'").first<{ calls: number }>();
+    expect(usage?.calls).toBe(1);
+    await scan({ content, turnstileToken: "t" }, {}, { AI_MODE: "off" }, undefined, undefined, model);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("does not run the AI check when its usage cannot be counted", async () => {
+    const calls: string[] = [];
+    const model: TextModel = {
+      async run(id) {
+        calls.push(id);
+        return { response: "none" };
+      },
+    };
+    await env.DB.prepare("INSERT INTO app_state (key, value, updated_at) VALUES ('writes_paused', 'true', 0) ON CONFLICT (key) DO UPDATE SET value = 'true'").run();
+    try {
+      const { response } = await scan({ content: "i sent you 40 dollars by accident, can you send it back please", turnstileToken: "t" }, {}, { AI_MODE: "inconclusive" }, undefined, undefined, model);
+      const report = await response.json<{ notChecked: { name: string; reason: string }[] }>();
+      expect(calls).toEqual([]);
+      expect(report.notChecked).toContainEqual({ name: "AI pattern check (Workers AI)", reason: "over_budget" });
+    } finally {
+      await env.DB.prepare("DELETE FROM app_state WHERE key = 'writes_paused'").run();
+    }
   });
 
   it("limits how many checks one visitor can run per minute", async () => {

@@ -58,6 +58,6 @@ export function encodeSearchResponse(fixture: SearchResponseFixture): Uint8Array
 }
 
 export function protobufResponse(body: SearchResponseFixture | Uint8Array, status = 200): Response {
-  const bytes = body instanceof Uint8Array ? body : encodeSearchResponse(body);
+  const bytes = new Uint8Array(body instanceof Uint8Array ? body : encodeSearchResponse(body));
   return new Response(bytes, { status, headers: { "Content-Type": "application/x-protobuf" } });
 }

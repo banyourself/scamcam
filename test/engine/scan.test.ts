@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { AiReviewResult } from "../../src/engine/ai-review";
+import { memoryLookups } from "../../src/engine/cache";
 import { canonicalizeUrl, urlExpressions } from "../../src/engine/safe-browsing";
 import { scanContent, type ScanOptions } from "../../src/engine/scan";
 import { ScanReportSchema } from "../../src/shared/report-schema";
@@ -199,6 +201,68 @@ describe("Phishing.Database list in scans", () => {
     expect(stale.notChecked).toContainEqual({ name: "Phishing.Database (community list)", reason: "out_of_date" });
     const missing = await scanContent("https://cheap-skins.example/", options().scan);
     expect(missing.notChecked).toContainEqual({ name: "Phishing.Database (community list)", reason: "not_configured" });
+  });
+});
+
+function reviewer(result: AiReviewResult, seen: string[] = []) {
+  return async (text: string): Promise<AiReviewResult> => {
+    seen.push(text);
+    return result;
+  };
+}
+
+const flagged: AiReviewResult = { status: "ok", label: "payment_pressure", promptTokens: 300, completionTokens: 2, neurons: 0.5 };
+
+describe("AI pattern check in scans", () => {
+  const quietScam = "hey bro i accidentally sent you 40 dollars on paypal, could you send it back to my other account? mail me at kid@example.com";
+
+  it("asks the AI only about messages the rules cannot decide, with personal details hidden", async () => {
+    const seen: string[] = [];
+    const report = await scanContent(quietScam, options({}, { aiReview: reviewer(flagged, seen) }).scan);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).not.toContain("kid@example.com");
+    expect(seen[0]).toContain("[email hidden]");
+    expect(report.level).toBe("suspicious");
+    expect(report.confidence).toBe("low");
+    expect(report.summary).toBe("An AI check thinks this looks like the untraceable payment scam. Nothing else confirms it.");
+    expect(report.evidence[0]!.source.name).toBe("AI pattern check (Workers AI)");
+  });
+
+  it("leaves the result alone when the AI finds nothing", async () => {
+    const report = await scanContent("gg wp, want to queue again tomorrow after school?", options({}, { aiReview: reviewer({ status: "ok", label: "none", promptTokens: null, completionTokens: null, neurons: null }) }).scan);
+    expect(report.level).toBe("no_known_threat");
+    expect(report.notChecked).toEqual([]);
+  });
+
+  it("does not ask when the rules already found a scam or a link is clearly bad", async () => {
+    const seen: string[] = [];
+    await scanContent("send me your 2fa code so i can verify the trade", options({}, { aiReview: reviewer(flagged, seen) }).scan);
+    await scanContent("check this out https://steamcommunlty.example/tradeoffer/new it is the new trade page", options({}, { aiReview: reviewer(flagged, seen) }).scan);
+    await scanContent("ok", options({}, { aiReview: reviewer(flagged, seen) }).scan);
+    expect(seen).toEqual([]);
+  });
+
+  it("never shows the AI a link", async () => {
+    const seen: string[] = [];
+    await scanContent("my cousin made this site for our clan, take a look when you can https://clan-hub.example/members", options({}, { aiReview: reviewer(flagged, seen) }).scan);
+    expect(seen[0]).not.toContain("clan-hub");
+    expect(seen[0]).toContain("[link]");
+  });
+
+  it("says when the AI could not run", async () => {
+    const down = await scanContent(quietScam, options({}, { aiReview: reviewer({ status: "unavailable" }) }).scan);
+    expect(down.notChecked).toContainEqual({ name: "AI pattern check (Workers AI)", reason: "unavailable" });
+    expect(down.level).toBe("no_known_threat");
+    const spent = await scanContent(quietScam, options({}, { aiReview: reviewer({ status: "over_budget" }) }).scan);
+    expect(spent.notChecked).toContainEqual({ name: "AI pattern check (Workers AI)", reason: "over_budget" });
+  });
+
+  it("remembers an answer for the same message instead of asking again", async () => {
+    const seen: string[] = [];
+    const lookups = memoryLookups();
+    await scanContent(quietScam, options({}, { aiReview: reviewer(flagged, seen), lookups }).scan);
+    await scanContent(quietScam, options({}, { aiReview: reviewer(flagged, seen), lookups }).scan);
+    expect(seen).toHaveLength(1);
   });
 });
 

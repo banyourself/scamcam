@@ -39,6 +39,7 @@ export const sourceNames = {
   dns: "DNS lookup (Cloudflare 1.1.1.1)",
   urlhaus: "URLhaus (abuse.ch)",
   phishingDatabase: "Phishing.Database (community list)",
+  ai: "AI pattern check (Workers AI)",
 } as const;
 
 export const phishingDatabaseUrl = "https://github.com/Phishing-Database/Phishing.Database";

@@ -2,6 +2,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { bodyLimit } from "hono/body-limit";
 import { csrf } from "hono/csrf";
 import { requestId } from "hono/request-id";
+import type { TextModel } from "../engine/ai-review";
 import { createLookupState, type LookupCache } from "../engine/cache";
 import type { AppEnv } from "./env";
 import { apiError, handleError, handleNotFound } from "./errors";
@@ -17,6 +18,7 @@ export const maxRequestBytes = 16 * 1024;
 export interface AppOptions {
   fetcher?: typeof fetch;
   lookupCache?: LookupCache;
+  aiModel?: TextModel;
 }
 
 export function createApp(options: AppOptions = {}): OpenAPIHono<AppEnv> {
@@ -40,6 +42,7 @@ export function createApp(options: AppOptions = {}): OpenAPIHono<AppEnv> {
   app.use("/api/*", async (c, next) => {
     c.set("fetcher", fetcher);
     c.set("lookups", { cache: options.lookupCache ?? edgeLookupCache(new URL(c.req.url).origin), state: lookupState, clock: Date.now });
+    c.set("aiModel", options.aiModel ?? null);
     await next();
   });
 

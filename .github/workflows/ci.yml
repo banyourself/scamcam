@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  SCAMCAM_LOCAL_ONLY: "1"
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
