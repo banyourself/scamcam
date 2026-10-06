@@ -91,7 +91,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Check | Latest recorded result |
 |---|---|
-| Vitest (worker, engine, and client projects) | 494 tests in 29 files pass (2026-10-06, with the scanner and the newer checks) |
+| Vitest (worker, engine, and client projects) | 503 tests in 30 files pass (2026-10-06, with the QR code fixes) |
 | Node config and script tests (`npm run test:config`) | 14 pass |
 | Accessibility (`npm run test:a11y`) | Passes; 52 axe-core checks were recorded with screenshot reading |
 | Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot step and the share step (scan, share, open) |
@@ -134,7 +134,7 @@ on scripts and styles.
 
 ## Open items
 
-### CPU time on the Free plan (fixed by the scanner, to confirm live)
+### CPU time on the Free plan (fixed)
 
 The first live scans used 11 to 29 ms of CPU against the Free plan's 10 ms per request; a health check uses 0 to
 5 ms. Cloudflare tolerates occasional overruns but stops a Worker that goes over consistently. A fresh process showed
@@ -143,8 +143,10 @@ rules, and report schema at startup, and reads the IANA registry list without a 
 `wrangler tail` on 2026-10-06 used 9 ms (a message), 16 ms (a link), and 26 ms (a link plus the AI step), down from
 11, 29, and 18 ms. All three succeeded, but scans with links still went over 10 ms, so the scan engine now runs in
 the `Scanner` Durable Object, which the Free plan gives 30 seconds of CPU per request. The Worker's own part (rate
-limit, Turnstile, the scanner call, signing) still has to fit in 10 ms; confirm it with `wrangler tail` on the next
-real scans.
+limit, Turnstile, the scanner call, signing) still has to fit in 10 ms. Three real scans after the move used 7, 6, and
+1 ms in the Worker and 22, 17, and 0 ms in the scanner. Each scan with lookups kept the scanner busy for about 5
+seconds after it answered, because unfinished timeout timers kept it active, which spends the free Durable Object
+duration about ten times faster than needed. Every lookup now clears its timer when it finishes.
 
 ### To do after launch
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractInput, maxInputLength, maxLinks } from "../../src/shared/extract";
+import { extractInput, maxInputLength, maxLinks, withoutQrLabels } from "../../src/shared/extract";
 
 describe("extractInput", () => {
   it("finds links with and without a scheme and strips trailing punctuation", () => {
@@ -56,5 +56,13 @@ describe("extractInput", () => {
 
   it("returns nothing for plain text", () => {
     expect(extractInput("gg wp, see you tomorrow").links).toEqual([]);
+  });
+});
+
+describe("withoutQrLabels", () => {
+  it("removes only the label in front of a single QR value", () => {
+    expect(withoutQrLabels("hello\nQR code: https://a.example/x")).toBe("hello\nhttps://a.example/x");
+    expect(withoutQrLabels("QR code: scan me to log in")).toBe("QR code: scan me to log in");
+    expect(withoutQrLabels("my QR code: https://a.example/x")).toBe("my QR code: https://a.example/x");
   });
 });

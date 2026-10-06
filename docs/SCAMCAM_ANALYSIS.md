@@ -223,6 +223,8 @@ skips the AI.
 | Reply to activate a link | Strong warning | Scam texts ask for a "Y" reply so the phone turns links back on |
 | Message names a brand, link goes elsewhere | Weak warning, moderate when a scam family also matched | A message about Steam or Discord whose link belongs to neither, and does not imitate them by name |
 | Endings abused far more than most | Weak warning, linked to Interisle's Phishing Landscape 2025 | .xin, .bond, .help, .win, and .cfd have the highest phishing rate for their size |
+| Login QR codes | Critical warning in the QR code login takeover family, and no "official" credit | A Discord (`discord.com/ra/...`) or Steam (`s.team/q/...`) login QR code logs in whoever made it, so sharing one is the takeover itself |
+| QR codes read from screenshots | The `QR code: ` label that the screenshot reader adds is removed before the message rules run | The label alone made the "asks you to scan a QR code" rule fire on harmless QR codes, such as one for a LinkedIn profile |
 
 Each rule has tests that it fires and tests that ordinary messages stay quiet, such as asking a friend to press
 Windows+R and type `dxdiag`, an event invite that asks for a "yes", a Steam wallet balance, and an email's "paste this

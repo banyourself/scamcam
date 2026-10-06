@@ -1,4 +1,4 @@
-import { extractInput } from "../shared/extract";
+import { extractInput, withoutQrLabels } from "../shared/extract";
 import type { Evidence, ScanReport, UncheckedSource } from "../shared/report";
 import { brandsNamedIn, freeHostingSuffixes, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
 import type { AiReviewResult } from "./ai-review";
@@ -372,7 +372,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   const extracted = extractInput(content);
   const links = withDestinations(extracted.links);
   const readable = links.filter((link) => link.hostname);
-  let messageText = extracted.redactedText;
+  let messageText = withoutQrLabels(extracted.redactedText);
   for (const link of extracted.links) {
     messageText = messageText.split(link).join(" [link] ");
   }
@@ -565,7 +565,8 @@ export async function scanContent(content: string, options: ScanOptions): Promis
       officialBrandNames: [...new Set(readable.map((link) => link.officialBrand?.name).filter((name): name is string => Boolean(name)))],
     });
   let messageSignals = ruleSignals;
-  let verdict = verdictFor(messageSignals, message.families);
+  const linkFamilies = linkSignals.flat().flatMap((signal) => (signal.family ? [signal.family] : []));
+  let verdict = verdictFor(messageSignals, [...new Set([...message.families, ...linkFamilies])]);
   const reviewText = messageText.replace(/\s+/g, " ").trim();
   const strongLinkWarning = linkSignals.some((signals) => signals.some((signal) => signal.direction === "raises" && strengthPoints[signal.strength] >= 4));
   if (

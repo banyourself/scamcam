@@ -3,6 +3,18 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-06: QR code fixes
+
+- A screenshot of a harmless QR code, such as one for a LinkedIn profile, was rated Suspicious, because the
+  `QR code: ` label that the screenshot reader adds made the "asks you to scan a QR code" rule fire. The label is now
+  removed before the message rules run, and a screenshot that holds only a QR code is checked as a link.
+- Discord and Steam login QR codes (`discord.com/ra/...`, `s.team/q/...`) are rated high risk as QR code login
+  takeovers, even though the addresses are official.
+- Live scans through the scanner used 7, 6, and 1 ms in the Worker and 22, 17, and 0 ms in the scanner, but each
+  scan with lookups kept the scanner busy for about 5 seconds because timeout timers kept running. Every lookup now
+  clears its timer when it finishes.
+- Verified: 503 Vitest tests in 30 files pass.
+
 ## 2026-10-06: Scanner and newer checks
 
 - Scans run in a SQLite-backed Durable Object named `Scanner`, which the Workers Free plan gives 30 seconds of CPU per

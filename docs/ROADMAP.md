@@ -22,7 +22,7 @@ Every feature ships with tests, a security review, and updates to [STATUS.md](ST
 
 ### After launch
 
-1. Confirm the Worker's share of each scan stays under 10 ms on live traffic (see [STATUS.md](STATUS.md#open-items)).
+1. Leave out low-confidence screenshot text, such as a QR code's pattern read as letters.
 2. Watch the first daily and weekly maintenance reports for alerts ([RECOVERY.md](RECOVERY.md)).
 3. Close the three rule gaps from the held-out benchmark with a fresh sample from the list.
 

@@ -1,4 +1,4 @@
-import { maxInputLength } from "../../shared/extract";
+import { maxInputLength, qrLabel } from "../../shared/extract";
 
 const maxQrText = 500;
 
@@ -13,7 +13,7 @@ export function cleanReadText(text: string): string {
 }
 
 export function combineWithReadText(existing: string, read: string, qrTexts: string[]): string {
-  const qrLines = qrTexts.map((value) => `QR code: ${value.replace(/\s+/g, " ").trim().slice(0, maxQrText)}`);
+  const qrLines = qrTexts.map((value) => `${qrLabel}${value.replace(/\s+/g, " ").trim().slice(0, maxQrText)}`);
   const parts = [existing.trim(), cleanReadText(read), ...qrLines].filter((part) => part.length > 0);
   return parts.join("\n\n").slice(0, maxInputLength);
 }

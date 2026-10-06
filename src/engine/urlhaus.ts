@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { cacheKey, readCached, recordOutcome, sharedLoad, sourceIsOpen, writeCached, type Lookups } from "./cache";
+import { deadline } from "./deadline";
 import { readLimitedJson } from "./limited-body";
 
 export const urlhausHostEndpoint = "https://urlhaus-api.abuse.ch/v1/host/";
@@ -52,12 +53,13 @@ function isAnswer(value: unknown): value is UrlhausAnswer {
 }
 
 async function queryUrlhaus(host: string, authKey: string, fetcher: typeof fetch): Promise<UrlhausAnswer | null> {
+  const timer = deadline(4000);
   try {
     const response = await fetcher(urlhausHostEndpoint, {
       method: "POST",
       headers: { "Auth-Key": authKey, "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ host }).toString(),
-      signal: AbortSignal.timeout(4000),
+      signal: timer.signal,
     });
     if (!response.ok) {
       return null;
@@ -83,6 +85,8 @@ async function queryUrlhaus(host: string, authKey: string, fetcher: typeof fetch
     };
   } catch {
     return null;
+  } finally {
+    timer.clear();
   }
 }
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { cacheKey, readCached, recallFromMemory, recordOutcome, rememberInMemory, sharedLoad, sourceIsOpen, writeCached, type Lookups } from "./cache";
+import { deadline } from "./deadline";
 import { readLimitedJson } from "./limited-body";
 
 export const rdapBootstrapUrl = "https://data.iana.org/rdap/dns.json";
@@ -49,8 +50,9 @@ function isAnswer(value: unknown): value is RdapAnswer {
 }
 
 async function fetchBootstrap(fetcher: typeof fetch): Promise<ServicePairs | null> {
+  const timer = deadline(4000);
   try {
-    const response = await fetcher(rdapBootstrapUrl, { signal: AbortSignal.timeout(4000) });
+    const response = await fetcher(rdapBootstrapUrl, { signal: timer.signal });
     if (!response.ok) {
       return null;
     }
@@ -70,6 +72,8 @@ async function fetchBootstrap(fetcher: typeof fetch): Promise<ServicePairs | nul
     return pairs;
   } catch {
     return null;
+  } finally {
+    timer.clear();
   }
 }
 
@@ -129,10 +133,11 @@ export async function lookupRdap(domain: string, fetcher: typeof fetch, lookups:
     if (!sourceIsOpen(lookups, source)) {
       return { status: "unavailable" };
     }
+    const timer = deadline(5000);
     try {
       const response = await fetcher(`${base}domain/${encodeURIComponent(domain)}`, {
         headers: { Accept: "application/rdap+json, application/json" },
-        signal: AbortSignal.timeout(5000),
+        signal: timer.signal,
       });
       if (response.status === 429) {
         recordOutcome(lookups, source, false);
@@ -162,6 +167,8 @@ export async function lookupRdap(domain: string, fetcher: typeof fetch, lookups:
     } catch {
       recordOutcome(lookups, source, false);
       return { status: "unavailable" };
+    } finally {
+      timer.clear();
     }
   });
 }

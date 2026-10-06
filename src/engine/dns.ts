@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { cacheKey, readCached, recordOutcome, sharedLoad, sourceIsOpen, writeCached, type Lookups } from "./cache";
+import { deadline } from "./deadline";
 import { readLimitedJson } from "./limited-body";
 
 export const dohEndpoint = "https://cloudflare-dns.com/dns-query";
@@ -50,11 +51,12 @@ function clamp(value: number, low: number, high: number): number {
 }
 
 async function queryDns(hostname: string, fetcher: typeof fetch): Promise<{ answer: DnsAnswer; ttl: number } | null> {
+  const timer = deadline(3000);
   try {
     const query = new URLSearchParams({ name: hostname, type: "A" });
     const response = await fetcher(`${dohEndpoint}?${query}`, {
       headers: { Accept: "application/dns-json" },
-      signal: AbortSignal.timeout(3000),
+      signal: timer.signal,
     });
     if (!response.ok) {
       return null;
@@ -78,6 +80,8 @@ async function queryDns(hostname: string, fetcher: typeof fetch): Promise<{ answ
     return { answer: { status: "ok", exists: true, addresses }, ttl };
   } catch {
     return null;
+  } finally {
+    timer.clear();
   }
 }
 
@@ -111,11 +115,12 @@ export function isPrivateAddress(address: string): boolean {
 }
 
 async function queryFilter(hostname: string, fetcher: typeof fetch): Promise<{ answer: FilterAnswer; ttl: number } | null> {
+  const timer = deadline(3000);
   try {
     const query = new URLSearchParams({ name: hostname, type: "A" });
     const response = await fetcher(`${filteredDohEndpoint}?${query}`, {
       headers: { Accept: "application/dns-json" },
-      signal: AbortSignal.timeout(3000),
+      signal: timer.signal,
     });
     if (!response.ok) {
       return null;
@@ -136,6 +141,8 @@ async function queryFilter(hostname: string, fetcher: typeof fetch): Promise<{ a
     return { answer: { status: "ok", blocked }, ttl };
   } catch {
     return null;
+  } finally {
+    timer.clear();
   }
 }
 

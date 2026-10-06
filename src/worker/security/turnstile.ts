@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { deadline } from "../../engine/deadline";
 import { readLimitedJson } from "../../engine/limited-body";
 
 const verifyEndpoint = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
@@ -37,15 +38,18 @@ export async function verifyTurnstileToken(options: TurnstileOptions): Promise<T
   form.set("response", options.token);
   form.set("remoteip", options.remoteIp);
   let payload: unknown;
+  const timer = deadline(5000);
   try {
     const response = await (options.fetcher ?? fetch)(verifyEndpoint, {
       method: "POST",
       body: form,
-      signal: AbortSignal.timeout(5000),
+      signal: timer.signal,
     });
     payload = await readLimitedJson(response, maxResponseBytes);
   } catch {
     return { ok: false, reason: "unreachable" };
+  } finally {
+    timer.clear();
   }
   const parsed = SiteverifyResponseSchema.safeParse(payload);
   if (!parsed.success || !parsed.data.success) {

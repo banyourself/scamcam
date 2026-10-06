@@ -1,5 +1,6 @@
 import { getDomain } from "tldts";
 import { cacheKey, recallFromMemory, recordOutcome, rememberInMemory, sharedLoad, sourceIsOpen, type Lookups } from "./cache";
+import { deadline } from "./deadline";
 import { readLimitedBytes } from "./limited-body";
 import { readMessage, readPackedVarints, type WireField } from "./protobuf";
 
@@ -316,14 +317,17 @@ async function querySafeBrowsing(prefixes: string[], apiKey: string, fetcher: ty
   for (const prefix of prefixes) {
     query.append("hashPrefixes", prefix);
   }
+  const timer = deadline(4000);
   try {
-    const response = await fetcher(`${safeBrowsingEndpoint}?${query}`, { signal: AbortSignal.timeout(4000) });
+    const response = await fetcher(`${safeBrowsingEndpoint}?${query}`, { signal: timer.signal });
     if (!response.ok || !(response.headers.get("content-type") ?? "").includes("protobuf")) {
       return null;
     }
     return decodeSearchResponse(await readLimitedBytes(response, maxResponseBytes));
   } catch {
     return null;
+  } finally {
+    timer.clear();
   }
 }
 

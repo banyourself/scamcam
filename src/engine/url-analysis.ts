@@ -8,6 +8,7 @@ import {
   freeHostingSuffixes,
   userContentHosts,
   ipLoggers,
+  loginQrLinks,
   officialBrandFor,
   riskyPathWords,
   riskyTldSource,
@@ -222,7 +223,19 @@ export function analyzeLink(original: string): AnalyzedLink {
     });
   }
 
-  if (result.officialBrand) {
+  const loginQr = result.officialBrand && loginQrLinks.some((entry) => entry.domain === registrable && entry.path.test(url.pathname));
+  if (loginQr && result.officialBrand) {
+    const name = result.officialBrand.name;
+    add({
+      id: `login-qr-${registrable}`,
+      direction: "raises",
+      strength: "critical",
+      family: "qr_takeover",
+      title: `This is a ${name} login QR code`,
+      detail: `Opening or scanning it with the ${name} app logs whoever made it into your account. ${name} only shows login QR codes on its own login page, never in a message.`,
+      brandId: result.officialBrand.id,
+    });
+  } else if (result.officialBrand) {
     add({
       id: `official-${registrable}`,
       direction: "lowers",

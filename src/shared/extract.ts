@@ -2,6 +2,14 @@ import { removeHiddenCharacters, type HiddenCharacters } from "./hidden";
 
 export const maxInputLength = 4000;
 export const maxLinks = 20;
+export const qrLabel = "QR code: ";
+
+export function withoutQrLabels(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => (line.startsWith(qrLabel) && !/\s/.test(line.slice(qrLabel.length)) ? line.slice(qrLabel.length) : line))
+    .join("\n");
+}
 
 export interface Redactions {
   emails: number;

@@ -144,6 +144,11 @@ export function officialBrandFor(registrableDomain: string | null): Brand | null
   return registrableDomain ? (officialIndex.get(registrableDomain) ?? null) : null;
 }
 
+export const loginQrLinks: { domain: string; path: RegExp }[] = [
+  { domain: "discord.com", path: /^\/ra\/[A-Za-z0-9_-]{16,}\/?$/ },
+  { domain: "s.team", path: /^\/q\/\d+\/\d+\/?$/ },
+];
+
 export const riskyTlds = new Set(["xin", "bond", "help", "win", "cfd"]);
 export const riskyTldSource = "https://interisle.net/PhishingLandscape2025";
 

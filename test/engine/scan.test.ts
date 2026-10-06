@@ -378,3 +378,38 @@ describe("newer checks in scans", () => {
     expect(report.recommendations).toContain("Never paste a command someone gives you into the Run box, PowerShell, or a terminal. Real human checks never ask for that.");
   });
 });
+
+describe("QR codes in scans", () => {
+  it("does not treat the label added to QR codes from a screenshot as a request to scan", async () => {
+    const report = await scanContent("Kevin\nOpen to work\n\nQR code: https://www.linkedin.com/in/kevin-example/", options().scan);
+    expect(report.evidence.some((item) => item.id === "message-qr-login")).toBe(false);
+    expect(["no_known_threat", "unknown"]).toContain(report.level);
+  });
+
+  it("reads a screenshot that holds only a QR code as a link check", async () => {
+    const report = await scanContent("QR code: https://www.linkedin.com/in/kevin-example/", options().scan);
+    expect(report.subject.kind).toBe("url");
+    expect(report.subject.display).toBe("https://www.linkedin.com/in/kevin-example/");
+  });
+
+  it("still flags a message that asks you to scan a QR code", async () => {
+    const report = await scanContent("scan this QR code with the discord app to verify your account", options().scan);
+    expect(report.evidence.some((item) => item.id === "message-qr-login")).toBe(true);
+  });
+
+  it.each([
+    ["QR code: https://discord.com/ra/AbCdEfGhIjKlMnOpQrStUvWx", "Discord"],
+    ["https://s.team/q/1/2536948263127456921", "Steam"],
+  ])("rates the login QR code %s as high risk even though the address is official", async (content, brand) => {
+    const report = await scanContent(content, options().scan);
+    expect(report.level).toBe("high_risk");
+    expect(report.summary).toBe("This matches the QR code login takeover scam.");
+    expect(report.evidence[0]?.title).toBe(`This is a ${brand} login QR code`);
+    expect(report.evidence.some((item) => item.signal === "lowers_risk")).toBe(false);
+  });
+
+  it("keeps other official Discord links official", async () => {
+    const report = await scanContent("https://discord.com/channels/123/456", options().scan);
+    expect(report.level).toBe("no_known_threat");
+  });
+});
