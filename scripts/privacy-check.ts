@@ -62,8 +62,10 @@ const pageHeaders: [string, (value: string) => boolean][] = [
   ],
   ["permissions-policy", (value) => ["camera=()", "microphone=()", "geolocation=()", "payment=()"].every((part) => value.includes(part))],
   ["cross-origin-opener-policy", (value) => value === "same-origin"],
-  ["cache-control", (value) => value.split(",").map((part) => part.trim()).includes("no-transform") && value.split(",").filter((part) => part.trim().startsWith("max-age")).length === 1],
+  ["cache-control", (value) => value.split(",").filter((part) => part.trim().startsWith("max-age")).length === 1],
 ];
+
+const noTransform = (value: string | null) => (value ?? "").split(",").map((part) => part.trim()).includes("no-transform");
 
 const apiHeaders: [string, (value: string) => boolean][] = [
   ...sharedHeaders,
@@ -123,6 +125,13 @@ async function checkHeaders(): Promise<string[]> {
       failures.push(`${path}: answered ${response.status}`);
     }
     failures.push(...headerProblems(path, response.headers, pageHeaders));
+    const transformBlocked = noTransform(response.headers.get("cache-control"));
+    if (publicRoutes.includes(path) && !transformBlocked) {
+      failures.push(`${path}: a page must send no-transform so Cloudflare cannot inject scripts`);
+    }
+    if (path.startsWith("/assets/") && transformBlocked) {
+      failures.push(`${path}: scripts and styles should allow compression, so no no-transform`);
+    }
   }
   const securityTxt = await fetch(`${base}/.well-known/security.txt`);
   const securityText = await securityTxt.text();
@@ -481,7 +490,7 @@ async function checkLiveApi(): Promise<string[]> {
 
 async function main(): Promise<void> {
   if (live) {
-    const failures = [...(await checkHeaders()), ...(await checkLiveApi()), ...(await checkBrowser())];
+    const failures = [...(await checkHeaders()), ...(await checkLiveApi()), ...(await checkBrowser()), ...(await checkScreenshots())];
     report(failures);
     return;
   }
