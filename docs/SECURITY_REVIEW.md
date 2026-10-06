@@ -97,6 +97,7 @@ source is reported as not checked instead of going over its free quota.
   cookies), Turnstile with the real widget, `security.txt`, CPU time per request, and that the personal site is
   unchanged.
 - A manual screen reader review.
+- CPU time on the Free plan: live scans measured 11 to 29 ms against a 10 ms limit before the startup warm-up; the warm-up's effect is not yet measured (`BUILD_STATE.md`).
 - No lawyer has reviewed the policy pages; the open questions were researched instead (`COMPLIANCE_MATRIX.md`).
 - An independent penetration test, if ScamCam grows.
 
