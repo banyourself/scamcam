@@ -28,6 +28,14 @@ const bigCompanies =
   "walmart|amazon|paypal|apple|icloud|microsoft|windows|geek ?squad|best ?buy|norton|mcafee|ebay|netflix|costco|target|coinbase|venmo|cash ?app|zelle|bank of america|chase|wells fargo|citi(?:bank)?|capital one|american express|amex|visa|mastercard|irs|usps|fedex|ups|dhl";
 const pasteKeys = "paste|ctrl ?(?:\\+|plus) ?v";
 const commandPlaces = "run (?:box|dialog|window)|powershell|terminal|command prompt";
+const hasLink = "(?=[\\s\\S]*\\[link\\])";
+const tollWords = "tolls?|toll (?:charges?|balance|bill|invoice|payment|notice)|e-?z ?pass|sun ?pass|fastrak|txtag|peach ?pass|i-?pass|toll road";
+const deliveryWords = "usps|ups|fedex|dhl|royal mail|canada post|evri|parcel|package|shipment|delivery";
+const remoteTools = "anydesk|teamviewer|ultraviewer|screenconnect|connectwise|logmein|quick ?assist|rustdesk|supremo|splashtop|zoho assist";
+const agencies =
+  "irs|internal revenue service|social security(?: administration)?|ssa|fbi|police|sheriff'?s?(?: office)?|marshals?|ftc|federal trade commission|dea|customs|border protection|immigration|uscis|homeland security|department of justice|doj";
+const paymentApps = "zelle|venmo|cash ?app|paypal|payment app";
+const pressure = "\\b(?:pay|bitcoin|btc|crypto|money|gift ?cards?|unless|or else|otherwise|or i(?:'ll| will)|or we(?:'ll| will))\\b|\\$ ?\\d";
 
 const rules: MessageRule[] = [
   {
@@ -225,7 +233,256 @@ const rules: MessageRule[] = [
     strength: "weak",
     title: "Wants to move the chat to another app",
     detail: "Moving to Telegram or WhatsApp takes you away from the reporting and protection of the original platform.",
-    patterns: [/\b(?:add|dm|message|contact|text|hit)\s+me\s+(?:up\s+)?on\s+(?:telegram|whatsapp|snapchat|instagram|skype|signal|kik)\b/],
+    patterns: [
+      /\b(?:add|dm|message|contact|text|hit)\s+me\s+(?:up\s+)?on\s+(?:telegram|whatsapp|snapchat|instagram|skype|signal|kik)\b/,
+      /\b(?:move|switch|continue|talk|chat)\b[^.!?\n]{0,20}\b(?:on|to|over|in) (?:whatsapp|telegram|signal|wechat|line app|kik)\b/,
+    ],
+  },
+  {
+    id: "wrong-number",
+    strength: "weak",
+    title: "Starts like a \"wrong number\" text",
+    detail: "Many investment and romance scams begin with a message that seems sent to the wrong person. The friendly chat that follows later turns to money or crypto.",
+    patterns: [/\bsorry\b[^.!?\n]{0,30}\bwrong (?:number|person|contact|chat)\b/, /\b(?:i|you)(?:'ve| have)? (?:got|texted|messaged|added|sent this to) the wrong (?:number|person|contact)\b/],
+  },
+  {
+    id: "investment-returns",
+    strength: "strong",
+    family: "investment_scam",
+    title: "Promises guaranteed or fixed investment profits",
+    detail: "No real investment can promise a fixed daily or guaranteed return. This is the hook of crypto and stock investment scams, which caused more money to be lost than any other scam in 2025.",
+    patterns: [
+      near("guaranteed|guarantee|guarantees|risk[- ]free", "returns?|profits?|income|roi|earnings|gains?"),
+      /\b\d{1,3}(?:\.\d+)? ?% (?:daily|a day|per day|every day|weekly|a week|per week|guaranteed|profit|returns?|roi)\b/,
+      /\b(?:double|triple|10x|5x|100x) (?:your|ur) (?:money|investment|crypto|bitcoin|funds|deposit)\b/,
+    ],
+  },
+  {
+    id: "withdrawal-fee",
+    strength: "strong",
+    family: "investment_scam",
+    title: "Asks for a fee or tax before you can withdraw",
+    detail: "Fake trading sites show big profits, then say you must pay a tax, fee, or deposit to withdraw. The money is never released, and every payment is lost.",
+    patterns: [
+      /\b(?:withdraw(?:al)?|cash ?out|release|unfreeze|unlock)\b[^.!?\n]{0,60}\b(?:tax(?:es)?|margin|insurance|clearance|verification (?:fee|payment|deposit)|security deposit|unfreez(?:e|ing) fee)\b/,
+      /\b(?:pay|deposit|send)\b[^.!?\n]{0,40}\b(?:tax(?:es)?|fees?|deposit|margin)\b[^.!?\n]{0,30}\bto (?:withdraw|cash out|release|unlock|unfreeze)\b/,
+    ],
+  },
+  {
+    id: "investment-group",
+    strength: "moderate",
+    family: "investment_scam",
+    title: "Invites you to an investment group, mentor, or trading app",
+    detail: "Scammers run \"VIP\" stock and crypto groups led by a fake professor or mentor, then move people onto a trading app they control.",
+    patterns: [
+      /\b(?:vip|exclusive|private|free|elite)\b[^.!?\n]{0,20}\b(?:investment|investing|stock|stocks|trading|crypto|forex|signals?) (?:group|club|community|channel|class|course|chat)\b/,
+      /\b(?:my|our|the) (?:mentor|professor|teacher|uncle|aunt|analyst|assistant|coach)\b[^.!?\n]{0,60}\b(?:invest(?:ing|ment)?|trading|stocks?|crypto|forex|returns?|profits?|signals?)\b/,
+      near("download|install|register|sign up|open an account|create an account", "trading (?:app|platform|account)|exchange (?:app|platform)|testflight"),
+    ],
+  },
+  {
+    id: "fraud-alert-reply",
+    strength: "moderate",
+    family: "bank_impersonation",
+    title: "Asks you to confirm a charge by replying",
+    detail: "Real banks send these too, but scammers copy them. Whoever replies gets a call from a fake fraud department that talks them into moving money. If unsure, call the number on your card.",
+    patterns: [/\b(?:did you (?:attempt|make|authorize|try|initiate)|was this you|is this you)\b[\s\S]{0,140}\b(?:reply|text|respond)\b[^.!?\n]{0,12}\b(?:yes|no|y|n|1|2)\b/],
+  },
+  {
+    id: "safe-account",
+    strength: "strong",
+    family: "bank_impersonation",
+    title: "Tells you to move money to a \"safe\" account",
+    detail: "No bank, police officer, or government agency ever asks you to move your money to protect it. The \"safe account\" belongs to the scammer.",
+    patterns: [
+      /\b(?:move|transfer|send|wire|withdraw)\b[^.!?\n]{0,50}\b(?:to|into) (?:a |the |your |our )?(?:new )?(?:safe|secure|secured|protected|holding|safety) (?:bank |savings )?account\b/,
+      /\b(?:safe|protected|holding|safety) (?:bank )?account\b[^.!?\n]{0,50}\b(?:move|transfer|send|wire)\b/,
+      /\b(?:bank|fraud) (?:department|team|investigator|officer)\b[\s\S]{0,160}\b(?:withdraw (?:cash|your money)|buy (?:gold|gift cards?)|(?:bitcoin|crypto) atm)\b/,
+    ],
+  },
+  {
+    id: "cash-courier",
+    strength: "strong",
+    family: "payment_pressure",
+    title: "Asks you to pay through a Bitcoin ATM, gold, or a courier",
+    detail: "Scammers pretending to be banks, police, or tech support send people to Bitcoin ATMs or send a courier to collect cash or gold. The money cannot be traced or returned.",
+    patterns: [
+      /\b(?:deposit|pay|put|insert|send|go to|feed)\b[^.!?\n]{0,40}\b(?:bitcoin|btc|crypto(?:currency)?) (?:atm|machine|kiosk)s?\b/,
+      /\b(?:courier|driver|agent|officer)\b[^.!?\n]{0,40}\b(?:pick up|collect|come (?:by|to your (?:home|house)))\b[^.!?\n]{0,40}\b(?:cash|gold|money|envelope)\b/,
+      /\b(?:buy|purchase|convert (?:your )?(?:savings|money) (?:to|into))\b[^.!?\n]{0,30}\bgold (?:bars?|coins?)\b/,
+    ],
+  },
+  {
+    id: "government-threat",
+    strength: "strong",
+    family: "government_impersonation",
+    title: "Threatens arrest, a warrant, or a suspended Social Security number",
+    detail: "Scammers pretend to be the IRS, Social Security, police, or a court. Real agencies send letters, never threaten arrest by phone or text, and never take gift cards or crypto.",
+    patterns: [
+      /\b(?:social security number|ssn|social security)\b[^.!?\n]{0,40}\b(?:suspended|blocked|frozen|compromised|used (?:in|for)|linked to|flagged)\b/,
+      /\b(?:missed|skipped|failed to (?:appear|report|show up) for|did not (?:appear|report) for) jury duty\b/,
+      /\b(?:arrest )?warrants?\b[^.!?\n]{0,60}\b(?:issued|for your arrest|in your name|against you|out for you)\b/,
+      new RegExp(
+        `\\b(?:${agencies})\\b[\\s\\S]{0,160}(?:\\b(?:pay|send|buy|purchase|wire|transfer|deposit)\\b[^.!?\\n]{0,30}\\b(?:gift ?cards?|bitcoin|btc|crypto)\\b|\\bpay (?:a |the |your )?(?:fine|bond|penalty|settlement|bail)\\b|\\bwire transfer\\b)`,
+      ),
+    ],
+  },
+  {
+    id: "tech-support-alert",
+    strength: "strong",
+    family: "tech_support",
+    title: "Says your device is infected or blocked and gives a number to call",
+    detail: "Real virus warnings never ask you to call anyone. Fake pop-ups and texts lead to a scammer who asks for remote access or payment.",
+    patterns: [
+      /^(?=[\s\S]*\b(?:call|dial|contact)\b|[\s\S]*\[number hidden\])(?=[\s\S]*\byour (?:computer|pc|laptop|device|windows|mac|iphone|system|ip address|browser)\b[^.!?\n]{0,30}\b(?:has been|is|was|have been|got|is being)\b[^.!?\n]{0,10}\b(?:blocked|locked|infected|compromised|hacked|disabled|suspended)\b)/,
+      /\b(?:virus|viruses|malware|trojan|spyware|ransomware|infected|security (?:alert|breach|warning|threat)|hack(?:ed|ing)? attempt|unusual (?:activity|sign-?in))\b[\s\S]{0,160}\b(?:call|dial|phone)\b[^.!?\n]{0,40}(?:\[number hidden\]|\b(?:toll[- ]?free|technician|geek ?squad|(?:microsoft|apple|windows) (?:support|technicians?|helpline))\b)/,
+    ],
+  },
+  {
+    id: "remote-access",
+    strength: "strong",
+    family: "tech_support",
+    title: "Asks you to install a remote control app",
+    detail: "AnyDesk, TeamViewer, ScreenConnect, and similar apps let the other person control your computer, see your bank, and install malware. Only use them with someone you already know and trust.",
+    patterns: [
+      new RegExp(`\\b(?:download|install|open|run)\\b[^.!?\\n]{0,40}\\b(?:${remoteTools})\\b`),
+      new RegExp(`\\b(?:give|send|tell|read)\\b[^.!?\\n]{0,20}\\b(?:me|us)\\b[^.!?\\n]{0,20}\\b(?:${remoteTools})\\b[^.!?\\n]{0,15}\\b(?:code|id|number|address)\\b`),
+    ],
+  },
+  {
+    id: "toll-notice",
+    strength: "strong",
+    family: "toll_delivery",
+    title: "Claims you owe an unpaid toll",
+    detail: "Fake unpaid toll texts are among the most common scam texts. Toll agencies do not text links to pay; check your account on the official website or app.",
+    patterns: [
+      new RegExp(`^${hasLink}(?=[\\s\\S]*\\b(?:unpaid|outstanding|overdue|pending|unsettled)\\b[^.!?\\n]{0,20}\\b(?:${tollWords})\\b)`),
+      new RegExp(`^${hasLink}(?=[\\s\\S]*\\b(?:${tollWords})\\b[\\s\\S]{0,120}\\b(?:final notice|enforcement|penalt(?:y|ies)|late fees?|suspen(?:d|ded|sion)|legal action|collections?)\\b)`),
+    ],
+  },
+  {
+    id: "dmv-notice",
+    strength: "strong",
+    family: "toll_delivery",
+    title: "Claims your license or registration will be suspended",
+    detail: "DMVs do not text links about suspensions or fines. Scam texts use the threat to collect card details on a fake payment page.",
+    patterns: [
+      new RegExp(`^${hasLink}(?=[\\s\\S]*\\b(?:dmv|department of motor vehicles|motor vehicles? (?:department|commission)|driver'?s? licen[cs]e|vehicle registration)\\b[^.!?\\n]{0,100}\\b(?:suspend(?:ed|ion)?|final notice|unpaid|outstanding|penalt(?:y|ies)|traffic (?:tickets?|violations?|fines?)|revok(?:ed|ation))\\b)`),
+    ],
+  },
+  {
+    id: "delivery-fee",
+    strength: "strong",
+    family: "toll_delivery",
+    title: "Asks for a delivery fee or address update through a link",
+    detail: "Fake delivery texts ask for a small fee or a corrected address to steal card details. Track packages in the carrier's app or by typing its website yourself.",
+    patterns: [
+      new RegExp(`^${hasLink}(?=[\\s\\S]*\\b(?:${deliveryWords})\\b[\\s\\S]{0,140}\\b(?:(?:re-?delivery|delivery|shipping|customs|small|handling) (?:fee|charge|duty)|incomplete (?:address|information)|address (?:is )?(?:incomplete|incorrect|invalid|missing)|update (?:your )?(?:address|delivery (?:details|information)))\\b)`),
+    ],
+  },
+  {
+    id: "task-job",
+    strength: "strong",
+    family: "job_scam",
+    title: "A job that asks you to deposit money to unlock tasks",
+    detail: "Task scams pay small amounts at first for \"optimizing\" apps or products, then ask you to deposit money to unlock more tasks or your earnings. The deposits are lost.",
+    patterns: [
+      /\b(?:recharge|top ?up|deposit|prepay)\b[^.!?\n]{0,40}\b(?:to (?:unlock|continue|complete|start|receive|withdraw)|tasks?|commissions?|vip level)\b/,
+      /\b(?:product|app|apps|data|review|hotel|movie) (?:optimi[sz]ation|optimi[sz]ing|boosting|rating|ratings) (?:tasks?|jobs?|work|platform)\b/,
+      /\bcommissions?\b[^.!?\n]{0,40}\b(?:per|each|every|for each) (?:task|order|review|rating|set)\b/,
+    ],
+  },
+  {
+    id: "easy-money-job",
+    strength: "moderate",
+    family: "job_scam",
+    title: "Offers high pay for easy remote work",
+    detail: "Unexpected offers of hundreds of dollars a day for a few minutes of work are how fake job and task scams begin.",
+    patterns: [
+      /\b(?:earn|earning|make|making|get paid|paid|pays?|paying|income|salary|profit)\b[^.!?\n]{0,30}(?:\$ ?[1-9]\d{2,3}|\b[1-9]\d{2,3} ?(?:usd|dollars))(?: ?(?:-|to) ?\$? ?\d{2,4})?[^.!?\n]{0,15}(?:\b(?:a|per|each|every) ?(?:day|daily)\b|\/ ?day\b)/,
+      /\b(?:part[- ]time|remote|work from home|wfh|online)\b[^.!?\n]{0,40}\b(?:job|work|position|opportunity)\b[\s\S]{0,140}\b(?:no experience|only (?:need|takes) (?:a phone|\d+ (?:minutes?|hours?))|flexible hours|daily pay|paid daily|earn up to)\b/,
+    ],
+  },
+  {
+    id: "bank-details-change",
+    strength: "strong",
+    family: "business_email",
+    title: "Asks to change bank, payment, or payroll details",
+    detail: "Business email scams ask you to pay a supplier's \"new\" account or to change where a paycheck goes. It was the second most costly scam of 2025. Confirm by calling a number you already know.",
+    patterns: [
+      /\b(?:new|updated|changed|change (?:of|to|in)(?: our| my| the)?|update (?:to )?(?:our|my|the)?)\b[^.!?\n]{0,30}\b(?:bank(?:ing)? (?:details|information|info|account(?: details)?)|account details|remittance(?: details| information| address)?|wire (?:instructions|details)|payment (?:details|instructions)|routing (?:number|details)|iban)\b/,
+      /\b(?:update|change|switch)\b[^.!?\n]{0,30}\b(?:my |the |our )?(?:direct deposit|payroll (?:account|details|information)|paycheck (?:account|deposit)|salary account)\b/,
+    ],
+  },
+  {
+    id: "boss-favor",
+    strength: "moderate",
+    family: "business_email",
+    title: "An urgent favor that leads to a purchase or transfer",
+    detail: "Scammers pose as a boss or coworker who is \"in a meeting\" and needs gift cards or a payment sent right away.",
+    patterns: [/\b(?:are you (?:available|around|at your desk|free)|quick favou?r|need (?:a|your) (?:quick )?favou?r|i need you to (?:get|buy|purchase|handle|process|make))\b[\s\S]{0,200}\b(?:gift ?cards?|wire (?:transfer)?|bank transfer|payment|purchase|vendor|invoice)\b/],
+  },
+  {
+    id: "sextortion",
+    strength: "strong",
+    family: "sextortion",
+    title: "Threatens to share private videos or images unless you pay",
+    detail: "These threats are sent to huge numbers of people, and the claims of hacked webcams are almost always made up. Paying leads to more demands.",
+    patterns: [
+      /^(?=[\s\S]*\b(?:hacked|access to|control (?:of|over)|installed (?:a |some )?(?:malware|trojan|spyware|virus|rat)|pegasus|recorded|recording of you|filmed you)\b)(?=[\s\S]*(?:\b(?:bitcoin|btc|crypto|pay|payment)\b|\$ ?\d))(?=[\s\S]*\b(?:video|recording|photos?|pictures?|pics|images?|footage)\b)(?=[\s\S]*\b(?:contacts|friends|family|everyone|public|leak|release|send|share|post)\b)/,
+      new RegExp(`^(?=[\\s\\S]*\\b(?:send|share|post|leak|release|forward)\\b[^.!?\\n]{0,40}\\b(?:to|with) (?:all )?(?:your|ur) (?:contacts|friends|family|followers|parents|school|classmates|coworkers|colleagues)\\b)(?=[\\s\\S]*(?:${pressure}))`),
+    ],
+  },
+  {
+    id: "code-request",
+    strength: "strong",
+    family: "marketplace_scam",
+    title: "Asks for a code that was just texted to you",
+    detail: "Buyers and sellers who ask for the code sent to your phone, \"to prove you are real\", are using it to take over your number or accounts.",
+    patterns: [
+      /\b(?:send|give|tell|read|share|text)\b[^.!?\n]{0,25}\b(?:me|us)\b[^.!?\n]{0,25}\b(?:code|digits)\b[^.!?\n]{0,60}\b(?:(?:just |i )?texted|(?:sent|went|came) to (?:your|ur) (?:phone|number)|on (?:your|ur) phone|by text|via (?:text|sms)|to (?:prove|verify|confirm|make sure) (?:you(?:'re| are)|it'?s you|you'?re real))\b/,
+      /\b(?:i|we)(?:'m| am| will|'ll)? (?:going to )?(?:send|text)(?:ing)? (?:you )?a code\b[\s\S]{0,100}\b(?:send|give|tell|read)\b[^.!?\n]{0,15}\b(?:it|the code|me)\b/,
+    ],
+  },
+  {
+    id: "payment-app-upgrade",
+    strength: "strong",
+    family: "marketplace_scam",
+    title: "Says a payment is on hold until you upgrade or pay",
+    detail: "Fake buyers claim Zelle, Venmo, or PayPal is holding their payment until you upgrade to a business account or pay a fee. Those apps never do this.",
+    patterns: [
+      new RegExp(`^(?=[\\s\\S]*\\b(?:${paymentApps})\\b)(?=[\\s\\S]*\\b(?:upgrade|switch|convert)\\b[^.!?\\n]{0,30}\\b(?:business|premium|merchant|pro) (?:account|plan)\\b)`),
+      new RegExp(`^(?=[\\s\\S]*\\b(?:${paymentApps})\\b)(?=[\\s\\S]*\\b(?:payment|money|funds?)\\b[^.!?\\n]{0,30}\\b(?:pending|on hold|held|frozen)\\b[^.!?\\n]{0,40}\\b(?:until|till|unless)\\b)`),
+    ],
+  },
+  {
+    id: "overpayment",
+    strength: "strong",
+    family: "marketplace_scam",
+    title: "Claims they overpaid and asks you to send the difference",
+    detail: "The original payment is fake or will bounce, so anything you send back is lost.",
+    patterns: [/\b(?:over ?paid|overpayment|sent (?:you )?(?:too much|extra|more than)|accidentally (?:sent|paid)|paid (?:you )?(?:too much|extra))\b[\s\S]{0,120}\b(?:refund|send (?:back|the rest|the difference|the extra)|return (?:the|it)|pay (?:back|the difference))\b/],
+  },
+  {
+    id: "account-appeal",
+    strength: "moderate",
+    family: "account_appeal",
+    title: "Claims your account broke the rules and must be appealed through a link",
+    detail: "Fake copyright and policy notices lead to pages that steal your login and two-factor code. Real platforms show violations inside the app.",
+    patterns: [
+      new RegExp(`^${hasLink}(?=[\\s\\S]*\\b(?:copyright|trademark|intellectual property|community (?:guidelines|standards)|terms of (?:service|use)|policy|meta|instagram|facebook|tiktok|youtube|page|account)\\b[^.!?\\n]{0,40}\\b(?:infringement|violation|violated|strike|complaint|breach)\\b)(?=[\\s\\S]*\\b(?:appeal|verify|confirm|review|object|dispute|form)\\b)`),
+    ],
+  },
+  {
+    id: "fund-recovery",
+    strength: "strong",
+    family: "recovery_scam",
+    title: "Offers to recover money you lost",
+    detail: "People who lost money to a scam are targeted again by fake recovery firms, lawyers, and \"ethical hackers\" who charge fees and recover nothing.",
+    patterns: [
+      /\b(?:we|our (?:team|firm|agency|experts?|specialists?|company)|i) (?:can|will|could|have|specialize in|help(?:ed)?(?: people)?)\b[^.!?\n]{0,40}\b(?:recover|retrieve|get back|reclaim|trace)\b[^.!?\n]{0,30}\b(?:funds|money|crypto|bitcoin|btc|investments?|assets|losses|scammed)\b/,
+      /\b(?:fund|funds|asset|crypto|bitcoin|scam|money) recovery (?:service|services|agency|firm|team|specialists?|experts?|company|hackers?)\b/,
+    ],
   },
   {
     id: "screen-share",
@@ -323,4 +580,15 @@ export const familyNames: Record<ScamFamily, string> = {
   command_paste: "copy-paste command",
   wallet_drainer: "crypto wallet drainer",
   callback_scam: "fake order or voicemail callback",
+  investment_scam: "fake investment or crypto trading",
+  bank_impersonation: "fake bank fraud alert",
+  government_impersonation: "government or police impersonation",
+  tech_support: "fake tech support",
+  toll_delivery: "unpaid toll, DMV, or delivery fee",
+  job_scam: "fake job or task",
+  business_email: "payment change or boss impersonation",
+  sextortion: "sextortion",
+  marketplace_scam: "marketplace verification code or payment",
+  account_appeal: "fake account violation appeal",
+  recovery_scam: "fund recovery",
 };

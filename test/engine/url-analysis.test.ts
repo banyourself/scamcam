@@ -50,6 +50,15 @@ describe("official and well-known sites", () => {
     expect(raised(link)).toEqual([]);
   });
 
+  it("warns about Microsoft's device sign-in pages instead of calling them safe", () => {
+    for (const link of ["https://microsoft.com/devicelogin", "https://www.microsoft.com/en-us/devicelogin", "https://www.microsoft.com/link", "https://login.microsoftonline.com/common/oauth2/deviceauth"]) {
+      const result = analyzeLink(link);
+      expect(result.signals.find((signal) => signal.id.startsWith("device-login-")), link).toMatchObject({ direction: "raises", strength: "strong", family: "credential_theft" });
+      expect(result.signals.some((signal) => signal.direction === "lowers"), link).toBe(false);
+    }
+    expect(raised("https://www.microsoft.com/en-us/windows")).toEqual([]);
+  });
+
   it("marks well-known community sites without warnings", () => {
     const result = analyzeLink("https://steamdb.info/app/730/");
     expect(result.communitySite).toBe("steamdb.info");

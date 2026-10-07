@@ -14,7 +14,18 @@ export type ScamFamily =
   | "credential_theft"
   | "command_paste"
   | "wallet_drainer"
-  | "callback_scam";
+  | "callback_scam"
+  | "investment_scam"
+  | "bank_impersonation"
+  | "government_impersonation"
+  | "tech_support"
+  | "toll_delivery"
+  | "job_scam"
+  | "business_email"
+  | "sextortion"
+  | "marketplace_scam"
+  | "account_appeal"
+  | "recovery_scam";
 
 export interface Signal {
   id: string;

@@ -63,8 +63,11 @@ export function HowItWorksPage() {
           <strong>Read the message.</strong> Urgency, threats, requests for logins, QR codes, or payment, and stories
           that match known scam scripts, including fake &quot;verify you are human&quot; steps that ask you to paste a
           command, crypto wallet drainers, texts that ask you to reply so a link will work, and fake order or voicemail
-          texts that tell you to call a number. ScamCam also notices when a message names a service like Steam or Discord
-          but links somewhere else. US phone numbers stay hidden and are compared only with ScamCam&apos;s own scrambled copies
+          texts that tell you to call a number. It also knows the costliest scams that often come without a link: fake
+          investments and &quot;wrong number&quot; crypto chats, fake bank fraud alerts and &quot;safe accounts&quot;,
+          government and police threats, fake tech support, unpaid toll and delivery texts, job and task scams, changed
+          bank details, sextortion, marketplace code and overpayment tricks, fake account appeals, and fund recovery
+          offers. ScamCam also notices when a message names a service like Steam or Discord but links somewhere else. US phone numbers stay hidden and are compared only with ScamCam&apos;s own scrambled copies
           of the FTC&apos;s and FCC&apos;s lists of numbers people reported for unwanted calls, and crypto wallet addresses are
           compared with ScamSniffer&apos;s list of scam wallets.
         </li>

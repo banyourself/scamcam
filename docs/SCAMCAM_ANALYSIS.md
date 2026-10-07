@@ -78,7 +78,7 @@ reuse it.
 | `url-analysis.ts` | Parses each link with the WHATWG URL parser, finds the registrable domain with the Public Suffix List (`tldts`), and produces domain signals |
 | `brands.ts` | Official domains for Steam, Discord, Roblox, Minecraft, Microsoft, Epic, Riot, Twitch, Blizzard, PlayStation, and Nintendo; well-known community sites; shorteners; IP loggers; free hosts; user-upload hosts |
 | `confusables.ts`, `punycode.ts` | Look-alike skeletons (Cyrillic, Greek, Armenian letters, digit swaps, rn, vv, cl), edit distance, script mixing, RFC 3492 punycode decoding |
-| `message-rules.ts` | 18 rules in 10 scam families, with leetspeak folding and negated clauses ignored ("never share your password") |
+| `message-rules.ts` | 48 rules in 24 scam families, with leetspeak folding and negated clauses ignored ("never share your password"). Families cover gaming scams and the costliest scams in general: investment, bank and government impersonation, tech support, tolls and deliveries, jobs, business email, sextortion, marketplaces, account appeals, and fund recovery. Toll, DMV, delivery, and appeal rules fire only when the message has a link |
 | `safe-browsing.ts`, `protobuf.ts` | Safe Browsing v5 `hashes:search`: Google's canonicalization, host and path expressions, SHA-256, 4-byte prefixes, decoding Google's Protocol Buffers answer, local full-hash matching |
 | `rdap.ts`, `dns.ts`, `urlhaus.ts` | Domain age and hold status, existence, and malware host lookups |
 | `verdict.ts`, `scan.ts` | Scoring, verdict, confidence, summary, recommendations, and the report |
@@ -156,7 +156,7 @@ local D1 in about 3 seconds. Entries include IPv4 addresses (5,466) and host nam
 | When | No message rule matched, no link has a strong or critical warning, the level is Unknown or No known threat, and at least 20 characters remain without links |
 | Input | The redacted message with links replaced by `[link]`, at most 1,200 characters, between markers that are removed from the message itself |
 | Model | `@cf/qwen/qwen3-30b-a3b-fp8`, temperature 0, at most 12 output tokens, thinking off, 5-second limit |
-| Output | Exactly one label: one of the 10 scam families or `none`; anything else is ignored |
+| Output | Exactly one label: one of the 24 scam families or `none`; anything else is ignored |
 | Effect | A family adds one strong warning, so the result can reach Suspicious with low confidence, and the summary says only an AI check raised it. `none` changes nothing. The AI cannot lower a result |
 | Limits | 2,000 calls a day, counted in D1 before each call; no call when the count cannot be written |
 

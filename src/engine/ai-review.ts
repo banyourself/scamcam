@@ -14,6 +14,17 @@ export const scamFamilyDescriptions: Record<ScamFamily, string> = {
   command_paste: "asks the reader to paste or run a command in the Run box, PowerShell, a terminal, or the browser console, often as a fake human check",
   wallet_drainer: "asks the reader to connect, verify, or sync a crypto wallet, or to claim an airdrop or mint through a link",
   callback_scam: "claims an order, charge, subscription, refund, or voicemail the reader did not expect and tells them to call or tap a phone number",
+  investment_scam: "promises investment or crypto profits, or wants a fee to withdraw",
+  bank_impersonation: "fake bank fraud team; move money to a safe account or hand over cash",
+  government_impersonation: "fake agency or police threatening arrest or fines unless paid",
+  tech_support: "says the device is infected or locked; call support or install remote access",
+  toll_delivery: "unpaid toll, DMV fine, or delivery fee with a link to pay",
+  job_scam: "easy job with high daily pay, or a deposit to unlock tasks",
+  business_email: "change bank or payroll details, or an urgent purchase for a boss",
+  sextortion: "threatens to share private videos or images unless paid",
+  marketplace_scam: "buyer or seller wants a texted code, an account upgrade, or an overpayment refund",
+  account_appeal: "account broke rules or copyright and must be appealed through a link",
+  recovery_scam: "offers to recover lost money or crypto, usually for a fee",
 };
 
 const scamLabels = Object.keys(scamFamilyDescriptions) as ScamFamily[];

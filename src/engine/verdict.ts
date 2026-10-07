@@ -51,6 +51,17 @@ const familyAdvice: Record<ScamFamily, string> = {
   command_paste: "Never paste a command someone gives you into the Run box, PowerShell, or a terminal. Real human checks never ask for that.",
   wallet_drainer: "Never connect your wallet or sign anything on a site someone sent you. Check the project's official account yourself.",
   callback_scam: "Do not call the number in the message. Check your orders in the company's official app or website, and if you need to call, use the number on its website or on your card. If you already called and gave card details or let someone onto your computer, call your bank using the number on your card.",
+  investment_scam: "Never invest through someone you met by text, social media, or a dating app. Real investments do not promise fixed or guaranteed returns, and you never have to pay a fee or tax to withdraw your own money.",
+  bank_impersonation: "Banks never ask you to move money to a \"safe account\", buy gold, use a Bitcoin ATM, or hand cash to a courier. Hang up and call the number on the back of your card.",
+  government_impersonation: "Government agencies and police never call or text to demand payment, threaten arrest, or ask for gift cards, crypto, or wire transfers. Hang up and contact the agency through its official website.",
+  tech_support: "Real virus warnings never give a phone number to call. Close the page or restart your device, and never let a stranger install a remote control app or connect to your computer.",
+  toll_delivery: "Toll agencies, the DMV, and delivery companies do not text links to pay fines or fees. Check your account by typing the official website yourself.",
+  job_scam: "Real jobs never ask you to pay, deposit money, or buy crypto to unlock tasks or get your earnings.",
+  business_email: "Before changing any bank details or sending an urgent payment, call the person on a number you already know, not one in the message.",
+  sextortion: "Do not pay or reply. Messages like this are sent to many people, and paying usually leads to more demands. If someone really has images of you, report it to the platform and the police, and if you are under 18, use NCMEC's Take It Down service.",
+  marketplace_scam: "Never share a code that was texted to you, and never pay to \"upgrade\" a payment account or refund an overpayment. Real buyers pay inside the app or in person.",
+  account_appeal: "Check your account inside the app itself. Instagram, Facebook, TikTok, and YouTube never ask you to appeal a violation through a link in a message.",
+  recovery_scam: "Nobody can recover lost money or crypto for an upfront fee. Report losses for free to the FTC at ReportFraud.ftc.gov or the FBI at ic3.gov.",
 };
 
 function recommendationsFor(level: RiskLevel, families: ScamFamily[], brandIds: string[], linksFromPicture: boolean, hasLinks: boolean): string[] {

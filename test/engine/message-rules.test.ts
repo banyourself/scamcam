@@ -95,3 +95,77 @@ describe("callback scam rules", () => {
     }
   });
 });
+
+describe("scams that often arrive without a link", () => {
+  const redacted = (text: string) => {
+    let message = extractInput(text).redactedText;
+    for (const link of extractInput(text).links) {
+      message = message.split(link).join(" [link] ");
+    }
+    return message;
+  };
+  const cases: [string, string, string][] = [
+    ["investment_scam", "investment-returns", "Join our crypto plan, guaranteed returns of 3% daily, my mentor has never lost"],
+    ["investment_scam", "withdrawal-fee", "Your profit is $48,200. To withdraw you must first pay the 20% tax so the funds can be released"],
+    ["investment_scam", "investment-group", "I can add you to our VIP stock group, Professor Lee shares free signals every morning"],
+    ["bank_impersonation", "safe-account", "This is the Chase fraud department. Your account is compromised, you need to move your savings to a safe account today"],
+    ["bank_impersonation", "fraud-alert-reply", "Bank Alert: Did you attempt a purchase of $1,284.90 at Best Buy? Reply YES or NO"],
+    ["payment_pressure", "cash-courier", "Withdraw the cash and deposit it into the Bitcoin ATM at the gas station, I will stay on the line"],
+    ["government_impersonation", "government-threat", "Social Security Administration: your Social Security number has been suspended due to suspicious activity. Press 1"],
+    ["government_impersonation", "government-threat", "This is the Sheriff's office. You missed jury duty and a warrant has been issued for your arrest"],
+    ["tech_support", "tech-support-alert", "WARNING: your computer has been blocked because of a virus. Call Microsoft Support at 1-844-555-0187 now"],
+    ["tech_support", "remote-access", "To fix it please download AnyDesk and give me the AnyDesk ID on your screen"],
+    ["toll_delivery", "toll-notice", "E-ZPass: You have an unpaid toll balance of $6.99. Pay now to avoid late fees: https://ezpass-billing.example/pay"],
+    ["toll_delivery", "dmv-notice", "DMV Final Notice: your driver's license will be suspended on Oct 10 due to unpaid traffic tickets. Pay at https://dmv-portal.example"],
+    ["toll_delivery", "delivery-fee", "USPS: your package could not be delivered because the address is incomplete. Update your address here: https://usps-redelivery.example"],
+    ["job_scam", "task-job", "Our app optimization tasks pay commission per task, you just need to recharge 100 USDT to unlock the next set"],
+    ["job_scam", "easy-money-job", "Hi, I'm a recruiter. Part-time remote job, earn $300-$800 per day, no experience needed"],
+    ["business_email", "bank-details-change", "Please note our updated bank details for all future invoices, attached is the new remittance information"],
+    ["business_email", "bank-details-change", "Hi, I changed banks. Can you update my direct deposit before Friday's payroll?"],
+    ["business_email", "boss-favor", "Are you available? I need you to buy 5 Apple gift cards for a client, I'm in a meeting"],
+    ["sextortion", "sextortion", "I hacked your device and recorded a video of you. Send $1500 in Bitcoin or I will send the video to all your contacts"],
+    ["sextortion", "sextortion", "pay me $200 or i'll share your pics with your friends"],
+    ["marketplace_scam", "code-request", "Before I buy the couch I need to make sure you're real, I'm texting you a code, send it to me"],
+    ["marketplace_scam", "payment-app-upgrade", "I sent the Zelle payment but it says you need to upgrade to a business account to receive it"],
+    ["marketplace_scam", "overpayment", "Oops I accidentally sent you $900 instead of $90, can you refund the difference?"],
+    ["account_appeal", "account-appeal", "Meta: your page has violated our copyright policy and will be disabled. Submit an appeal here https://meta-appeal-center.example"],
+    ["recovery_scam", "fund-recovery", "Our team can recover your lost crypto from the scam, we have helped hundreds of victims get their money back"],
+  ];
+
+  it.each(cases)("catches %s (%s): %j", (family, rule, text) => {
+    const analysis = analyzeMessage(redacted(text));
+    expect(analysis.signals.map((signal) => signal.id.replace("message-", ""))).toContain(rule);
+    expect(analysis.families).toContain(family);
+  });
+
+  it("notes wrong-number openers and moves to another app as weak signs", () => {
+    expect(ids("Hi, is this Mark? Oh sorry, wrong number! You seem nice though")).toContain("wrong-number");
+    expect(ids("let's move to whatsapp, it's easier to chat there")).toContain("move-off-platform");
+  });
+
+  it.each([
+    "my bank texted me about a charge, I called the number on my card and it was fine",
+    "can you pay the toll for me when we drive to LA?",
+    "The DMV appointment is at 10, bring your license",
+    "your package from UPS arrived, it's on the porch",
+    "I earned $150 a day at the summer job, it was nice",
+    "we spent $200 a day on food during the trip",
+    "Our bank details have not changed. Please keep paying the usual account.",
+    "are you free later? I need to make a payment at the bank, can you drive me",
+    "share this video with your friends, it's hilarious",
+    "the police said scammers ask for gift cards, so be careful",
+    "my computer is so slow, can you call me later and help?",
+    "I use TeamViewer to help my grandma with her PC",
+    "I'll send you the code for the wifi when you get here",
+    "send me the code you got in the email so I can check the game key is valid",
+    "Venmo me for the tickets when you can",
+    "how do I recover my Minecraft account after it got hacked?",
+    "We guarantee delivery within two days",
+    "My teacher explained how stocks work today",
+    "Unusual sign-in activity on your account. If this wasn't you, contact support from the app.",
+    "your UPS package is out for delivery today: https://www.ups.com/track",
+  ])("leaves %j alone", (text) => {
+    const strong = analyzeMessage(redacted(text)).signals.filter((signal) => signal.strength === "strong" || signal.strength === "critical");
+    expect(strong.map((signal) => signal.id)).toEqual([]);
+  });
+});

@@ -9,7 +9,7 @@ links each risk to the code and tests that address it.
 When ScamCam's rules find no scam pattern and no link is clearly bad, one message goes to one free Workers AI model
 (`@cf/qwen/qwen3-30b-a3b-fp8`). Before that, emails, phone numbers, long codes, and invisible characters are removed,
 links become `[link]`, and the text is cut to 1,200 characters. The model must answer with one label from a fixed
-list of 10 scam families or `none`. Code maps that label to ScamCam's own wording. The model has no tools, no memory,
+list of 24 scam families or `none`. Code maps that label to ScamCam's own wording. The model has no tools, no memory,
 no retrieval, and no way to send or fetch anything. OWASP scopes this list to a model used as a component inside an
 application, which is exactly this case. The Agentic Top 10 covers models that act, and ScamCam's model does not act.
 

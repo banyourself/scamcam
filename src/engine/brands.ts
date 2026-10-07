@@ -156,6 +156,11 @@ export const loginQrLinks: { domain: string; path: RegExp }[] = [
   { domain: "s.team", path: /^\/q\/\d+\/\d+\/?$/ },
 ];
 
+export const deviceLoginLinks: { domain: string; path: RegExp }[] = [
+  { domain: "microsoft.com", path: /^\/(?:[a-z]{2}-[a-z]{2}\/)?(?:devicelogin|link)\/?$/i },
+  { domain: "microsoftonline.com", path: /\/oauth2\/(?:v2\.0\/)?deviceauth\/?$/i },
+];
+
 export const riskyTlds = new Set(["xin", "bond", "help", "win", "cfd"]);
 export const riskyTldSource = "https://interisle.net/PhishingLandscape2025";
 

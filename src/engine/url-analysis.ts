@@ -9,6 +9,7 @@ import {
   userContentHosts,
   ipLoggers,
   loginQrLinks,
+  deviceLoginLinks,
   officialBrandFor,
   riskyPathWords,
   riskyTldSource,
@@ -269,6 +270,17 @@ export function analyzeLink(original: string): AnalyzedLink {
       family: "qr_takeover",
       title: `This is a ${name} login QR code`,
       detail: `Opening or scanning it with the ${name} app logs whoever made it into your account. ${name} only shows login QR codes on its own login page, never in a message.`,
+      brandId: result.officialBrand.id,
+    });
+  } else if (result.officialBrand && deviceLoginLinks.some((entry) => entry.domain === registrable && entry.path.test(url.pathname))) {
+    const name = result.officialBrand.name;
+    add({
+      id: `device-login-${registrable}`,
+      direction: "raises",
+      strength: "strong",
+      family: "credential_theft",
+      title: `This is ${name}'s page for signing in a device with a code`,
+      detail: `Typing a code someone sent you on this page signs their device into your ${name} account, including Xbox and Minecraft. Only enter a code shown on your own TV, console, or app.`,
       brandId: result.officialBrand.id,
     });
   } else if (result.officialBrand && result.discordInvite) {

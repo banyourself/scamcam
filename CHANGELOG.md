@@ -3,6 +3,39 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-07: Rules for scams that often come without a link
+
+- **Why.** The FBI's 2025 Internet Crime Report puts investment scams at $8.65 billion lost, business email scams at
+  $3.05 billion, and tech support scams at $2.13 billion, and the FTC counted text messages as the most reported way
+  scammers made contact in 2025. Many of these messages have no link, so link checks never see them.
+- **25 new rules in 11 new scam families,** each with its own advice:
+  - investment and crypto trading: guaranteed returns, a fee or tax to withdraw, VIP groups and mentors, trading apps;
+  - fake bank fraud alerts: "Reply YES or NO" (moderate, because real banks send these too) and moving money to a
+    "safe account";
+  - government and police impersonation: suspended Social Security numbers, missed jury duty, warrants, and agencies
+    asking for gift cards, crypto, or fines;
+  - fake tech support: "your computer has been blocked, call this number" and requests to install AnyDesk,
+    TeamViewer, or similar apps;
+  - unpaid tolls, DMV suspensions, and delivery fees, only when the text has a link;
+  - job and task scams: deposits to unlock tasks, commission per task, and high daily pay;
+  - business email: new bank or remittance details, payroll changes, and urgent favors from a "boss";
+  - sextortion threats;
+  - marketplace scams: codes texted to your phone, "upgrade to a business account to receive Zelle", and
+    overpayments;
+  - fake account violation appeals (moderate, because real platforms send violation notices too);
+  - fund recovery offers.
+- Bitcoin ATMs, couriers, and gold purchases count as untraceable payment. "Sorry, wrong number" openers and "let's move
+  to WhatsApp" are weak signs.
+- **Device sign-in links.** Microsoft's device sign-in pages (`microsoft.com/devicelogin`, `microsoft.com/link`, and
+  the OAuth device page) are a strong warning instead of an official link, because typing a code someone sent you there
+  signs their device into your account.
+- The AI step's label list has the 11 new families, written short so each call grows by about 225 tokens.
+- Verified: 726 Vitest tests in 44 files and 19 Node tests pass. The labeled benchmark grew to 88 cases (47 scams, 41
+  safe) with no misses or false alarms; the 19 new cases were written alongside the rules, so they show the rules work,
+  not how they do on unseen messages. Twenty ordinary messages that use the same words (a real fraud alert handled by
+  calling the card's number, paying a friend's toll, a viral video to share, a scam warning, TeamViewer for a
+  grandparent, a real UPS tracking link) stay quiet.
+
 ## 2026-10-07: Fixes after the first live scans
 
 - **Forged email from a domain with no SPF or DMARC.** A test email I sent with a forged sender, from a domain that has
