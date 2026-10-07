@@ -87,6 +87,7 @@ export async function runScan(env: AppBindings, content: string, dependencies: S
     phishstatsKey: env.PHISHSTATS_API_KEY || undefined,
     radarToken: env.CLOUDFLARE_RADAR_TOKEN || undefined,
     steamKey: env.STEAM_WEB_API_KEY || undefined,
+    discordToken: env.DISCORD_BOT_TOKEN || undefined,
   });
   const checked = ScanReportSchema.parse(report);
   return { report: checked, signature: await signReport(checked, env.SHARE_SIGNING_KEY) };

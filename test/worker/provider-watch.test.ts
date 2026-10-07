@@ -72,6 +72,27 @@ describe("provider alerts", () => {
     expect(log.mock.calls.join(" ")).not.toContain("private-domain");
   });
 
+  it("logs abuse.ch errors and timeouts without the host that was looked up or the key", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const fetcher = watchedFetcher(async (input, init) => {
+      const host = new URL(String(input)).hostname;
+      if (host === "threatfox-api.abuse.ch") {
+        throw new DOMException("The operation timed out", "TimeoutError");
+      }
+      expect(new Headers(init?.headers).get("Auth-Key")).toBe("abusechkeyvalue");
+      return new Response(JSON.stringify({ error: "Service temporarily unavailable" }), { status: 503 });
+    });
+    await fetcher("https://urlhaus-api.abuse.ch/v1/host/", { method: "POST", headers: { "Auth-Key": "abusechkeyvalue" }, body: "host=private-host.example" });
+    await expect(fetcher("https://threatfox-api.abuse.ch/api/v1/", { method: "POST", body: "private-host.example" })).rejects.toThrow("timed out");
+    expect(alertsFrom(log).map(({ alert, status, detail, reason }) => ({ alert, status, detail, reason }))).toEqual([
+      { alert: "urlhaus_unavailable", status: 503, detail: "Service temporarily unavailable", reason: undefined },
+      { alert: "threatfox_unavailable", status: undefined, detail: undefined, reason: "TimeoutError" },
+    ]);
+    const logged = log.mock.calls.join(" ");
+    expect(logged).not.toContain("private-host");
+    expect(logged).not.toContain("abusechkeyvalue");
+  });
+
   it("logs Discord and Steam errors without the invite, the profile, or the Steam key, and stays quiet about missing invites", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const answers: Record<string, () => Response> = {

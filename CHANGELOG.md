@@ -3,6 +3,26 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-07: Fixes after the first live scans
+
+- **Forged email from a domain with no SPF or DMARC.** A test email I sent with a forged sender, from a domain that has
+  no SPF or DMARC records, came out No known threat. Google's sender check header listed only `spf=none`, and the
+  reader looked only at that first header, so DKIM and DMARC counted as unknown. Now the top header (added by the
+  receiving server) decides, a check it leaves out counts as none, and lower headers can only make a result worse, so a
+  forged "pass" never helps. An email with no passing SPF, DKIM, or DMARC now gets "Nothing confirms who really sent
+  this email", and the test email is Suspicious.
+- **Discord answered "You are being rate limited" (429) to the first live lookup.** Cloudflare Workers share outgoing
+  addresses, and Discord limits requests without a login per address. The invite lookup can now send an optional bot
+  token (`DISCORD_BOT_TOKEN`), which Discord limits per bot instead. Until one is set, reports keep saying Discord did
+  not respond.
+- **Steam.** A clean account now shows "Steam shows no bans on this account" (with its age when the profile is public),
+  so a working check is visible. A live scan of a real profile on 2026-10-07 reached Steam without errors.
+- **abuse.ch.** URLhaus did not respond once in a live scan while ThreatFox, with the same key, did. URLhaus,
+  ThreatFox, and MalwareBazaar failures now raise `urlhaus_unavailable`, `threatfox_unavailable`, or
+  `malwarebazaar_unavailable` with the status or timeout, never the host, fingerprint, or key.
+- Verified live after the release: the FCC number and the scam wallet were both caught, all nine lists are in D1
+  (28,734 FCC numbers and 4,599 wallets), and `npm run check:live` passes, including the email file step.
+
 ## 2026-10-07: Discord and Steam checks, scam wallets, FCC numbers, email files, and more file types
 
 - **Discord invites.** For a discord.gg or discord.com/invite link, the scanner asks Discord's public invite endpoint

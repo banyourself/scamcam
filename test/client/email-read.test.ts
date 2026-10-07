@@ -144,6 +144,32 @@ describe("reading an email file on the visitor's device", () => {
     expect(read.facts.attachments).toEqual([{ kind: "windows_shortcut", extension: "lnk", findings: ["double_extension"] }]);
   });
 
+  it("reads every sender check header, letting lower ones only make the result worse", async () => {
+    const spoofed = await readEmailText(
+      email([
+        "Received: by 2002:a05:6214:ac6 with SMTP id g6csp596766qvi;",
+        "Authentication-Results: mx.google.com;",
+        "       spf=none (google.com: someone@forged-sender.example does not designate permitted sender hosts) smtp.mailfrom=someone@forged-sender.example",
+        "Received: from gateway.example (gateway.example [192.0.2.7])",
+        "Authentication-Results: gateway.example;",
+        "\tspf=none smtp.mailfrom=someone@forged-sender.example;",
+        "\tdmarc=none",
+        "From: Someone@gateway.example, PhD@gateway.example,",
+        "        CISSP <someone@forged-sender.example>",
+        "Reply-To: Student <student@school.example>",
+        "Subject: TEST",
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        "This message was sent with a forged From address.",
+      ]),
+    );
+    expect(spoofed.facts).toMatchObject({ fromDomain: "forged-sender.example", spf: "none", dkim: "none", dmarc: "none", replyToDiffers: true });
+    const forgedPass = await readEmailText(
+      email(["Authentication-Results: mx.receiver.example; spf=none", "Authentication-Results: fake.example; dkim=pass; dmarc=pass", "Authentication-Results: other.example; dmarc=fail", "From: a@b.example", "Subject: x", "", "hi"]),
+    );
+    expect(forgedPass.facts).toMatchObject({ spf: "none", dkim: "none", dmarc: "fail" });
+  });
+
   it("refuses files that are not emails", async () => {
     await expect(readEmailText("just some text without headers")).rejects.toThrow("does not look like an email file");
   });

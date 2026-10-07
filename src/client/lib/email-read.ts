@@ -267,21 +267,30 @@ function authResult(value: string | undefined): AuthResult {
   return (authResults as readonly string[]).includes(result) ? (result as AuthResult) : "unknown";
 }
 
-export function authenticationFrom(part: Part): Pick<EmailFacts, "spf" | "dkim" | "dmarc"> {
-  const results = header(part, "authentication-results");
+function methodResults(value: string): Map<string, string> {
   const found = new Map<string, string>();
-  for (const match of results.matchAll(/\b(spf|dkim|dmarc)\s*=\s*([a-z]+)/gi)) {
+  for (const match of value.matchAll(/\b(spf|dkim|dmarc)\s*=\s*([a-z]+)/gi)) {
     const method = match[1]!.toLowerCase();
     if (!found.has(method)) {
       found.set(method, match[2]!);
     }
   }
+  return found;
+}
+
+export function authenticationFrom(part: Part): Pick<EmailFacts, "spf" | "dkim" | "dmarc"> {
+  const [top, ...lower] = part.headers.filter(([name]) => name === "authentication-results").map(([, value]) => methodResults(value));
   const receivedSpf = /^\s*([a-z]+)/i.exec(header(part, "received-spf"))?.[1];
-  return {
-    spf: authResult(found.get("spf") ?? receivedSpf),
-    dkim: authResult(found.get("dkim")),
-    dmarc: authResult(found.get("dmarc")),
+  const resultFor = (method: "spf" | "dkim" | "dmarc"): AuthResult => {
+    const reported = top?.get(method) ?? (method === "spf" ? receivedSpf : undefined);
+    const result = reported ? authResult(reported) : top ? "none" : "unknown";
+    const worse = lower.map((found) => authResult(found.get(method)));
+    if (result !== "pass" && result !== "fail" && worse.includes("fail")) {
+      return "fail";
+    }
+    return result === "unknown" && worse.includes("none") ? "none" : result;
   };
+  return { spf: resultFor("spf"), dkim: resultFor("dkim"), dmarc: resultFor("dmarc") };
 }
 
 async function attachmentFacts(leaf: Leaf): Promise<EmailAttachment | null> {

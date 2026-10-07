@@ -109,6 +109,15 @@ describe("Discord invites in scans", () => {
     expect(group.notChecked.some((item) => item.name === "Discord server details")).toBe(false);
   });
 
+  it("sends a bot token only when one is set, and only to Discord", async () => {
+    const { scan, fake } = scanner({ discord: { minecraft: { features: ["VERIFIED"] } } }, { discordToken: "discord-test-token" });
+    const report = await scanContent("discord.gg/minecraft https://cheap-skins.example/", scan);
+    const discord = fake.requests.filter((request) => request.url.startsWith(discordInviteEndpoint));
+    expect(discord.map((request) => request.headers.get("Authorization"))).toEqual(["Bot discord-test-token"]);
+    expect(fake.requests.filter((request) => !request.url.startsWith(discordInviteEndpoint)).some((request) => JSON.stringify([...request.headers]).includes("discord-test-token"))).toBe(false);
+    expect(JSON.stringify(report)).not.toContain("discord-test-token");
+  });
+
   it("says when Discord did not answer, and checks at most two invites", async () => {
     const limited = await scanContent("discord.gg/aaaa", scanner({ discordStatus: 429 }).scan);
     expect(limited.notChecked).toContainEqual({ name: "Discord server details", reason: "unavailable" });
@@ -164,10 +173,13 @@ describe("Steam accounts in scans", () => {
     const clean = await scanContent(`https://steamcommunity.com/profiles/${friend}`, scanner({ steam: { [friend]: { createdDaysAgo: 3000 } } }).scan);
     expect(clean.level).toBe("no_known_threat");
     expect(clean.evidence.some((item) => item.signal === "raises_risk")).toBe(false);
+    expect(clean.evidence.find((item) => item.id === `steam-clean-id-${friend}`)).toMatchObject({ signal: "neutral", title: "Steam shows no bans on this account, made 8 years ago" });
     const banned = await scanContent(`https://steamcommunity.com/profiles/${friend}`, scanner({ steam: { [friend]: { vacBans: 1, gameBans: 1 } } }).scan);
     expect(banned.evidence.find((item) => item.id === `steam-game-bans-id-${friend}`)).toMatchObject({ signal: "neutral", title: "This Steam account has 2 game bans" });
     const hidden = await scanContent(`https://steamcommunity.com/profiles/${friend}`, scanner({ steam: { [friend]: { createdDaysAgo: 1, visibility: 1 } } }).scan);
     expect(hidden.evidence.some((item) => item.id.startsWith("steam-new-"))).toBe(false);
+    expect(hidden.evidence.find((item) => item.id.startsWith("steam-clean-"))?.title).toBe("Steam shows no bans on this account");
+    expect(banned.evidence.some((item) => item.id.startsWith("steam-clean-"))).toBe(false);
   });
 
   it("says when a profile does not exist without asking for its bans", async () => {

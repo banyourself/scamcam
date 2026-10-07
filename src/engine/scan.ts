@@ -41,6 +41,7 @@ export interface ScanOptions {
   phishstatsKey?: string | undefined;
   radarToken?: string | undefined;
   steamKey?: string | undefined;
+  discordToken?: string | undefined;
   email?: EmailFacts | undefined;
 }
 
@@ -670,6 +671,17 @@ function steamSignals(link: AnalyzedLink, result: SteamAccountResult, now: Date)
       detail: "Game and anti-cheat bans are for cheating, not scams, so this only describes the account's history.",
     });
   }
+  if (signals.length === 0) {
+    const years = age !== null && age >= 365 ? Math.floor(age / 365) : null;
+    signals.push({
+      ...base,
+      id: `steam-clean-${account}`,
+      direction: "context",
+      strength: "weak",
+      title: years ? `Steam shows no bans on this account, made ${years} year${years === 1 ? "" : "s"} ago` : "Steam shows no bans on this account",
+      detail: "Steam reports no trade, community, or game bans. Clean accounts can still be stolen or used for scams, so this does not show that the person is trustworthy.",
+    });
+  }
   return signals;
 }
 
@@ -1050,7 +1062,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     if (invites.length > 0) {
       tasks.push(
         (async () => {
-          const results = await Promise.all(invites.map((link) => lookupDiscordInvite(link.discordInvite!, { fetcher: options.fetcher, lookups })));
+          const results = await Promise.all(invites.map((link) => lookupDiscordInvite(link.discordInvite!, { fetcher: options.fetcher, lookups, botToken: options.discordToken })));
           for (const [index, link] of invites.entries()) {
             attach(link, discordSignals(link, results[index]!, now, pictureLinks.has(link)));
           }

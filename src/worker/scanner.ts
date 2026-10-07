@@ -17,6 +17,9 @@ const watchedHosts = new Map([
   ["api.cloudflare.com", "radar"],
   ["discord.com", "discord"],
   ["api.steampowered.com", "steam"],
+  ["urlhaus-api.abuse.ch", "urlhaus"],
+  ["threatfox-api.abuse.ch", "threatfox"],
+  ["mb-api.abuse.ch", "malwarebazaar"],
 ]);
 const missingIsAnswer = new Set(["radar", "discord"]);
 

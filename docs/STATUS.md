@@ -43,10 +43,10 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | More scam lists | 2026-10-06 | MetaMask, ScamSniffer, PhishDestroy, DevSpen's Discord and Steam list, and CERT Polska, next to Phishing.Database, checked in two D1 queries |
 | Spamhaus, PhishStats, Cloudflare Radar | 2026-10-06 | In the scanner; each starts once its secret is set |
 | Phone numbers and callback scams | 2026-10-06 | Fake order and voicemail callback rules, and US numbers compared with a hashed copy of the FTC's Do Not Call reports, never sent anywhere |
-| Discord invites and Steam accounts | Built 2026-10-07, not deployed yet | In the scanner: Discord server age, verification, and staff-name claims (no key); Steam bans, account age, and staff-name claims once `STEAM_WEB_API_KEY` is set |
-| Scam wallets and FCC numbers | Built 2026-10-07, not deployed yet | ScamSniffer's scam wallets and the FCC's unwanted-call complaint numbers as hashed lists in D1; needs migration `0008` and a list sync |
-| Email files | Built 2026-10-07, not deployed yet | A saved .eml is read on the device; only its text, the sender's domain, the sender check results, and attachment types and findings are sent |
-| More file types | Built 2026-10-07, not deployed yet | Browser extensions and their permissions, PyInstaller programs, remote shortcuts, startup .reg files, .appinstaller and MSIX, CHM, and Roblox model backdoors |
+| Discord invites and Steam accounts | 2026-10-07 | In the scanner. Steam works live (key set 2026-10-07). Discord answered 429 to the first live lookup because Workers share addresses; it needs the optional `DISCORD_BOT_TOKEN` |
+| Scam wallets and FCC numbers | 2026-10-07 | ScamSniffer's scam wallets and the FCC's unwanted-call complaint numbers as hashed lists in D1; both caught in live scans on 2026-10-07 |
+| Email files | 2026-10-07 | A saved .eml is read on the device; only its text, the sender's domain, the sender check results, and attachment types and findings are sent |
+| More file types | 2026-10-07 | Browser extensions and their permissions, PyInstaller programs, remote shortcuts, startup .reg files, .appinstaller and MSIX, CHM, and Roblox model backdoors |
 | Outside checkers | 2026-10-06 | Reports link to VirusTotal, Google, urlscan.io, Cisco Talos, ScamAdviser, URLVoid, and Hybrid Analysis for the visitor to open |
 | Newer checks | 2026-10-06 | Redirect wrappers decoded, Cloudflare's 1.1.1.2 security filter, copy-paste command, command, wallet, and reply-to-activate rules, brand mismatch between a message and its links, and abused endings ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#checks-added-on-2026-10-06)) |
 
@@ -97,9 +97,9 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | Spamhaus DQS (DBL and ZRD) | The registrable domain inside the query name, through Cloudflare's DNS over HTTPS resolver | Working: a live scan of `dbltest.com` on 2026-10-06 showed Spamhaus's spam listing. Direct TCP to Spamhaus's servers is blocked by Cloudflare in production, which is why lookups use Cloudflare's resolver |
 | PhishStats | The registrable domain, or the exact host for shared hosting | Working: a live scan of a reported `pages.dev` site on 2026-10-06 showed its PhishStats report. Shared hosting lookups use a "starts with" search (0.2 s), since a "contains" search took 5.4 s; capped at 140 calls a day |
 | Cloudflare Radar | The registrable domain only | Token set on 2026-10-06; confirmed live with a scan of `wikipedia.org` |
-| Discord invite endpoint | The invite code only, from the scanner | Built; checked live from my computer on 2026-10-07 (a real invite answers with the server and `VERIFIED`, an unknown one with 404). Not yet called from Cloudflare |
-| Steam Web API | The profile name or account number only, from the scanner | Built and tested with a fake server; waits for `STEAM_WEB_API_KEY` |
-| ScamSniffer scam wallets and FCC consumer complaints | Nothing from visitors; the sync downloads them | Both built and checked locally on 2026-10-07 (4,599 wallets, 28,734 numbers); not synced to production yet |
+| Discord invite endpoint | The invite code only, from the scanner | Works from my computer (a real invite answers with the server and `VERIFIED`, an unknown one with 404), but answered 429 from Cloudflare on 2026-10-07. Waits for `DISCORD_BOT_TOKEN` |
+| Steam Web API | The profile name or account number only, from the scanner | Key set on 2026-10-07; a live scan of a real profile reached Steam without errors |
+| ScamSniffer scam wallets and FCC consumer complaints | Nothing from visitors; the sync downloads them | Synced to production on 2026-10-07 (4,599 wallets, 28,734 numbers); both matched in live scans |
 | Workers AI (`@cf/qwen/qwen3-30b-a3b-fp8`) | The redacted message with links replaced by `[link]` | On, capped at 2,000 calls a day |
 | Cloudflare Turnstile | The token and the visitor's IP address | Production widget |
 
@@ -110,7 +110,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 | Where | Names |
 |---|---|
 | Worker secrets (production) | `TURNSTILE_SECRET_KEY`, `SAFE_BROWSING_API_KEY`, and `URLHAUS_AUTH_KEY`, which I typed in myself at launch, and `SHARE_SIGNING_KEY` for share links and flags ([DEPLOYMENT.md](DEPLOYMENT.md), step 8) |
-| Worker secrets for the extra sources | `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`, which I typed in myself on 2026-10-06 ([DEPLOYMENT.md](DEPLOYMENT.md), step 11), and `STEAM_WEB_API_KEY`, not set yet (step 12) |
+| Worker secrets for the extra sources | `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`, which I typed in myself on 2026-10-06 ([DEPLOYMENT.md](DEPLOYMENT.md), step 11), `STEAM_WEB_API_KEY` (2026-10-07, step 12), and `DISCORD_BOT_TOKEN`, not set yet |
 | GitHub secrets | `CLOUDFLARE_D1_TOKEN` (D1 Edit only) and `CLOUDFLARE_ACCOUNT_ID` |
 | GitHub variable | `PHISHING_DATABASE_SYNC=enabled` |
 | Local | `.dev.vars`, ignored by git; `.dev.vars.example` holds only Cloudflare's public Turnstile test keys, a local-only signing key, and empty placeholders |
@@ -192,18 +192,17 @@ duration about ten times faster than needed. Every lookup now clears its timer w
 5. Ask abuse.ch (contact form) to confirm that showing per-lookup results with credit is fine, and ask Team Cymru
    (support@cymru.com) the same for the Malware Hash Registry.
 6. Review flags with `npm run flags` whenever the weekly report raises `flags_waiting`.
-7. Release the 2026-10-07 work: apply migration `0008`, deploy, run the "Scam list sync" workflow for the wallet and
-   FCC lists, and set `STEAM_WEB_API_KEY` ([DEPLOYMENT.md](DEPLOYMENT.md), step 12).
+7. Create a Discord bot token and set `DISCORD_BOT_TOKEN`, then confirm a live scan of `discord.gg/minecraft` shows
+   "Discord has verified this server".
 
 ### Not verified yet
 
 - Subrequest counts are measured locally (44 for a 20-link scan in the Worker, 40 in the scanner) but not yet recorded on Cloudflare.
 - The rate limiting binding counts per Cloudflare location and is eventually consistent, so the concurrency result
   comes from the local simulator only. The live check saw a 429 within 15 scans.
-- Discord's invite endpoint from Cloudflare's addresses. It answered from my computer, but Discord may rate limit
-  shared cloud addresses; failures show as "did not respond" and raise `discord_unavailable`.
-- The Steam Web API, which is tested only with a fake server, including whether `timecreated` comes back for public
-  profiles (Valve's current reference does not show it; reports simply skip the account age when it is missing).
+- Discord lookups with a bot token from Cloudflare's addresses. Without one, the first live lookup answered 429.
+- A live Steam ban result and whether `timecreated` comes back for public profiles (Valve's current reference does
+  not show it; reports skip the account age when it is missing).
 - A live URLhaus match. Only "no results" answers have been seen live; matches are tested with a fake server.
 - Google's `CANARY` and `FRAME_ONLY` attributes. They have not appeared live and are tested with encoded examples.
 - The Cache API was tested in local workerd only; production behavior (per data center, eviction) is untested.

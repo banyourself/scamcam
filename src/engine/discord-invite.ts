@@ -42,6 +42,7 @@ export type DiscordInviteResult = DiscordInviteAnswer | { status: "unavailable" 
 export interface DiscordInviteOptions {
   fetcher: typeof fetch;
   lookups: Lookups;
+  botToken?: string | undefined;
 }
 
 function isAnswer(value: unknown): value is DiscordInviteAnswer {
@@ -74,11 +75,15 @@ export function inviteAnswerFrom(body: unknown): DiscordInviteAnswer | null {
   };
 }
 
-async function queryInvite(code: string, fetcher: typeof fetch): Promise<DiscordInviteAnswer | null> {
+async function queryInvite(code: string, options: DiscordInviteOptions): Promise<DiscordInviteAnswer | null> {
   const timer = deadline(3000);
   try {
-    const response = await fetcher(`${discordInviteEndpoint}${encodeURIComponent(code)}?with_counts=true`, {
-      headers: { Accept: "application/json", "User-Agent": "ScamCam (https://scamcam.kevinle.tech)" },
+    const response = await options.fetcher(`${discordInviteEndpoint}${encodeURIComponent(code)}?with_counts=true`, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "ScamCam (https://scamcam.kevinle.tech, 1.0)",
+        ...(options.botToken ? { Authorization: `Bot ${options.botToken}` } : {}),
+      },
       signal: timer.signal,
     });
     if (response.status === 404) {
@@ -111,7 +116,7 @@ export async function lookupDiscordInvite(code: string, options: DiscordInviteOp
     if (!sourceIsOpen(lookups, discordSource)) {
       return { status: "unavailable" };
     }
-    const answer = await queryInvite(code, options.fetcher);
+    const answer = await queryInvite(code, options);
     recordOutcome(lookups, discordSource, answer !== null);
     if (!answer) {
       return { status: "unavailable" };

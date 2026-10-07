@@ -44,6 +44,16 @@ export function emailSignals(email: EmailFacts, sender: AnalyzedLink | null, sen
       title: "The sender could not be verified",
       detail: "The receiving mail server found that the server that sent this email is not allowed to send for its domain (SPF), and the email has no valid signature (DKIM). Forged senders often look like this.",
     });
+  } else if (["none", "neutral", "softfail"].includes(email.spf) && email.dkim !== "pass" && email.dmarc !== "pass" && email.dmarc !== "unknown") {
+    const policy = email.dmarc === "none" ? `no DMARC policy for ${domain ?? "the sender's domain"}` : "no passing DMARC check";
+    signals.push({
+      ...base,
+      id: "email-unverified",
+      direction: "raises",
+      strength: "moderate",
+      title: "Nothing confirms who really sent this email",
+      detail: `The receiving mail server found no sender record that covers it (SPF), no valid signature (DKIM), and ${policy}. Without these, anyone can send email that claims to come from ${domain ?? "this address"}.`,
+    });
   }
   if (impostors.length > 0 && domain) {
     const names = impostors.map((brand) => brand.name).join(" and ");

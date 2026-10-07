@@ -74,6 +74,19 @@ describe("email files in scans", () => {
     expect(report.recommendations[0]).toBe("Do not open the attachments, and do not enable editing or content in them.");
   });
 
+  it("flags an email that nothing verifies, such as one forged from a domain with no SPF or DMARC", async () => {
+    const content = ["From: Someone, PhD, CISSP", "Subject: TEST", "", "Please check the email I just sent you from my student account."].join(newline);
+    const report = await scanContent(content, options(facts({ fromDomain: "forged-sender.example", spf: "none", dkim: "none", dmarc: "none", replyToDiffers: true })).scan);
+    expect(report.evidence.find((item) => item.id === "email-unverified")).toMatchObject({
+      signal: "raises_risk",
+      title: "Nothing confirms who really sent this email",
+    });
+    expect(report.evidence.find((item) => item.id === "email-unverified")?.detail).toContain("no DMARC policy for forged-sender.example");
+    expect(report.level).toBe("suspicious");
+    const signedOnly = await scanContent(content, options(facts({ fromDomain: "forged-sender.example", spf: "none", dkim: "pass", dmarc: "none" })).scan);
+    expect(signedOnly.evidence.some((item) => item.id === "email-unverified")).toBe(false);
+  });
+
   it("says when the email file had no sender check results, and leaves plain senders alone", async () => {
     const content = ["From: Alex", "Subject: lunch?", "", "Want to get lunch tomorrow?"].join(newline);
     const report = await scanContent(content, options(facts({ fromDomain: "gmail.com", spf: "unknown", dkim: "unknown", dmarc: "unknown" })).scan);
