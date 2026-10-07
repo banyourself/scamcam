@@ -11,14 +11,18 @@ export const modrinthHome = "https://modrinth.com/";
 export const popularDownloads = 50_000;
 const userAgent = "ScamCam (https://scamcam.kevinle.tech)";
 const maxResponseBytes = 512 * 1024;
-const fileCacheSeconds = 6 * 60 * 60;
+const fileCacheSeconds = 60 * 60;
 const missingCacheSeconds = 60 * 60;
-const projectCacheSeconds = 12 * 60 * 60;
+const projectCacheSeconds = 6 * 60 * 60;
 const projectIdPattern = /^[A-Za-z0-9]{8}$/;
+const reviewedProjects = new Set(["approved", "archived", "unlisted"]);
+const publicVersions = new Set(["listed", "archived", "unlisted"]);
 
 const VersionSchema = z.object({
   project_id: z.string().regex(projectIdPattern),
   version_number: z.string().max(200),
+  date_published: z.string().max(40).optional(),
+  status: z.string().max(32).optional(),
 });
 
 const ProjectSchema = z.object({
@@ -26,11 +30,15 @@ const ProjectSchema = z.object({
   title: z.string().max(256),
   downloads: z.number().int().nonnegative(),
   project_type: z.string().max(32),
+  status: z.string().max(32),
 });
 
-const FileAnswerSchema = z.union([z.object({ status: z.literal("found"), projectId: z.string().regex(projectIdPattern), version: z.string().max(80) }), z.object({ status: z.literal("missing") })]);
+const FileAnswerSchema = z.union([
+  z.object({ status: z.literal("found"), projectId: z.string().regex(projectIdPattern), version: z.string().max(80), publishedAt: z.string().max(40).nullable(), listed: z.boolean() }),
+  z.object({ status: z.literal("missing") }),
+]);
 const ProjectAnswerSchema = z.union([
-  z.object({ status: z.literal("found"), id: z.string().regex(projectIdPattern), title: z.string().max(80), downloads: z.number(), type: z.string().max(32) }),
+  z.object({ status: z.literal("found"), id: z.string().regex(projectIdPattern), title: z.string().max(80), downloads: z.number(), type: z.string().max(32), review: z.string().max(32) }),
   z.object({ status: z.literal("missing") }),
 ]);
 
@@ -39,7 +47,7 @@ type ProjectAnswer = z.infer<typeof ProjectAnswerSchema>;
 type Found<T> = Extract<T, { status: "found" }>;
 
 export type ModCheck =
-  | { status: "published"; title: string; version: string; projectUrl: string }
+  | { status: "published"; title: string; version: string; projectUrl: string; publishedAt: string | null; reviewed: boolean; projectStatus: string | null }
   | { status: "impostor"; title: string; downloads: number; modId: string; projectUrl: string }
   | { status: "not_published" }
   | { status: "unavailable" };
@@ -121,7 +129,17 @@ async function fileAnswer(sha1: string, options: ModrinthOptions): Promise<FileA
         return { status: "missing" };
       }
       const parsed = VersionSchema.safeParse(result.body);
-      return parsed.success ? { status: "found", projectId: parsed.data.project_id, version: cleanText(parsed.data.version_number, 80) } : null;
+      if (!parsed.success) {
+        return null;
+      }
+      const published = Date.parse(parsed.data.date_published ?? "");
+      return {
+        status: "found",
+        projectId: parsed.data.project_id,
+        version: cleanText(parsed.data.version_number, 80),
+        publishedAt: Number.isFinite(published) ? new Date(published).toISOString() : null,
+        listed: publicVersions.has(parsed.data.status ?? "listed"),
+      };
     },
     (value) => (value.status === "found" ? fileCacheSeconds : missingCacheSeconds),
   );
@@ -142,7 +160,7 @@ async function projectAnswer(idOrSlug: string, options: ModrinthOptions): Promis
       }
       const parsed = ProjectSchema.safeParse(result.body);
       return parsed.success
-        ? { status: "found", id: parsed.data.id, title: cleanText(parsed.data.title, 80) || parsed.data.id, downloads: parsed.data.downloads, type: parsed.data.project_type }
+        ? { status: "found", id: parsed.data.id, title: cleanText(parsed.data.title, 80) || parsed.data.id, downloads: parsed.data.downloads, type: parsed.data.project_type, review: parsed.data.status }
         : null;
     },
     (value) => (value.status === "found" ? projectCacheSeconds : missingCacheSeconds),
@@ -159,8 +177,16 @@ export async function lookupMod(file: { sha1: string; modId?: string | undefined
   }
   if (published.status === "found") {
     const project = await projectAnswer(published.projectId, options);
-    const title = project?.status === "found" ? project.title : "a project";
-    return { status: "published", title, version: published.version, projectUrl: projectUrl(published.projectId) };
+    const found = project?.status === "found" ? project : null;
+    return {
+      status: "published",
+      title: found?.title ?? "a project",
+      version: published.version,
+      projectUrl: projectUrl(published.projectId),
+      publishedAt: published.publishedAt,
+      reviewed: Boolean(found && reviewedProjects.has(found.review) && published.listed),
+      projectStatus: found?.review ?? null,
+    };
   }
   if (!file.modId) {
     return { status: "not_published" };

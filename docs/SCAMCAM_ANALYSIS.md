@@ -307,10 +307,16 @@ The moderate findings are capabilities honest account tools also have, so togeth
 their own can make a file Suspicious but not High risk. The browser also reads the mod ID from `fabric.mod.json`,
 `quilt.mod.json`, `neoforge.mods.toml`, `mods.toml`, `mcmod.info`, or a plugin's `plugin.yml`.
 
-Then Modrinth is asked by SHA-1. If it publishes the exact file, the report names the project and version as
-context, and the moderate findings above become context too. If it does not, and the mod ID is a Modrinth project
-with at least 50,000 downloads, the report says the file claims to be that mod but is not one of its releases, a
-moderate warning, since it could also be an official build from another site.
+Then Modrinth is asked by SHA-1. If it publishes the exact file, the report names the project, the version, and its
+release date as context. The listing only earns credit when the release has been public for at least two weeks, the
+project has passed Modrinth's review, and nothing malware-only was found; then the moderate findings above and "This is
+a Java program" become context, and a file with nothing else against it reads "No known threat detected" with medium
+confidence. The two-week rule is for hacked developer accounts: an attacker who takes over an account uploads malware
+as a new release, as fractureiser did, and it can stay up for days. If Modrinth does not have the file, and the mod ID
+is a Modrinth project with at least 50,000 downloads, the report says the file claims to be that mod but is not one of
+its releases, a moderate warning, since it could also be an official build from another site. A release Modrinth
+removes turns into that warning within an hour, and a file reported to a malware list is confirmed malicious
+whatever Modrinth says.
 
 Modpacks: a `.mrpack` index that downloads from anywhere but Modrinth, GitHub, raw GitHub, and GitLab, or that places
 files outside the game folder, is a strong warning. Mods carried inside a pack, in Modrinth or CurseForge format, are

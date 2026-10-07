@@ -15,13 +15,32 @@ export type HashCheck =
 const disguises = ["file-extension_mismatch", "file-double_extension", "file-padded_name", "file-direction_trick"];
 const ambiguousCapabilities = new Set(["file-jar_session_token", "file-jar_reads_accounts", "file-jar_hidden_download", "file-jar_has_program"]);
 const stolenLogins = ["jar_steals_logins", "jar_sends_to_chat", "jar_session_token", "jar_reads_accounts"];
+const settledDays = 14;
+const malwareOnly = new Set(["jar_steals_logins", "jar_sends_to_chat", "jar_runs_downloaded_code", "jar_hides_from_analysis", "jar_runs_commands"]);
+const reviewWords: Record<string, string> = {
+  processing: "still waiting for review",
+  withheld: "held back by its moderators",
+  rejected: "rejected by its moderators",
+};
+
+function releaseDays(mod: ModCheck | null | undefined, now: Date): number | null {
+  if (mod?.status !== "published" || !mod.publishedAt) {
+    return null;
+  }
+  return Math.max(0, Math.floor((now.getTime() - Date.parse(mod.publishedAt)) / 86_400_000));
+}
+
+function settledRelease(mod: ModCheck | null | undefined, now: Date): boolean {
+  const days = releaseDays(mod, now);
+  return mod?.status === "published" && mod.reviewed && days !== null && days >= settledDays;
+}
 
 export interface MinecraftChecks {
   mod?: ModCheck | null;
   pack?: PackCheck | null;
 }
 
-function minecraftSignals(checks: MinecraftChecks): { signals: Signal[]; unchecked: UncheckedSource[] } {
+function minecraftSignals(checks: MinecraftChecks, now: Date): { signals: Signal[]; unchecked: UncheckedSource[] } {
   const base = { source: modrinthName };
   const signals: Signal[] = [];
   const unchecked: UncheckedSource[] = [];
@@ -34,8 +53,30 @@ function minecraftSignals(checks: MinecraftChecks): { signals: Signal[]; uncheck
       direction: "context",
       strength: "weak",
       title: `Modrinth has this exact file: ${mod.title} ${mod.version}`,
-      detail: "Its fingerprint matches a file Modrinth publishes for this project. Modrinth reviews new projects and scans uploads, but real mod pages have been hacked before, so this alone does not prove the file is safe.",
+      detail: `Its fingerprint matches a file Modrinth publishes for this project${mod.publishedAt ? `, released on ${new Date(mod.publishedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}` : ""}. Modrinth reviews new projects and scans uploads, but real mod pages have been hacked before, so this alone does not prove the file is safe.`,
     });
+    const days = releaseDays(mod, now);
+    if (!mod.reviewed) {
+      signals.push({
+        ...base,
+        id: "modrinth-unreviewed",
+        sourceUrl: mod.projectUrl,
+        direction: "context",
+        strength: "weak",
+        title: "This project has not passed Modrinth's review",
+        detail: `Modrinth lists it as ${reviewWords[mod.projectStatus ?? ""] ?? "not public"}, so ScamCam does not count its listing in this file's favor.`,
+      });
+    } else if (days === null || days < settledDays) {
+      signals.push({
+        ...base,
+        id: "modrinth-new-release",
+        sourceUrl: mod.projectUrl,
+        direction: "context",
+        strength: "weak",
+        title: days === null ? "Modrinth does not say when this release came out" : `Modrinth published this release ${days === 0 ? "today" : days === 1 ? "1 day ago" : `${days} days ago`}`,
+        detail: "When a mod developer's account is hacked, the attacker uploads malware as a new release, which is how fractureiser spread in 2023, and a bad release can stay up for days before it is found. ScamCam counts Modrinth's listing only for releases that have been public for two weeks.",
+      });
+    }
   } else if (mod?.status === "impostor") {
     signals.push({
       ...base,
@@ -170,12 +211,14 @@ function toEvidence(signal: Signal, checkedAt: string): Evidence {
 
 export function fileReport(request: FileCheckRequest, checks: HashCheck[], now = new Date(), minecraft: MinecraftChecks = {}): ScanReport {
   const checkedAt = now.toISOString();
-  const published = minecraft.mod?.status === "published";
-  const modrinth = minecraftSignals(minecraft);
+  const settled = settledRelease(minecraft.mod, now) && !request.findings.some((finding) => malwareOnly.has(finding));
+  const modrinth = minecraftSignals(minecraft, now);
   const ownSignals = fileSignals(request).map((signal) =>
-    published && ambiguousCapabilities.has(signal.id)
-      ? { ...signal, direction: "context" as const, detail: `${signal.detail} Modrinth publishes this exact file, so an honest reason is likely.` }
-      : signal,
+    settled && ambiguousCapabilities.has(signal.id)
+      ? { ...signal, direction: "context" as const, detail: `${signal.detail} Modrinth has published this exact file for at least two weeks, so an honest reason is likely.` }
+      : settled && signal.id === "file-kind-java_archive"
+        ? { ...signal, direction: "context" as const, detail: `${signal.detail} Modrinth has published this exact file for at least two weeks, so this counts as background.` }
+        : signal,
   );
   const signals = [...hashSignals(checks), ...modrinth.signals, ...ownSignals];
   const raises = signals.filter((signal) => signal.direction === "raises");
@@ -205,6 +248,10 @@ export function fileReport(request: FileCheckRequest, checks: HashCheck[], now =
     level = "unknown";
     confidence = "low";
     summary = "There are some warning signs, but not enough to call this file harmful.";
+  } else if (settled && hashChecked) {
+    level = "no_known_threat";
+    confidence = "medium";
+    summary = "Modrinth has published this exact file for at least two weeks, and nothing in it points to malware.";
   } else if (knownGood) {
     level = "no_known_threat";
     confidence = "medium";

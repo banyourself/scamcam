@@ -3,6 +3,23 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-07: Settled Modrinth releases read "No known threat detected", new releases are not trusted yet
+
+- A Minecraft mod that Modrinth has published for at least two weeks, in a project that passed Modrinth's review,
+  with nothing malware-like inside and the malware lists checked, now reads "No known threat detected" with medium
+  confidence: "Modrinth has published this exact file for at least two weeks, and nothing in it points to malware."
+  Until now every mod read Unknown, because "This is a Java program" always counted as a warning.
+- **Hacked developer accounts.** When an attacker takes over a mod developer's account, they upload malware as a new
+  release, which is how fractureiser spread in 2023. So Modrinth's listing earns nothing for a release under two weeks
+  old, for a project Modrinth has not approved (still in review, withheld, or rejected), or for a release that is not
+  public, and the report says why. Any malware-only finding (login folders, a webhook, downloaded code, anti-analysis
+  checks, hidden commands) cancels the listing's credit entirely, however old the release is.
+- Modrinth answers about a file are now kept for 1 hour instead of 6, so a release Modrinth removes turns into "not a
+  file Modrinth has" sooner; project answers are kept for 6 hours instead of 12.
+- Verified: the Modrinth and file tests cover a settled release, a release from 3 days ago, today, an unknown date, a
+  withheld project, a draft release, and an old release with a webhook (still high risk) or a malware list match
+  (still confirmed).
+
 ## 2026-10-07: Minecraft mod and modpack checks, and three link rule gaps closed
 
 - **Mods are read on the device.** When a Minecraft mod or plugin is checked, the browser reads the text inside its

@@ -39,7 +39,7 @@ export interface FakeNetworkOptions {
   steamStatus?: number;
   shortLinks?: Record<string, string>;
   bitlyStatus?: number;
-  modrinthFiles?: Record<string, { project: string; version: string }>;
+  modrinthFiles?: Record<string, { project: string; version: string; published?: string; status?: string }>;
   modrinthProjects?: FakeModrinthProject[];
   modrinthStatus?: number;
   down?: boolean;
@@ -52,6 +52,7 @@ export interface FakeModrinthProject {
   title: string;
   downloads: number;
   type?: string;
+  status?: string;
 }
 
 export interface FakeDiscordServer {
@@ -282,13 +283,15 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
       const file = /^version_file\/([0-9a-f]{40})\?algorithm=sha1$/.exec(path);
       if (file) {
         const found = options.modrinthFiles?.[file[1]!];
-        return found ? json({ id: "VersionA", project_id: found.project, version_number: found.version, changelog: "Fixes", files: [] }) : json({ error: "not_found" }, 404);
+        return found
+          ? json({ id: "VersionA", project_id: found.project, version_number: found.version, date_published: found.published ?? "2026-01-15T12:00:00.000000Z", status: found.status ?? "listed", changelog: "Fixes", files: [] })
+          : json({ error: "not_found" }, 404);
       }
       const project = /^project\/([^/?]+)$/.exec(path);
       if (project) {
         const wanted = decodeURIComponent(project[1]!);
         const found = options.modrinthProjects?.find((entry) => entry.id === wanted || entry.slug === wanted);
-        return found ? json({ id: found.id, slug: found.slug, title: found.title, downloads: found.downloads, project_type: found.type ?? "mod", body: "A mod." }) : json({ error: "not_found" }, 404);
+        return found ? json({ id: found.id, slug: found.slug, title: found.title, downloads: found.downloads, project_type: found.type ?? "mod", status: found.status ?? "approved", body: "A mod." }) : json({ error: "not_found" }, 404);
       }
       if (path === "version_files") {
         const hashes = (JSON.parse(body) as { hashes: string[] }).hashes;
