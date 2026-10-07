@@ -2,6 +2,8 @@
 set -uo pipefail
 
 write="${WRITE_TO_D1:-0}"
+keep_seconds=$((10 * 24 * 60 * 60))
+min_refresh_seconds=$((20 * 60 * 60))
 mkdir -p lists
 failed=()
 
@@ -78,11 +80,23 @@ fcc_list() {
   build "$name" text "fcc-$(date -u -d "@${list_date}" +%Y%m%d%H%M)" "$list_date" "$min" "$max" && store "$name"
 }
 
+refreshed_recently() {
+  local name="$1" expires
+  [[ "$write" == "1" && "${FORCE_SYNC:-0}" != "1" ]] || return 1
+  expires=$(npx wrangler d1 execute scamcam --remote --env production --json \
+    --command "SELECT expires_at FROM domain_lists WHERE list = '${name}'" 2>/dev/null |
+    node -e 'let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => { try { process.stdout.write(String(JSON.parse(s)[0].results[0]?.expires_at ?? "")); } catch {} });') || return 1
+  [[ "$expires" =~ ^[0-9]{10}$ ]] || return 1
+  (( $(date -u +%s) - (expires - keep_seconds) < min_refresh_seconds ))
+}
+
 run() {
   local name="$1"
   shift
   echo "::group::${name}"
-  if "$@"; then
+  if refreshed_recently "$name"; then
+    echo "${name}: skipped, already refreshed in the last $((min_refresh_seconds / 3600)) hours"
+  elif "$@"; then
     echo "${name}: done"
   else
     echo "::error::${name} did not sync"
