@@ -18,7 +18,7 @@ This is ScamCam's written retention schedule (also required by the 2025 COPPA am
 | Files a visitor checks | Never uploaded or stored | The browser sends only fingerprints and finding codes; a test checks that no name or content reaches any server |
 | File lookup answers (MalwareBazaar, CIRCL hashlookup, Team Cymru) | 15 minutes to 1 day, in the scanner's memory only, under hashed keys | Scanner memory |
 | AI answers (one label) | 1 hour, in memory only | Worker memory |
-| Scam list copies (hashed keys): Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen, CERT Polska | Replaced daily; not used once the source data is too old (7 days, 3 for CERT Polska, 365 for DevSpen's rarely updated list); deleted 10 days after the last sync | `domain_lists.expires_at`, `domain_list_shards.expires_at`, daily cleanup |
+| Scam list copies (hashed keys): Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen, CERT Polska, and the FTC's reported phone numbers (the last 30 days of reports) | Replaced daily; not used once the source data is too old (7 days, 3 for CERT Polska, 10 for the FTC list, 365 for DevSpen's rarely updated list); deleted 10 days after the last sync | `domain_lists.expires_at`, `domain_list_shards.expires_at`, daily cleanup |
 | Threat intelligence cache | Provider-defined expiry (for example Safe Browsing `cacheDuration`) | Cache API, see provider answers above |
 | Verified first-party indicators | Reviewed at least every 30 days | `review_after` column (planned with the `threat_indicators` table) |
 | Worker logs | 3 days (Cloudflare Workers Logs on Free); ScamCam's own events only, with invocation logs off | Cloudflare |

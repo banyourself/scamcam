@@ -42,6 +42,25 @@ web_list() {
   build "$name" "$format" "$(date -u -d "@${list_date}" +%Y%m%d%H%M)" "$list_date" "$min" "$max" && store "$name"
 }
 
+ftc_list() {
+  local name="$1" days="$2" min="$3" max="$4"
+  local newest="" day file list_date
+  : > "lists/${name}.input"
+  for offset in $(seq 0 "$days"); do
+    day=$(date -u -d "-${offset} days" +%Y-%m-%d)
+    file="lists/${name}-${day}.csv"
+    if curl --fail --silent --location --max-filesize 30000000 --user-agent "ScamCam list sync (+https://scamcam.kevinle.tech)" \
+      "https://www.ftc.gov/sites/default/files/DNC_Complaint_Numbers_${day}.csv" --output "$file"; then
+      [[ "$(head -c 20 "$file")" == "Company_Phone_Number" ]] || { echo "Unexpected FTC file for ${day}" >&2; return 1; }
+      tail -n +2 "$file" | cut -d, -f1 >> "lists/${name}.input"
+      newest="${newest:-$day}"
+    fi
+  done
+  [[ -n "$newest" ]] || { echo "No FTC files were found" >&2; return 1; }
+  list_date=$(date -u -d "${newest} 16:00" +%s) || return 1
+  build "$name" text "ftc-${newest//-/}" "$list_date" "$min" "$max" && store "$name"
+}
+
 run() {
   local name="$1"
   shift
@@ -61,6 +80,7 @@ run scamsniffer github_list scamsniffer scamsniffer/scam-database main blacklist
 run phishdestroy github_list phishdestroy phishdestroy/destroylist main list.txt text 30000 3000000
 run scam_links github_list scam_links DevSpen/scam-links master src/links.txt text 2000 200000
 run cert_polska web_list cert_polska https://hole.cert.pl/domains/v2/domains.txt text 20000 2000000
+run ftc_dnc ftc_list ftc_dnc 30 50000 3000000
 
 if ((${#failed[@]} > 0)); then
   echo "Lists that did not sync: ${failed[*]}" >&2

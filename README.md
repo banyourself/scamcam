@@ -37,7 +37,9 @@ result, so flagging a scam site over and over cannot make it look safe.
 ## How a scan works
 
 1. **Read the input.** Links are pulled out of the text, invisible characters are stripped, and emails, phone
-   numbers, and codes are redacted before any check sees the message. Screenshots are read on the visitor's own device with
+   numbers, and codes are redacted before any check sees the message. US phone numbers are compared only with a
+   scrambled copy of the FTC's daily list of numbers people reported for unwanted calls, kept in ScamCam's own
+   database, so a number never leaves ScamCam. Screenshots are read on the visitor's own device with
    Tesseract.js and jsQR, so the image is never uploaded.
 2. **Check the links.** Look-alike and disguised addresses (other alphabets, misspellings, the `@` trick, brand names
    on the wrong domain), free hosting, short links, IP loggers, downloads, and endings that are abused far more than
@@ -54,8 +56,8 @@ result, so flagging a scam site over and over cannot make it look safe.
    listing. Lookups are passive: ScamCam never opens a submitted link.
 4. **Check the message.** Rules for the scripts scammers use, such as login code requests, QR code logins, cookie
    theft, fake "verify you are human" steps that make you paste a command, crypto wallet drainers, fake middlemen,
-   fake staff, payment pressure, and vote scams. A message that names Steam or Discord but links somewhere else is
-   flagged too.
+   fake staff, payment pressure, vote scams, and fake order or voicemail texts that push you to call a number. A
+   message that names Steam or Discord but links somewhere else is flagged too.
 5. **Check files on the device.** A file's real type comes from its contents, not its name, and the browser looks
    for disguised endings, macros, PDF actions, fake login pages, and programs inside archives. Its SHA-256 and SHA-1
    fingerprints are looked up in MalwareBazaar, CIRCL hashlookup, and Team Cymru's Malware Hash Registry, and the

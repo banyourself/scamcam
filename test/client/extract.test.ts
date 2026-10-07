@@ -54,6 +54,16 @@ describe("extractInput", () => {
     expect(extractInput("look at 10000susan_gilbert.goodluckseeker.example/login").links).toEqual(["10000susan_gilbert.goodluckseeker.example/login"]);
   });
 
+  it("labels US phone numbers, even without dashes, and keeps a normalized copy that never enters the text", () => {
+    const result = extractInput("17607662951 left a message. Call +1 (469) 982-5001 or 469.982.5001, code 482913, order #2345678901");
+    expect(result.redactions).toEqual({ emails: 0, phoneNumbers: 3, codes: 2 });
+    expect(result.phones).toEqual(["+17607662951", "+14699825001"]);
+    expect(result.redactedText).toBe("[number hidden] left a message. Call [number hidden] or [number hidden], code [code hidden], order #[code hidden]");
+    expect(extractInput("https://example.com/call/7145550199?ref=7145550199").phones).toEqual([]);
+    expect(extractInput("call +44 20 7946 0958").phones).toEqual([]);
+    expect(extractInput(Array.from({ length: 8 }, (_, index) => `714555010${index}`).join(" ")).phones).toHaveLength(5);
+  });
+
   it("returns nothing for plain text", () => {
     expect(extractInput("gg wp, see you tomorrow").links).toEqual([]);
   });

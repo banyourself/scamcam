@@ -37,3 +37,10 @@ export function combineWithReadText(existing: string, read: string, qrTexts: str
   const parts = [existing.trim(), cleanReadText(read), ...qrLines].filter((part) => part.length > 0);
   return parts.join("\n\n").slice(0, maxInputLength);
 }
+
+export function insertReadText(existing: string, start: number, end: number, read: string, qrTexts: string[]): string {
+  const from = Math.max(0, Math.min(start, end, existing.length));
+  const to = Math.max(from, Math.min(Math.max(start, end), existing.length));
+  const parts = [existing.slice(0, from).trim(), combineWithReadText("", read, qrTexts), existing.slice(to).trim()].filter((part) => part.length > 0);
+  return parts.join("\n\n").slice(0, maxInputLength);
+}

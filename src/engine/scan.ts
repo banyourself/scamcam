@@ -4,7 +4,7 @@ import { brandsNamedIn, freeHostingSuffixes, officialBrandFor, urlShorteners, us
 import type { AiReviewResult } from "./ai-review";
 import { cacheKey, memoryLookups, recallFromMemory, recordOutcome, rememberInMemory, sourceIsOpen, type Lookups } from "./cache";
 import { isPrivateAddress, lookupDns, lookupFilteredDns, type DnsResult, type FilterResult } from "./dns";
-import { candidateNames, domainListDetails, type DomainListLookup, type DomainListName, type DomainListResult } from "./domain-list";
+import { candidateNames, domainListDetails, isPhoneList, type DomainListLookup, type DomainListName, type DomainListResult } from "./domain-list";
 import { caseNumber } from "./case-number";
 import { aimsAtCheckers } from "./injection";
 import { analyzeMessage, familyNames, normalizeMessage } from "./message-rules";
@@ -382,6 +382,23 @@ function spamhausSignals(link: AnalyzedLink, domain: string, result: SpamhausRes
     });
   }
   return signals;
+}
+
+function phoneReportSignals(matched: number, result: DomainListResult, now: Date): Signal[] {
+  if (matched === 0 || result.status !== "ok") {
+    return [];
+  }
+  return [
+    {
+      id: "ftc-dnc",
+      source: sourceNames.phoneReports,
+      sourceUrl: domainListDetails.ftc_dnc.url,
+      direction: "raises",
+      strength: "moderate",
+      title: matched === 1 ? "A phone number in this message was reported to the FTC for unwanted calls" : `${matched} phone numbers in this message were reported to the FTC for unwanted calls`,
+      detail: `People told the Federal Trade Commission in the last month that calls from ${matched === 1 ? "this number were" : "these numbers were"} unwanted, such as robocalls or scam calls. The FTC does not check these reports, and callers can fake a number, so treat this as one warning sign.${listDateNote(result.syncedAt, now)}`,
+    },
+  ];
 }
 
 function longDate(day: string): string {
@@ -809,27 +826,45 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     );
   }
   const listedLinks = readable.filter((link) => !link.officialBrand).slice(0, maxListedLinks);
-  if (listedLinks.length > 0) {
+  const phones = extracted.phones;
+  const phoneSignals: Signal[] = [];
+  if (listedLinks.length > 0 || phones.length > 0) {
     if (!options.scamLists) {
-      notChecked.push({ name: sourceNames.scamLists, reason: "not_configured" });
+      if (listedLinks.length > 0) {
+        notChecked.push({ name: sourceNames.scamLists, reason: "not_configured" });
+      }
+      if (phones.length > 0) {
+        notChecked.push({ name: sourceNames.phoneReports, reason: "not_configured" });
+      }
     } else {
       const lists = options.scamLists;
       tasks.push(
         (async () => {
           const namesByLink = new Map(listedLinks.map((link) => [link, candidateNames(link.hostname!, link.registrableDomain)]));
-          const results = await lists.lookup([...new Set([...namesByLink.values()].flat())]);
-          const answers = [...results.values()];
-          if (answers.length === 0 || answers.every((answer) => answer.status === "not_configured")) {
-            notChecked.push({ name: sourceNames.scamLists, reason: "not_configured" });
-          } else if (answers.every((answer) => answer.status === "unavailable")) {
-            notChecked.push({ name: sourceNames.scamLists, reason: "unavailable" });
-          }
-          for (const [list, result] of results) {
-            if (result.status === "stale") {
-              notChecked.push({ name: domainListDetails[list].source, reason: "out_of_date" });
+          const results = await lists.lookup([...new Set([...[...namesByLink.values()].flat(), ...phones])]);
+          const domainResults = [...results].filter((entry): entry is [DomainListName, DomainListResult] => !isPhoneList(entry[0]));
+          if (listedLinks.length > 0) {
+            const answers = domainResults.map(([, result]) => result);
+            if (answers.length === 0 || answers.every((answer) => answer.status === "not_configured")) {
+              notChecked.push({ name: sourceNames.scamLists, reason: "not_configured" });
+            } else if (answers.every((answer) => answer.status === "unavailable")) {
+              notChecked.push({ name: sourceNames.scamLists, reason: "unavailable" });
             }
-            for (const [link, names] of namesByLink) {
-              attach(link, listSignals(list, link, names, result, wrappers.has(link), now));
+            for (const [list, result] of domainResults) {
+              if (result.status === "stale") {
+                notChecked.push({ name: domainListDetails[list].source, reason: "out_of_date" });
+              }
+              for (const [link, names] of namesByLink) {
+                attach(link, listSignals(list, link, names, result, wrappers.has(link), now));
+              }
+            }
+          }
+          if (phones.length > 0) {
+            const reports = results.get("ftc_dnc") ?? { status: "not_configured" };
+            if (reports.status === "ok") {
+              phoneSignals.push(...phoneReportSignals(phones.filter((phone) => reports.listed.has(phone)).length, reports, now));
+            } else {
+              notChecked.push({ name: sourceNames.phoneReports, reason: reports.status === "stale" ? "out_of_date" : reports.status });
             }
           }
         })(),
@@ -905,7 +940,8 @@ export async function scanContent(content: string, options: ScanOptions): Promis
       officialBrandNames: [...new Set(readable.map((link) => link.officialBrand?.name).filter((name): name is string => Boolean(name)))],
       linksFromPicture: pictureLinks.size > 0,
     });
-  let messageSignals = ruleSignals;
+  const baseSignals = [...ruleSignals, ...phoneSignals];
+  let messageSignals = baseSignals;
   const linkFamilies = linkSignals.flat().flatMap((signal) => (signal.family ? [signal.family] : []));
   let verdict = verdictFor(messageSignals, [...new Set([...message.families, ...linkFamilies])]);
   const reviewText = messageText.replace(/\s+/g, " ").trim();
@@ -922,7 +958,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     const decodedQr = qrValues(extracted.redactedText).length > 0;
     if (review.status === "ok" && review.label !== "none" && !(review.label === "qr_takeover" && decodedQr)) {
       const label: ScamFamily = review.label;
-      messageSignals = [...ruleSignals, aiSignal(label)];
+      messageSignals = [...baseSignals, aiSignal(label)];
       verdict = verdictFor(messageSignals, [label]);
       if (verdict.level === "suspicious") {
         verdict.summary = `An AI check thinks this looks like the ${familyNames[label]} scam. Nothing else confirms it.`;

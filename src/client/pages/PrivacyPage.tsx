@@ -49,7 +49,10 @@ export function PrivacyPage() {
           <tr>
             <td>The link or message you submit</td>
             <td>To check it</td>
-            <td>Not stored. Emails, phone numbers, and long codes are hidden before any check.</td>
+            <td>
+              Not stored. Emails, phone numbers, and long codes are hidden before any outside check. US phone numbers are
+              compared only with ScamCam&apos;s own scrambled copy of the FTC&apos;s list of reported numbers, never sent anywhere
+            </td>
           </tr>
           <tr>
             <td>A screenshot you add</td>
@@ -149,6 +152,11 @@ export function PrivacyPage() {
           each and checks links against them without sending the links anywhere.
         </li>
         <li>
+          <strong>The FTC&apos;s Do Not Call reports</strong> are the phone numbers people reported to the Federal Trade Commission
+          for unwanted calls. ScamCam keeps a scrambled copy of the last month and checks numbers against it without sending
+          them anywhere.
+        </li>
+        <li>
           <strong>VirusTotal, Google, urlscan.io, Cisco Talos, ScamAdviser, URLVoid, and Hybrid Analysis</strong> are linked from
           each report so you can check there too. ScamCam sends them nothing. They see the domain or fingerprint in the address
           only if you click a link, under their own privacy policies.
@@ -196,7 +204,7 @@ export function PrivacyPage() {
       <h2>Changes</h2>
       <p>
         This version takes effect on October 6, 2026. It adds result flags, the Spamhaus, PhishStats, and Cloudflare Radar
-        lookups, five more scam lists, and links to other checkers. Any change will be posted on this page with a new date.
+        lookups, five more scam lists, the FTC&apos;s list of reported phone numbers, and links to other checkers. Any change will be posted on this page with a new date.
       </p>
     </DocumentPage>
   );

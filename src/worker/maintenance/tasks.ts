@@ -1,4 +1,4 @@
-import { domainListDetails, domainListNames } from "../../engine/domain-list";
+import { domainListDetails, listNames } from "../../engine/domain-list";
 import type { BudgetedProvider } from "../../engine/scan";
 import { appStateKeys, writeAppState } from "../repositories/app-state";
 import { errorCountsSince } from "../repositories/error-events";
@@ -146,7 +146,7 @@ export async function runWeeklyMaintenance(env: AppBindings): Promise<Maintenanc
   const statuses = await domainListStatuses(env.DB);
   const checkedAt = nowInSeconds();
   const lists: Record<string, { version: string; entries: number; ageHours: number; refreshedHoursAgo: number } | null> = Object.fromEntries(
-    domainListNames.map((name) => {
+    listNames.map((name) => {
       const status = statuses.get(name);
       return [
         name,
@@ -161,11 +161,11 @@ export async function runWeeklyMaintenance(env: AppBindings): Promise<Maintenanc
       ];
     }),
   );
-  const staleLists = domainListNames.filter((name) => {
+  const staleLists = listNames.filter((name) => {
     const status = statuses.get(name);
     return status !== undefined && checkedAt - status.syncedAt > domainListDetails[name].alertAfterDays * 86_400;
   });
-  const missingLists = domainListNames.filter((name) => !statuses.has(name));
+  const missingLists = listNames.filter((name) => !statuses.has(name));
   const lateLists = [...statuses.values()].filter((status) => checkedAt - status.refreshedAt > alertThresholds.listSyncLateSeconds);
   const flags = await waitingFlags(env.DB, checkedAt);
   const alerts = [

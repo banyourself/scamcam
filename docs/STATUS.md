@@ -42,6 +42,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | Result flags | 2026-10-06 | "Flag result as incorrect" on every report: four reasons and a short note, kept 30 days for my review with `npm run flags`; never read by the scan engine |
 | More scam lists | 2026-10-06 | MetaMask, ScamSniffer, PhishDestroy, DevSpen's Discord and Steam list, and CERT Polska, next to Phishing.Database, checked in two D1 queries |
 | Spamhaus, PhishStats, Cloudflare Radar | 2026-10-06 | In the scanner; each starts once its secret is set |
+| Phone numbers and callback scams | 2026-10-06 | Fake order and voicemail callback rules, and US numbers compared with a hashed copy of the FTC's Do Not Call reports, never sent anywhere |
 | Outside checkers | 2026-10-06 | Reports link to VirusTotal, Google, urlscan.io, Cisco Talos, ScamAdviser, URLVoid, and Hybrid Analysis for the visitor to open |
 | Newer checks | 2026-10-06 | Redirect wrappers decoded, Cloudflare's 1.1.1.2 security filter, copy-paste command, command, wallet, and reply-to-activate rules, brand mismatch between a message and its links, and abused endings ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#checks-added-on-2026-10-06)) |
 
@@ -113,8 +114,8 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Check | Latest recorded result |
 |---|---|
-| Vitest (worker, engine, and client projects) | 610 tests in 40 files pass (2026-10-06, after moving Spamhaus to DNS over HTTPS) |
-| Node config and script tests (`npm run test:config`) | 17 pass |
+| Vitest (worker, engine, and client projects) | 621 tests in 41 files pass (2026-10-06, with phone checks, callback rules, and the text box changes) |
+| Node config and script tests (`npm run test:config`) | 18 pass |
 | Accessibility (`npm run test:a11y`) | Passes; 60 axe-core checks, including the open flag form in both themes at both widths |
 | Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot, file, flag (scan, flag, confirmation), and share steps |
 | Recovery drill (`npm run test:recovery`) | All 9 tables matched after export and restore, including shared reports, flags, and two lists; export 1.1 s (645 KB), restore 3.3 s (2026-10-06) |

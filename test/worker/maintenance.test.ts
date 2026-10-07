@@ -4,7 +4,7 @@ import worker from "../../src/worker/index";
 import { cronSchedule, runMaintenance, taskForCron } from "../../src/worker/maintenance/tasks";
 import { writesArePaused } from "../../src/worker/repositories/app-state";
 import { usageDay } from "../../src/worker/repositories/provider-usage";
-import { domainListKeepSeconds, domainListNames } from "../../src/engine/domain-list";
+import { domainListKeepSeconds, listNames } from "../../src/engine/domain-list";
 import { countingDatabase, freePlanSubrequestLimit } from "./counting";
 import { nowInSeconds } from "../../src/worker/retention";
 
@@ -34,7 +34,7 @@ async function insertList(list: string, syncedAt: number, refreshedAt: number) {
 
 async function insertFreshLists(except: string[] = []) {
   const now = nowInSeconds();
-  for (const list of domainListNames.filter((name) => !except.includes(name))) {
+  for (const list of listNames.filter((name) => !except.includes(name))) {
     await insertList(list, now - 3600, now - 3600);
   }
 }
@@ -113,7 +113,7 @@ describe("weekly maintenance", () => {
     expect(detail.rows.error_events).toBe(1);
     expect(detail.missingExpiry).toEqual({ error_events: 0, maintenance_runs: 0, provider_usage: 0, domain_lists: 0, domain_list_shards: 0, shared_reports: 0, result_flags: 0 });
     expect(detail.lists.phishing_database).toBeNull();
-    expect(Object.keys(detail.lists)).toHaveLength(6);
+    expect(Object.keys(detail.lists)).toHaveLength(7);
     expect(typeof detail.storage.sizeBytes === "number" || detail.storage.sizeBytes === null).toBe(true);
   });
 });

@@ -13,6 +13,7 @@ export const scamFamilyDescriptions: Record<ScamFamily, string> = {
   credential_theft: "asks for a password, login code, recovery code, or access to the account",
   command_paste: "asks the reader to paste or run a command in the Run box, PowerShell, a terminal, or the browser console, often as a fake human check",
   wallet_drainer: "asks the reader to connect, verify, or sync a crypto wallet, or to claim an airdrop or mint through a link",
+  callback_scam: "claims an order, charge, subscription, refund, or voicemail the reader did not expect and tells them to call or tap a phone number",
 };
 
 const scamLabels = Object.keys(scamFamilyDescriptions) as ScamFamily[];

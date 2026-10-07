@@ -17,6 +17,15 @@ const secretWords =
   "password|passcode|pass word|login (?:code|details|info)|2fa(?: code)?|two[- ]?factor(?: code)?|verification code|auth(?:entication|enticator)? code|backup codes?|security code|one[- ]?time (?:code|password)|otp|steam ?guard(?: code)?|seed phrase|recovery (?:phrase|code)";
 
 const runKeys = "win(?:dows)?(?: ?(?:key|button|logo key))? ?(?:\\+|plus) ?r";
+const hiddenPhone = "\\[(?:number|code) hidden\\]";
+const chargeWords = "orders?|purchases?|charged?|charges|payments?|invoices?|subscriptions?|renewals?|renewed|transactions?|refunds?|debited|billed";
+const amount = "\\$ ?\\d[\\d,]*(?:\\.\\d{2})?|\\b\\d[\\d,]*(?:\\.\\d{2})? ?(?:usd|dollars)\\b";
+const callBack =
+  "\\b(?:call|calling) (?:us|our)\\b|\\bcall (?:us )?back\\b(?! later)|\\b(?:call|dial|contact|reach)\\b(?! me\\b)[^.!?\\n]{0,30}" +
+  hiddenPhone +
+  "|\\b(?:call|contact|reach)\\b(?! me\\b)[^.!?\\n]{0,20}\\b(?:support|billing|helpline|help ?desk|customer (?:care|service|support)|toll[- ]?free|the number|this number)\\b|\\bpress (?:1|one)\\b";
+const bigCompanies =
+  "walmart|amazon|paypal|apple|icloud|microsoft|windows|geek ?squad|best ?buy|norton|mcafee|ebay|netflix|costco|target|coinbase|venmo|cash ?app|zelle|bank of america|chase|wells fargo|citi(?:bank)?|capital one|american express|amex|visa|mastercard|irs|usps|fedex|ups|dhl";
 const pasteKeys = "paste|ctrl ?(?:\\+|plus) ?v";
 const commandPlaces = "run (?:box|dialog|window)|powershell|terminal|command prompt";
 
@@ -77,6 +86,33 @@ const rules: MessageRule[] = [
       near("connect|link|sync|verify|validate|import|restore", "(?:crypto |web3 )?(?<!steam )wallets?|metamask|phantom|trust ?wallet|walletconnect|coinbase wallet"),
       near("claim|mint", "(?:the |your |an? )?(?:airdrop|free mint|nfts?|whitelist spot|wl spot)"),
     ],
+  },
+  {
+    id: "fake-voicemail",
+    strength: "strong",
+    family: "callback_scam",
+    title: "A voicemail notice that sends you to a phone number",
+    detail: "Real voicemail notices come from your phone carrier and open in your phone app. Scam texts claim someone left you a message, then give a number to call or tap, which reaches a scammer.",
+    patterns: [
+      new RegExp(`\\b(?:click|tap|call|dial|press)(?: here)?\\b[^.!?\\n]{0,10}${hiddenPhone}[^.!?\\n]{0,40}\\blisten\\b`),
+      new RegExp(`^(?=[\\s\\S]*\\b(?:deposited|left)(?: you)? an? (?:new )?(?:voice ?mail|voice message|message)\\b)(?=[\\s\\S]*\\blisten\\b)(?=[\\s\\S]*${hiddenPhone})`),
+    ],
+  },
+  {
+    id: "fake-order-callback",
+    strength: "strong",
+    family: "callback_scam",
+    title: "Claims you were charged and tells you to call",
+    detail: "Texts about an order or charge you did not make, with a number to call or \"press 1\", are a common scam. The number reaches a fake support agent who asks for payment, card details, or remote access to your computer.",
+    patterns: [new RegExp(`^(?=[\\s\\S]*\\b(?:${chargeWords})\\b)(?=[\\s\\S]*(?:${amount}))(?=[\\s\\S]*(?:${callBack}))`)],
+  },
+  {
+    id: "company-callback",
+    strength: "moderate",
+    family: "callback_scam",
+    title: "Names a well-known company and asks you to call a number",
+    detail: "Real companies point you to their official app or website, or the number on their site or your card. A number sent in a text can lead anywhere.",
+    patterns: [new RegExp(`^(?=[\\s\\S]*\\b(?:${bigCompanies})\\b)(?=[\\s\\S]*(?:${callBack}))(?=[\\s\\S]*${hiddenPhone})`)],
   },
   {
     id: "link-activation",
@@ -286,4 +322,5 @@ export const familyNames: Record<ScamFamily, string> = {
   credential_theft: "login theft",
   command_paste: "copy-paste command",
   wallet_drainer: "crypto wallet drainer",
+  callback_scam: "fake order or voicemail callback",
 };

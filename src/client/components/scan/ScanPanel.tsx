@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { ApiHealth } from "@/hooks/useApiHealth";
 import type { FileInspection } from "@/lib/file-inspect";
 import { acceptedImageTypes, ScreenshotError } from "@/lib/image-check";
-import { cleanReadText, combineWithReadText } from "@/lib/screenshot-text";
+import { cleanReadText, combineWithReadText, insertReadText } from "@/lib/screenshot-text";
 
 function statusLine(health: ApiHealth, busy: boolean): { label: string; tone: "standby" | "offline" | "live" } {
   if (busy) {
@@ -73,6 +73,7 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
   const [inspecting, setInspecting] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const anyFileInput = useRef<HTMLInputElement>(null);
+  const textBox = useRef<HTMLTextAreaElement>(null);
   const deferred = useDeferredValue(text);
   const extracted = useMemo(() => extractInput(deferred), [deferred]);
   const status = statusLine(health, busy);
@@ -85,7 +86,15 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
   ].filter(Boolean);
   const waitingForCheck = Boolean(siteKey) && !token;
 
-  async function readImage(file: File) {
+  function clearText() {
+    setText("");
+    setFromScreenshot(false);
+    setReadNote("");
+    setError("");
+    textBox.current?.focus();
+  }
+
+  async function readImage(file: File, selection?: { start: number; end: number; before: string }) {
     if (reading !== null) {
       return;
     }
@@ -99,7 +108,11 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
         setError("No text was found in that screenshot. Crop it to the message, or type the text instead.");
         return;
       }
-      setText((current) => combineWithReadText(current, result.text, result.qrTexts));
+      setText((current) =>
+        selection && current === selection.before
+          ? insertReadText(current, selection.start, selection.end, result.text, result.qrTexts)
+          : combineWithReadText(current, result.text, result.qrTexts),
+      );
       setFromScreenshot(true);
       setReadNote("Read from your screenshot on this device. Check the text and fix any mistakes, then press Check it.");
     } catch (problem) {
@@ -148,7 +161,8 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
     const other = otherFileFrom(event.clipboardData?.files);
     if (image) {
       event.preventDefault();
-      void readImage(image);
+      const box = event.currentTarget;
+      void readImage(image, { start: box.selectionStart, end: box.selectionEnd, before: box.value });
     } else if (other) {
       event.preventDefault();
       void stageFile(other);
@@ -259,6 +273,7 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
           Paste the link or message you are unsure about, or a screenshot of it
         </label>
         <Textarea
+          ref={textBox}
           id={inputId}
           name="content"
           value={text}
@@ -280,9 +295,14 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
             Never paste passwords, login codes, or your real name or address. ScamCam never needs them. Screenshots and files
             are read on your device and never uploaded.
           </p>
-          <p className="font-mono" aria-hidden="true">
-            {text.length}/{maxInputLength}
-          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="h-7 px-2" disabled={text.length === 0 || busy} onClick={clearText}>
+              Clear text
+            </Button>
+            <p className="font-mono" aria-hidden="true">
+              {text.length}/{maxInputLength}
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

@@ -5,6 +5,7 @@ import {
   domainListKey,
   domainListShardCount,
   normalizeListEntry,
+  normalizePhoneEntry,
   shardContains,
   shardOf,
 } from "../../src/engine/domain-list";
@@ -94,5 +95,16 @@ describe("domain list SQL", () => {
     const huge = new Uint8Array(8 * 7000);
     expect(() => domainListStatements({ list: "phishing_database", version: "v1", syncedAt: 1, expiresAt: 2, shards: [huge] })).toThrow(RangeError);
     expect(() => domainListStatements({ list: "phishing_database", version: "v1", syncedAt: 1.5, expiresAt: 2, shards })).toThrow(RangeError);
+  });
+});
+
+describe("phone list entries", () => {
+  it("normalizes US numbers in any common form and refuses everything else", () => {
+    for (const entry of ["4699825001", "14699825001", "+1 (469) 982-5001", "469.982.5001", " 469-982-5001 "]) {
+      expect(normalizePhoneEntry(entry), entry).toBe("+14699825001");
+    }
+    for (const entry of ["0699825001", "4691825001", "24699825001", "469982500", "+44 20 7946 0958", "not a number", ""]) {
+      expect(normalizePhoneEntry(entry), entry).toBeNull();
+    }
   });
 });

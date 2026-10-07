@@ -240,6 +240,15 @@ engine, so a bot flood cannot turn a scam site into a "no known threat" result.
 | Running past the Free plan's 50 subrequests | All three run only in the scanner; a 20-link scan there with every source on used 40 (20 fetches, 6 Spamhaus lookups, 14 queries) | `test/worker/security.test.ts` |
 | A failing source going unnoticed | Spamhaus, PhishStats, and Radar failures raise `spamhaus_unavailable`, `phishstats_unavailable`, or `radar_unavailable` with only the reason, HTTP status, and the provider's own message, with anything key-shaped hidden | `test/worker/provider-watch.test.ts` |
 
+### Phone numbers
+
+| Threat | Protection | Test |
+|---|---|---|
+| Phone numbers from a message leaking | US numbers are hidden from the text before any check, never sent to an outside service, and compared only with a hashed list in D1; the database sees only a shard number. Evidence never names the number | `test/engine/scan-phones.test.ts`, `test/client/extract.test.ts` |
+| A number in a link or a foreign number read as a US number | Numbers inside links are left alone, and only valid US numbers (area code and exchange starting 2 to 9) are kept | `test/client/extract.test.ts`, `test/engine/domain-list.test.ts` |
+| A spoofed or unverified report condemning an honest number | A match is one moderate warning that says the FTC does not check reports; it can never confirm a result | `test/engine/scan-phones.test.ts` |
+| Phone and site lists mixing | Phone names only match phone lists and site names only site lists, in the same two queries | `test/worker/domain-lists.test.ts` |
+
 ### More scam lists
 
 | Threat | Protection | Test |

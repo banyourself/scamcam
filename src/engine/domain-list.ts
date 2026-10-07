@@ -3,8 +3,16 @@ export const domainListKeyBytes = 8;
 export const domainListKeepSeconds = 10 * 24 * 60 * 60;
 
 export const domainListNames = ["phishing_database", "metamask", "scamsniffer", "phishdestroy", "scam_links", "cert_polska"] as const;
+export const phoneListNames = ["ftc_dnc"] as const;
+export const listNames = [...domainListNames, ...phoneListNames] as const;
 
 export type DomainListName = (typeof domainListNames)[number];
+export type PhoneListName = (typeof phoneListNames)[number];
+export type ListName = (typeof listNames)[number];
+
+export function isPhoneList(name: ListName): name is PhoneListName {
+  return (phoneListNames as readonly string[]).includes(name);
+}
 
 export interface DomainListDetails {
   source: string;
@@ -15,7 +23,7 @@ export interface DomainListDetails {
   alertAfterDays: number;
 }
 
-export const domainListDetails: Record<DomainListName, DomainListDetails> = {
+export const domainListDetails: Record<ListName, DomainListDetails> = {
   phishing_database: {
     source: "Phishing.Database (community list)",
     url: "https://github.com/Phishing-Database/Phishing.Database",
@@ -64,6 +72,14 @@ export const domainListDetails: Record<DomainListName, DomainListDetails> = {
     staleAfterDays: 3,
     alertAfterDays: 2,
   },
+  ftc_dnc: {
+    source: "FTC Do Not Call reports",
+    url: "https://www.ftc.gov/policy-notices/open-government/data-sets/do-not-call-data",
+    title: "A phone number in this message was reported to the FTC for unwanted calls",
+    about: "The Federal Trade Commission publishes the numbers people report for unwanted calls and robocalls. It does not check the reports.",
+    staleAfterDays: 10,
+    alertAfterDays: 5,
+  },
 };
 
 export type DomainListResult =
@@ -72,7 +88,7 @@ export type DomainListResult =
   | { status: "not_configured" }
   | { status: "unavailable" };
 
-export type DomainListResults = Map<DomainListName, DomainListResult>;
+export type DomainListResults = Map<ListName, DomainListResult>;
 
 export interface DomainListLookup {
   lookup(names: string[]): Promise<DomainListResults>;
@@ -87,6 +103,12 @@ export function normalizeListEntry(line: string): string | null {
     return null;
   }
   return hostnamePattern.test(entry) || ipv4Pattern.test(entry) ? entry : null;
+}
+
+export function normalizePhoneEntry(line: string): string | null {
+  const digits = line.trim().replace(/^\+/, "").replace(/[\s().-]/g, "");
+  const national = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  return /^[2-9]\d{2}[2-9]\d{6}$/.test(national) ? `+1${national}` : null;
 }
 
 export async function domainListKey(name: string): Promise<Uint8Array> {

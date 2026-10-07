@@ -1,14 +1,14 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { buildShards, domainListKeepSeconds, domainListNames, normalizeListEntry, type DomainListName } from "../src/engine/domain-list.ts";
+import { buildShards, domainListKeepSeconds, isPhoneList, listNames, normalizeListEntry, normalizePhoneEntry, type ListName } from "../src/engine/domain-list.ts";
 import { domainListStatements } from "../src/worker/repositories/domain-list-sql.ts";
 
 const formats = ["text", "json-array", "metamask"] as const;
 
 type ListFormat = (typeof formats)[number];
 
-function isListName(value: string): value is DomainListName {
-  return (domainListNames as readonly string[]).includes(value);
+function isListName(value: string): value is ListName {
+  return (listNames as readonly string[]).includes(value);
 }
 
 function isFormat(value: string): value is ListFormat {
@@ -43,7 +43,7 @@ async function main(): Promise<number> {
   const { input, out, list, format } = values;
   if (!input || !out || !isListName(list) || !isFormat(format)) {
     console.error(
-      `Usage: node scripts/domain-list.ts --input <file> --out <list.sql> [--list ${domainListNames.join("|")}] [--format ${formats.join("|")}] [--version <id>] [--synced-at <unix seconds>] [--min-entries <n>] [--max-entries <n>]`,
+      `Usage: node scripts/domain-list.ts --input <file> --out <list.sql> [--list ${listNames.join("|")}] [--format ${formats.join("|")}] [--version <id>] [--synced-at <unix seconds>] [--min-entries <n>] [--max-entries <n>]`,
     );
     return 2;
   }
@@ -54,9 +54,10 @@ async function main(): Promise<number> {
   const maxEntries = Number(values["max-entries"]);
   const lines = entriesOf(readFileSync(input, "utf8"), format);
   const names: string[] = [];
+  const normalize = isPhoneList(list) ? normalizePhoneEntry : normalizeListEntry;
   let invalid = 0;
   for (const line of lines) {
-    const name = normalizeListEntry(line);
+    const name = normalize(line);
     if (name) {
       names.push(name);
     } else if (line.trim() !== "" && !line.trim().startsWith("#")) {

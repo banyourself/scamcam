@@ -50,8 +50,10 @@ export function HowItWorksPage() {
         <li>
           <strong>Read the message.</strong> Urgency, threats, requests for logins, QR codes, or payment, and stories
           that match known scam scripts, including fake &quot;verify you are human&quot; steps that ask you to paste a
-          command, crypto wallet drainers, and texts that ask you to reply so a link will work. ScamCam also notices when a
-          message names a service like Steam or Discord but links somewhere else.
+          command, crypto wallet drainers, texts that ask you to reply so a link will work, and fake order or voicemail
+          texts that tell you to call a number. ScamCam also notices when a message names a service like Steam or Discord
+          but links somewhere else. US phone numbers stay hidden and are compared only with ScamCam&apos;s own scrambled copy
+          of the FTC&apos;s list of numbers people reported for unwanted calls.
         </li>
         <li>
           <strong>Only if it is still unclear,</strong> a small AI model reads the message, with emails, phone numbers,

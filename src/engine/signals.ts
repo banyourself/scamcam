@@ -13,7 +13,8 @@ export type ScamFamily =
   | "payment_pressure"
   | "credential_theft"
   | "command_paste"
-  | "wallet_drainer";
+  | "wallet_drainer"
+  | "callback_scam";
 
 export interface Signal {
   id: string;
@@ -46,6 +47,7 @@ export const sourceNames = {
   threatfox: "ThreatFox (abuse.ch)",
   phishingDatabase: "Phishing.Database (community list)",
   scamLists: "Community scam lists",
+  phoneReports: "FTC Do Not Call reports",
   spamhaus: "Spamhaus DBL and ZRD",
   phishstats: "PhishStats",
   radar: "Cloudflare Radar domain ranking",

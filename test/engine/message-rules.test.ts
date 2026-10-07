@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyzeMessage, foldLeetspeak } from "../../src/engine/message-rules";
+import { extractInput } from "../../src/shared/extract";
 
 function ids(text: string): string[] {
   return analyzeMessage(text).signals.map((signal) => signal.id.replace("message-", ""));
@@ -63,5 +64,34 @@ describe("message rules", () => {
 
   it("folds leetspeak only inside words", () => {
     expect(foldLeetspeak("fr33 n1tr0 for 100 people")).toBe("free nitro for 100 people");
+  });
+});
+
+describe("callback scam rules", () => {
+  const redacted = (text: string) => extractInput(text).redactedText;
+
+  it("catches fake order, charge, and voicemail texts that send you to a phone number", () => {
+    const walmart =
+      '17607662951 Deposited a new message: "This notification relates to an HP Specter X 360 14 inch order for approximately $999. Open your Walmart account through the official app or website to review the purchase details. Please call us back or press 1 to speak with a Walmart customer support representative." Click here: 14699825001 to listen to full voice message.';
+    expect(ids(redacted(walmart))).toEqual(expect.arrayContaining(["fake-voicemail", "fake-order-callback", "company-callback"]));
+    expect(analyzeMessage(redacted(walmart)).families).toEqual(["callback_scam"]);
+    expect(ids(redacted("Your Norton subscription has been renewed for $399.99. If you did not authorize this, call our billing team at (855) 712-4433."))).toEqual(
+      expect.arrayContaining(["fake-order-callback", "company-callback"]),
+    );
+    expect(ids(redacted("PayPal: a payment of $649.00 to Coinbase was approved. Not you? Call 1-888-614-2077 now."))).toContain("fake-order-callback");
+    expect(ids(redacted("You have 1 new voicemail. Tap here: 213-555-0142 to listen."))).toContain("fake-voicemail");
+  });
+
+  it("leaves ordinary messages about orders, calls, and voicemail alone", () => {
+    for (const text of [
+      "I ordered pizza for $20, call me back when you're free",
+      "my order of $35 shipped today, I'll call you later",
+      "she left a message, listen to it when you can",
+      "You have a new voicemail. Call *86 to listen.",
+      "the skin was $15 on the market, call me at 714-555-0199 if you want it",
+      "Amazon says my package is late, call me after work",
+    ]) {
+      expect(ids(redacted(text)).filter((id) => ["fake-voicemail", "fake-order-callback", "company-callback"].includes(id)), text).toEqual([]);
+    }
   });
 });

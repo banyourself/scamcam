@@ -13,7 +13,7 @@ documentation checked on 2026-10-05; re-check before launch.
 | Subrequests | 50 per request (and per cron run); outside fetches, D1 queries, and Cache API calls all count | That call fails | At most 44 per scan in the Worker fallback and 40 in the scanner (measured with 20 links and every source on), 6.7 on average for the benchmark; daily cleanup under 35 |
 | Cron triggers | 5 per account | Cannot add more | ScamCam uses 3 |
 | Workers Logs | 200,000 events per day, kept 3 days | Logging stops | One log line per API request |
-| D1 | 5 million rows read and 100,000 written per day; 500 MB per database; 50 queries per Worker invocation | Queries error until 00:00 UTC; inserts blocked when full | Writes only for errors, maintenance, provider counts, flags (at most 200 a day), and the six scam lists (1,025 rows each, about 6,150 rows a day, roughly 10 MB stored in all); at most 9 queries per scan in the Worker and 14 in the scanner |
+| D1 | 5 million rows read and 100,000 written per day; 500 MB per database; 50 queries per Worker invocation | Queries error until 00:00 UTC; inserts blocked when full | Writes only for errors, maintenance, provider counts, flags (at most 200 a day), and the seven lists (1,025 rows each, about 7,175 rows a day, roughly 12 MB stored in all); at most 9 queries per scan in the Worker and 14 in the scanner |
 | KV | 100,000 reads and 1,000 writes per day | That operation fails | Not used yet |
 | Workers AI | 10,000 neurons per day on Free and Paid | Calls fail on Free; billed at $0.011 per 1,000 neurons on Paid | Unclear messages only, capped at 2,000 calls a day (about 4,300 neurons at 2.14 per call, under 6,400 even with the longest messages) |
 | Turnstile | Unlimited challenges, 20 widgets | n/a | One widget |

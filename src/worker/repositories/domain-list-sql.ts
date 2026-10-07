@@ -1,7 +1,7 @@
-import type { DomainListName } from "../../engine/domain-list";
+import type { ListName } from "../../engine/domain-list";
 
 export interface DomainListBuild {
-  list: DomainListName;
+  list: ListName;
   version: string;
   syncedAt: number;
   expiresAt: number;

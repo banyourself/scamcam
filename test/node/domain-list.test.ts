@@ -94,3 +94,19 @@ test("the list builder refuses an unknown list name or format", () => {
     rmSync(folder, { recursive: true, force: true });
   }
 });
+
+test("the list builder reads FTC phone numbers for the phone list and skips anything that is not a US number", () => {
+  const folder = mkdtempSync(join(tmpdir(), "scamcam-list-"));
+  try {
+    const lines = ["4699825001", "14699825001", "(469) 982-5001", "0001234567", "Company_Phone_Number", ...Array.from({ length: 120 }, (_, index) => `7145550${String(index).padStart(3, "0")}`)];
+    writeFileSync(join(folder, "ftc.txt"), lines.join(String.fromCharCode(10)));
+    const summary = JSON.parse(
+      execFileSync(process.execPath, [script, "--input", join(folder, "ftc.txt"), "--out", join(folder, "ftc.sql"), "--list", "ftc_dnc", "--version", "ftc-20261006", "--min-entries", "100"], { encoding: "utf8" }),
+    ) as { unique: number; invalid: number; list: string };
+    assert.deepEqual([summary.unique, summary.invalid, summary.list], [121, 2, "ftc_dnc"]);
+    assert.match(readFileSync(join(folder, "ftc.sql"), "utf8"), /VALUES \('ftc_dnc', 'ftc-20261006', 121,/);
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+});
+

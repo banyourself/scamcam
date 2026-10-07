@@ -50,6 +50,7 @@ const familyAdvice: Record<ScamFamily, string> = {
   credential_theft: "Never type your password into a page you reached from a link. Open the site yourself instead.",
   command_paste: "Never paste a command someone gives you into the Run box, PowerShell, or a terminal. Real human checks never ask for that.",
   wallet_drainer: "Never connect your wallet or sign anything on a site someone sent you. Check the project's official account yourself.",
+  callback_scam: "Do not call the number in the message. Check your orders in the company's official app or website, and if you need to call, use the number on its website or on your card.",
 };
 
 function recommendationsFor(level: RiskLevel, families: ScamFamily[], brandIds: string[], linksFromPicture: boolean): string[] {

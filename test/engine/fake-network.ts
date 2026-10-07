@@ -1,5 +1,5 @@
 import { dohEndpoint, filteredDohEndpoint } from "../../src/engine/dns";
-import type { DomainListLookup, DomainListName, DomainListResults } from "../../src/engine/domain-list";
+import type { DomainListLookup, DomainListResults, ListName } from "../../src/engine/domain-list";
 import { hashlookupEndpoint, malwareBazaarEndpoint, mhrZone } from "../../src/engine/hash-lookups";
 import { phishstatsEndpoint } from "../../src/engine/phishstats";
 import { radarEndpoint } from "../../src/engine/radar";
@@ -159,12 +159,12 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
 
 export const allowAllBudgets = async () => true;
 
-export function listsOf(entries: Partial<Record<DomainListName, string[]>>, asked: string[][] = [], syncedAt = Math.floor(Date.now() / 1000)): DomainListLookup {
+export function listsOf(entries: Partial<Record<ListName, string[]>>, asked: string[][] = [], syncedAt = Math.floor(Date.now() / 1000)): DomainListLookup {
   return {
     async lookup(requested: string[]): Promise<DomainListResults> {
       asked.push(requested);
       return new Map(
-        Object.entries(entries).map(([list, names]) => [list as DomainListName, { status: "ok" as const, listed: new Set(requested.filter((name) => names!.includes(name))), syncedAt }]),
+        Object.entries(entries).map(([list, names]) => [list as ListName, { status: "ok" as const, listed: new Set(requested.filter((name) => names!.includes(name))), syncedAt }]),
       );
     },
   };

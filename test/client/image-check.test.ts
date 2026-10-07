@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkImageBytes, maxImageBytes } from "../../src/client/lib/image-check";
-import { cleanReadText, combineWithReadText } from "../../src/client/lib/screenshot-text";
+import { cleanReadText, combineWithReadText, insertReadText } from "../../src/client/lib/screenshot-text";
 import { maxInputLength } from "../../src/shared/extract";
 
 const bytes = (...parts: (number[] | string)[]) =>
@@ -101,5 +101,15 @@ describe("text read from screenshots", () => {
     );
     expect(combineWithReadText("", "x".repeat(maxInputLength * 2), []).length).toBe(maxInputLength);
     expect(combineWithReadText("", "", [`https://a.example/${"y".repeat(2000)}\n<script>`])).toHaveLength(9 + 500);
+  });
+
+  it("replaces selected text with a pasted screenshot, the way pasting text does", () => {
+    const old = "https://zoomusinvite2.pages.dev/";
+    expect(insertReadText(old, 0, old.length, "dbltest.com", [])).toBe("dbltest.com");
+    expect(insertReadText("is this real? old text", 14, 22, "Free nitro at discord-gift.example", [])).toBe("is this real?\n\nFree nitro at discord-gift.example");
+    expect(insertReadText("first line\nlast line", 11, 11, "read text", ["https://a.example/"])).toBe("first line\n\nread text\n\nQR code: https://a.example/\n\nlast line");
+    expect(insertReadText("typed", 5, 5, "read", [])).toBe(combineWithReadText("typed", "read", []));
+    expect(insertReadText("typed", 40, -3, "read", [])).toBe("read");
+    expect(insertReadText("y".repeat(maxInputLength), 0, 0, "x".repeat(50), []).length).toBe(maxInputLength);
   });
 });

@@ -3,6 +3,26 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-06: Phone number checks, callback scam rules, and the text box
+
+- **Fake order and voicemail callback scams.** A text claiming a $999 Walmart laptop order, with "call us back or press
+  1" and a "voicemail" number to tap, was rated No known threat: it had no links, and both numbers were hidden as
+  codes. Three new rules now catch this family: a voicemail notice that sends you to a phone number, a claimed order or
+  charge with an amount and a number to call, and a well-known company named next to a number to call. The family has
+  its own advice: do not call the number, and check orders in the official app or website.
+- **US phone numbers** without dashes are now labeled as phone numbers instead of codes. They stay hidden from the
+  text, the AI step, and every outside service.
+- **FTC Do Not Call reports.** The daily sync now also downloads the last 30 days of the FTC's reported-calls files
+  (212,239 unique numbers) into a hashed list. Numbers from a message are compared inside ScamCam and never sent
+  anywhere; a match is one moderate warning, since the FTC does not verify reports and callers can fake numbers. The
+  callback number in the Walmart text had been reported to the FTC twice on 2026-09-21. Migration `0007` allows the
+  new list.
+- **Text box.** A small Clear text button empties the box and puts the cursor back in it. Pasting a screenshot over
+  selected text now replaces the selection, the way pasting text does, instead of adding to it.
+- Verified: 621 Vitest tests in 41 files and 18 Node tests pass, the browser privacy check pastes a screenshot over
+  selected text and presses Clear text, the accessibility audit passes, and the restore drill matches every table with
+  seven migrations.
+
 ## 2026-10-06: Spamhaus and PhishStats fixes after release
 
 - **Spamhaus** never answered in production. The logs showed why: Cloudflare refuses Workers' TCP connections to outside

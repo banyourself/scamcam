@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { memoryLookups } from "../../src/engine/cache";
-import { buildShards, domainListDetails, domainListKeepSeconds, domainListKey, shardOf, type DomainListName } from "../../src/engine/domain-list";
+import { buildShards, domainListDetails, domainListKeepSeconds, domainListKey, shardOf, type DomainListName, type ListName } from "../../src/engine/domain-list";
 import { runDailyMaintenance, runWeeklyMaintenance } from "../../src/worker/maintenance/tasks";
 import { domainListStatements } from "../../src/worker/repositories/domain-list-sql";
 import { d1DomainLists } from "../../src/worker/repositories/domain-lists";
@@ -10,7 +10,7 @@ import { countingDatabase } from "./counting";
 
 const listed = ["cheap-skins.example", "steam-gift.example", "login.free-nitro.example"];
 
-async function loadList(version: string, syncedAt: number, names = listed, list: DomainListName = "phishing_database") {
+async function loadList(version: string, syncedAt: number, names = listed, list: ListName = "phishing_database") {
   const statements = domainListStatements({
     list,
     version,
@@ -121,5 +121,18 @@ describe("scam lists in D1", () => {
     expect(daily.deleted).toMatchObject({ domain_lists: 1, domain_list_shards: 1024 });
     const left = await env.DB.prepare("SELECT COUNT(*) AS total FROM domain_list_shards").first<{ total: number }>();
     expect(left?.total).toBe(0);
+  });
+
+  it("checks phone numbers against the FTC list in the same two queries, never against site lists", async () => {
+    const now = nowInSeconds();
+    await loadList("v1", now, [...listed, "+14699825001"]);
+    await loadList("ftc-1", now, ["+14699825001", "+12025550123"], "ftc_dnc");
+    const counter = { queries: 0 };
+    const results = await d1DomainLists(countingDatabase(env.DB, counter), memoryLookups()).lookup(["steam-gift.example", "+14699825001", "+17145550199"]);
+    expect(counter.queries).toBe(2);
+    const reports = results.get("ftc_dnc");
+    expect(reports?.status === "ok" && [...reports.listed]).toEqual(["+14699825001"]);
+    const sites = results.get("phishing_database");
+    expect(sites?.status === "ok" && [...sites.listed]).toEqual(["steam-gift.example"]);
   });
 });

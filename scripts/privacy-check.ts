@@ -404,7 +404,7 @@ function checkBundle(): string[] {
 const screenshotScript = `(() => {
   window.__violations = [];
   document.addEventListener("securitypolicyviolation", (event) => window.__violations.push(event.violatedDirective + " " + event.blockedURI));
-  window.__paste = async (kind) => {
+  window.__paste = async (kind, keep = "") => {
     let file;
     if (kind === "light" || kind === "dark") {
       const canvas = document.createElement("canvas");
@@ -430,8 +430,11 @@ const screenshotScript = `(() => {
     const data = new DataTransfer();
     data.items.add(file);
     const box = document.querySelector("textarea");
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(box, "");
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(box, keep);
     box.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    box.focus();
+    box.select();
     box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
   };
 })()`;
@@ -533,6 +536,17 @@ async function checkScreenshots(): Promise<string[]> {
         const alert = await cdp.evaluate<string>(`document.querySelector("[role=alert]")?.textContent ?? ""`);
         failures.push(`the ${kind} screenshot was not read (box: ${JSON.stringify(value)}, alert: ${JSON.stringify(alert)})`);
       }
+    }
+    await cdp.evaluate(`window.__paste("light", "replace-me-old-text")`);
+    try {
+      await waitFor(cdp, `${box}.includes("steam-trade-probe.example")`);
+      if ((await cdp.evaluate<string>(box)).includes("replace-me-old-text")) {
+        failures.push("a screenshot pasted over selected text kept the old text");
+      }
+      await cdp.evaluate(`[...document.querySelectorAll("button")].find((button) => button.textContent.trim() === "Clear text").click()`);
+      await waitFor(cdp, `${box} === "" && document.activeElement === document.querySelector("textarea")`);
+    } catch {
+      failures.push("pasting a screenshot over selected text, or the Clear text button, did not work");
     }
     await cdp.evaluate(`window.__paste("qrcard")`);
     try {

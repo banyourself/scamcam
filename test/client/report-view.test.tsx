@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { FlagControls } from "@/components/report/FlagControls";
 import { ReportView } from "@/components/report/ReportView";
+import { ScanPanel } from "@/components/scan/ScanPanel";
 import { previewReports } from "@/preview-reports";
 import { ScanReportSchema } from "../../src/shared/report-schema";
 import { riskLabels } from "../../src/shared/report";
@@ -79,5 +80,12 @@ describe("FlagControls", () => {
     expect(html).toContain("Think this result is wrong?");
     expect(html).toContain("Flag result as incorrect");
     expect(html).toContain("never changes any result by itself");
+  });
+});
+
+describe("ScanPanel", () => {
+  it("offers a small Clear text button that is off while the box is empty", () => {
+    const html = renderToStaticMarkup(<ScanPanel health={{ state: "checking" }} onReport={() => undefined} />);
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Clear text<\/button>/);
   });
 });
