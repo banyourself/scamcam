@@ -8,7 +8,9 @@ teenagers. The design goal is to keep nothing that is not needed.
 | Data | Why | Stored? |
 |---|---|---|
 | Submitted message text | To find links and scam patterns | No. Processed in memory and discarded |
-| US phone numbers in a message | To compare them with the FTC's list of numbers reported for unwanted calls | No. Hidden from the text and from every outside service; normalized (`+1` and 10 digits) and compared with a hashed copy of the list in D1, so only a shard number (10 bits of a hash) reaches the database |
+| Wallet addresses in a message | To compare them with ScamSniffer's list of scam wallets | No. Compared with a hashed copy of the list in D1, like phone numbers; never sent to an outside service |
+| An email file the visitor adds | To read the message and the receiving server's sender checks | Never uploaded. The browser sends the text a visitor could paste (sender name, subject, body), the sender's domain, the SPF, DKIM, and DMARC results, a flag for replies to another domain, and each attachment's type, ending, and finding codes. Addresses, recipients, attachment names, and attachments stay on the device |
+| US phone numbers in a message | To compare them with the FTC's and FCC's lists of numbers reported for unwanted calls | No. Hidden from the text and from every outside service; normalized (`+1` and 10 digits) and compared with a hashed copy of the list in D1, so only a shard number (10 bits of a hash) reaches the database |
 | A file the visitor checks | To find its real type and warning signs, and to look up its fingerprints | Never uploaded. The browser sends only SHA-256 and SHA-1 fingerprints, size, type, extension, and fixed finding codes. Nothing is stored; lookup answers are cached in memory for up to a day under hashed keys |
 | Submitted URL | To check its domain and reputation | Not raw. Only a keyed hash or the registrable domain when an indicator must be cached |
 | IP address | Rate limiting, Turnstile | Not by ScamCam. Passed to the Cloudflare rate limiter and Turnstile, which do not store it for us |
@@ -38,10 +40,12 @@ history, screenshots, cookies other than strictly necessary security cookies fro
 | Spamhaus DQS (DBL and ZRD), through Cloudflare's DNS over HTTPS resolver | The registrable domain inside a DNS name that also holds ScamCam's access key, sent in a request body to Cloudflare's resolver, which asks Spamhaus | Up to 3 domains per scan (6 lookups), only in the scanner, when the key is set; never logged by ScamCam. Cloudflare says it deletes resolver logs within 25 hours |
 | PhishStats | The registrable domain, or the exact host for tenants of shared hosting | The main link only, only in the scanner, when the key is set; at most 140 a day |
 | Cloudflare Radar | The registrable domain only | Up to 2 per scan, only in the scanner, when the token is set; never for shared hosting |
+| Discord | The invite code from a Discord invite link | Up to 2 per scan, only in the scanner; answers kept in memory for an hour |
+| Steam (Valve) | The profile name or account number from a steamcommunity.com link, with ScamCam's API key | Up to 2 accounts per scan (at most 4 calls), only in the scanner, when the key is set; answers kept in memory for an hour |
 | VirusTotal, Google Safe Browsing site status, urlscan.io, Cisco Talos, ScamAdviser, URLVoid, Hybrid Analysis | Nothing from ScamCam. The report links to their public pages; they see the domain or fingerprint in the address only if the visitor clicks | Only when the visitor clicks |
 | Cloudflare Turnstile | The Turnstile token and the visitor's IP address | Every scan |
 | Workers AI | The message with emails, phone numbers, long codes, and invisible characters removed and links replaced by `[link]`; names and usernames stay | Only when the rules cannot decide and the message does not try to instruct checkers; Cloudflare says it does not store this content or use it to train models |
-| Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen (GitHub), CERT Polska, and the FTC's Do Not Call reports | Nothing from users. A daily GitHub Actions job downloads the public lists | Daily |
+| Phishing.Database, MetaMask, ScamSniffer (sites and wallets), PhishDestroy, DevSpen (GitHub), CERT Polska, the FTC's Do Not Call reports, and the FCC's consumer complaints | Nothing from users. A daily GitHub Actions job downloads the public lists | Daily |
 
 ## Children
 

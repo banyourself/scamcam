@@ -1,3 +1,4 @@
+import { discordInviteEndpoint } from "../../src/engine/discord-invite";
 import { dohEndpoint, filteredDohEndpoint } from "../../src/engine/dns";
 import type { DomainListLookup, DomainListResults, ListName } from "../../src/engine/domain-list";
 import { hashlookupEndpoint, malwareBazaarEndpoint, mhrZone } from "../../src/engine/hash-lookups";
@@ -6,6 +7,7 @@ import { radarEndpoint } from "../../src/engine/radar";
 import { rdapBootstrapUrl } from "../../src/engine/rdap";
 import { safeBrowsingEndpoint } from "../../src/engine/safe-browsing";
 import type { DnsAnswer, DnsTransport } from "../../src/engine/spamhaus";
+import { steamApiBase } from "../../src/engine/steam";
 import { threatfoxEndpoint } from "../../src/engine/threatfox";
 import { urlhausHostEndpoint } from "../../src/engine/urlhaus";
 import { protobufResponse, type SearchResponseFixture } from "./safe-browsing-wire";
@@ -28,9 +30,34 @@ export interface FakeNetworkOptions {
   phishstats?: { url: string; host: string; date: string; rank_host?: number | null }[];
   phishstatsStatus?: number;
   radar?: Record<string, { rank?: number; bucket?: string; categories?: string[] }>;
+  discord?: Record<string, FakeDiscordServer>;
+  discordStatus?: number;
+  steam?: Record<string, FakeSteamAccount>;
+  steamVanity?: Record<string, string>;
+  steamStatus?: number;
   down?: boolean;
   now?: Date;
 }
+
+export interface FakeDiscordServer {
+  name?: string;
+  createdDaysAgo?: number;
+  features?: string[];
+  members?: number;
+  groupChat?: boolean;
+}
+
+export interface FakeSteamAccount {
+  economyBan?: string;
+  communityBanned?: boolean;
+  vacBans?: number;
+  gameBans?: number;
+  name?: string;
+  createdDaysAgo?: number;
+  visibility?: number;
+}
+
+const discordEpoch = 1420070400000;
 
 export interface FakeNetwork {
   fetcher: typeof fetch;
@@ -148,6 +175,73 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
           meta: { dateRange: [{ startTime: "2026-09-28T00:00:00Z", endTime: "2026-10-05T00:00:00Z" }] },
         },
       });
+    }
+    if (url.startsWith(discordInviteEndpoint)) {
+      if (options.discordStatus) {
+        return json({ message: "You are being rate limited.", retry_after: 1, global: false }, options.discordStatus);
+      }
+      const code = decodeURIComponent(new URL(url).pathname.split("/").at(-1) ?? "");
+      const server = options.discord?.[code];
+      if (!server) {
+        return json({ message: "Unknown Invite", code: 10006 }, 404);
+      }
+      if (server.groupChat) {
+        return json({ type: 1, code, channel: { id: "1", type: 3, name: "group" }, approximate_member_count: 3 });
+      }
+      const created = now.getTime() - (server.createdDaysAgo ?? 1500) * 86_400_000;
+      const id = (BigInt(created - discordEpoch) << 22n).toString();
+      return json({
+        type: 0,
+        code,
+        guild: { id, name: server.name ?? "Friendly Gamers", features: server.features ?? ["COMMUNITY"], description: null },
+        approximate_member_count: server.members ?? 120,
+        approximate_presence_count: 10,
+      });
+    }
+    if (url.startsWith(steamApiBase)) {
+      if (options.steamStatus) {
+        return new Response("<html><body>Forbidden</body></html>", { status: options.steamStatus, headers: { "Content-Type": "text/html" } });
+      }
+      const parsed = new URL(url);
+      if (parsed.pathname.endsWith("/ResolveVanityURL/v1/")) {
+        const steamid = options.steamVanity?.[parsed.searchParams.get("vanityurl") ?? ""];
+        return json({ response: steamid ? { steamid, success: 1 } : { success: 42, message: "No match" } });
+      }
+      const ids = (parsed.searchParams.get("steamids") ?? "").split(",").filter((id) => options.steam?.[id]);
+      if (parsed.pathname.endsWith("/GetPlayerBans/v1/")) {
+        return json({
+          players: ids.map((id) => {
+            const account = options.steam![id]!;
+            return {
+              SteamId: id,
+              CommunityBanned: account.communityBanned ?? false,
+              VACBanned: (account.vacBans ?? 0) > 0,
+              NumberOfVACBans: account.vacBans ?? 0,
+              DaysSinceLastBan: 0,
+              NumberOfGameBans: account.gameBans ?? 0,
+              EconomyBan: account.economyBan ?? "none",
+            };
+          }),
+        });
+      }
+      if (parsed.pathname.endsWith("/GetPlayerSummaries/v2/")) {
+        return json({
+          response: {
+            players: ids.map((id) => {
+              const account = options.steam![id]!;
+              const visibility = account.visibility ?? 3;
+              return {
+                steamid: id,
+                communityvisibilitystate: visibility,
+                profilestate: 1,
+                personaname: account.name ?? "Player",
+                profileurl: `https://steamcommunity.com/profiles/${id}/`,
+                ...(visibility === 3 ? { timecreated: Math.floor((now.getTime() - (account.createdDaysAgo ?? 2000) * 86_400_000) / 1000) } : {}),
+              };
+            }),
+          },
+        });
+      }
     }
     if (url.includes("challenges.cloudflare.com")) {
       return json(options.turnstile ?? { success: true, hostname: "scamcam.kevinle.tech", action: "scan" });

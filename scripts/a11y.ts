@@ -89,6 +89,17 @@ async function auditReportFlow(cdp: Cdp, base: string): Promise<string[]> {
         continue;
       }
       failures.push(...(await checkPage(cdp, label, false)));
+      const emailLabel = `/ (email details) ${theme} ${viewport.width}px`;
+      await cdp.evaluate(
+        `(() => { const text = ["Authentication-Results: mx.example.net; spf=fail; dkim=none; dmarc=fail", "From: Steam Support <a@steam-security-alert.example>", "Subject: Locked", "", "Verify now."].join("\\r\\n"); const data = new DataTransfer(); data.items.add(new File([text], "mail.eml", { type: "message/rfc822" })); document.querySelector("textarea").dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true })); })()`,
+      );
+      try {
+        await waitFor(cdp, `Boolean(document.querySelector('section[aria-label="Email details"]'))`);
+        failures.push(...(await checkPage(cdp, emailLabel, false)));
+      } catch {
+        failures.push(`${emailLabel}: the email details did not appear`);
+        console.log(`FAIL  ${emailLabel}`);
+      }
       const flagLabel = `/ (report, flag form) ${theme} ${viewport.width}px`;
       const opened = await cdp.evaluate<boolean>(
         `(() => { const button = [...document.querySelectorAll("button")].find((item) => item.textContent.trim() === "Flag result as incorrect"); button?.click(); return Boolean(button); })()`,

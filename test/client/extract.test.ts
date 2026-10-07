@@ -64,6 +64,15 @@ describe("extractInput", () => {
     expect(extractInput(Array.from({ length: 8 }, (_, index) => `714555010${index}`).join(" ")).phones).toHaveLength(5);
   });
 
+  it("finds wallet addresses in lowercase, including inside links, and leaves longer hex strings alone", () => {
+    const wallet = `0x${"7538fd1e30".repeat(4)}`;
+    const upper = `0x${"ABCDEF0123".repeat(4)}`;
+    const result = extractInput(`send 0.5 ETH to ${wallet}, or ${upper}. Tx: 0x${"f".repeat(64)} https://etherscan.io/address/${wallet}`);
+    expect(result.wallets).toEqual([wallet, upper.toLowerCase()]);
+    expect(result.redactedText).toContain(wallet);
+    expect(extractInput(Array.from({ length: 8 }, (_, index) => `0x${String(index).repeat(40)}`).join(" ")).wallets).toHaveLength(5);
+  });
+
   it("returns nothing for plain text", () => {
     expect(extractInput("gg wp, see you tomorrow").links).toEqual([]);
   });

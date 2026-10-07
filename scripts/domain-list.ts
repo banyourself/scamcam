@@ -1,9 +1,9 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { buildShards, domainListKeepSeconds, isPhoneList, listNames, normalizeListEntry, normalizePhoneEntry, type ListName } from "../src/engine/domain-list.ts";
+import { buildShards, domainListKeepSeconds, listNames, normalizerFor, type ListName } from "../src/engine/domain-list.ts";
 import { domainListStatements } from "../src/worker/repositories/domain-list-sql.ts";
 
-const formats = ["text", "json-array", "metamask"] as const;
+const formats = ["text", "json-array", "metamask", "scamsniffer-addresses"] as const;
 
 type ListFormat = (typeof formats)[number];
 
@@ -20,9 +20,14 @@ function entriesOf(raw: string, format: ListFormat): string[] {
     return raw.split(/\r?\n/);
   }
   const parsed: unknown = JSON.parse(raw);
-  const list = format === "metamask" ? (parsed as { blacklist?: unknown } | null)?.blacklist : parsed;
+  const list =
+    format === "metamask"
+      ? (parsed as { blacklist?: unknown } | null)?.blacklist
+      : format === "scamsniffer-addresses"
+        ? (parsed as { address?: unknown } | null)?.address
+        : parsed;
   if (!Array.isArray(list)) {
-    throw new TypeError(`The ${format} input does not contain a list of domains`);
+    throw new TypeError(`The ${format} input does not contain a list of entries`);
   }
   return list.filter((entry): entry is string => typeof entry === "string");
 }
@@ -54,7 +59,7 @@ async function main(): Promise<number> {
   const maxEntries = Number(values["max-entries"]);
   const lines = entriesOf(readFileSync(input, "utf8"), format);
   const names: string[] = [];
-  const normalize = isPhoneList(list) ? normalizePhoneEntry : normalizeListEntry;
+  const normalize = normalizerFor(list);
   let invalid = 0;
   for (const line of lines) {
     const name = normalize(line);

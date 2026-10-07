@@ -502,6 +502,90 @@ async function checkFileCheck(): Promise<string[]> {
   });
 }
 
+const emailScript = `(() => {
+  window.__stageEmail = () => {
+    const program = new Uint8Array(1024);
+    program.set([0x4d, 0x5a]);
+    program.set([0x80, 0, 0, 0], 0x3c);
+    program.set([0x50, 0x45, 0, 0], 0x80);
+    program.set([0x02, 0x01], 0x80 + 22);
+    program.set(new TextEncoder().encode("attachment-probe-content"), 512);
+    const lines = [
+      "Authentication-Results: mx.example.net; spf=fail smtp.mailfrom=probe-sender-local@steam-security-alert.example; dkim=none; dmarc=fail header.from=steam-security-alert.example",
+      "From: Steam Support <probe-sender-local@steam-security-alert.example>",
+      "To: probe.victim@example.org",
+      "Subject: Your account will be locked",
+      "Content-Type: multipart/mixed; boundary=b",
+      "",
+      "--b",
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      "Verify your account at https://steam-login.example/verify within 24 hours.",
+      "--b",
+      "Content-Type: application/octet-stream",
+      "Content-Disposition: attachment; filename=probe-attachment-name.pdf.exe",
+      "Content-Transfer-Encoding: base64",
+      "",
+      btoa(String.fromCharCode(...program)),
+      "--b--",
+      "",
+    ];
+    const file = new File([lines.join("\\r\\n")], "Locked account.eml", { type: "message/rfc822" });
+    const data = new DataTransfer();
+    data.items.add(file);
+    document.querySelector("textarea").dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  };
+})()`;
+
+async function checkEmailFile(): Promise<string[]> {
+  return withChrome(async (cdp) => {
+    const failures: string[] = [];
+    const requests: SeenRequest[] = [];
+    cdp.on("Network.requestWillBeSent", (params) => {
+      requests.push(params.request as SeenRequest);
+    });
+    await cdp.send("Network.enable");
+    await openPage(cdp, base, "/");
+    await cdp.evaluate(emailScript);
+    await cdp.evaluate("window.__stageEmail()");
+    const details = `document.querySelector('section[aria-label="Email details"]')?.textContent ?? ""`;
+    try {
+      await waitFor(cdp, `document.querySelector("textarea").value.includes("Subject: Your account will be locked") && (${details}).includes("DMARC fail")`);
+    } catch {
+      failures.push(`the email was not read on the device (${JSON.stringify((await cdp.evaluate<string>(details)).slice(0, 160))})`);
+    }
+    if (requests.some((request) => request.url === `${base}/api/v1/scans`)) {
+      failures.push("the email was checked before the button was pressed");
+    }
+    let checked = false;
+    if (!live) {
+      await waitFor(cdp, `!document.querySelector("form button[type=submit]").disabled`);
+      const before = requests.length;
+      await cdp.evaluate(`document.querySelector("form button[type=submit]").click()`);
+      await waitFor(cdp, `document.querySelector("section[aria-label=Report] #report-heading") || document.querySelector("[role=alert]")`);
+      const report = await cdp.evaluate<string>(`document.querySelector("section[aria-label=Report]")?.textContent ?? document.querySelector("[role=alert]")?.textContent ?? ""`);
+      if (!report.includes("failed its sender check") || !report.includes("Attachment 1")) {
+        failures.push(`the email report missed the faked sender or the attachment (${report.replace(/\s+/g, " ").slice(0, 300)})`);
+      }
+      const sent = JSON.parse(requests.slice(before).find((request) => request.url === `${base}/api/v1/scans`)?.postData ?? "{}") as { email?: Record<string, unknown> };
+      const fields = Object.keys(sent).sort().join(",");
+      const emailFields = Object.keys(sent.email ?? {}).sort().join(",");
+      if (fields !== "content,email,turnstileToken" || emailFields !== "attachments,dkim,dmarc,fromDomain,replyToDiffers,spf") {
+        failures.push(`the email scan sent unexpected fields: ${fields} / ${emailFields}`);
+      }
+      checked = true;
+    }
+    const traces = ["probe-sender-local", "probe.victim", "probe-attachment-name", "attachment-probe-content"];
+    for (const request of requests) {
+      if (traces.some((trace) => request.url.includes(trace) || (request.postData ?? "").includes(trace))) {
+        failures.push(`an email address or attachment reached ${new URL(request.url).origin}`);
+      }
+    }
+    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  an email file read on the device${checked ? " and checked" : ""}, with no address, recipient, or attachment sent`);
+    return failures;
+  });
+}
+
 async function checkScreenshots(): Promise<string[]> {
   return withChrome(async (cdp) => {
     const failures: string[] = [];
@@ -666,7 +750,7 @@ async function checkLiveApi(): Promise<string[]> {
 
 async function main(): Promise<void> {
   if (live) {
-    const failures = [...(await checkHeaders()), ...(await checkLiveApi()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck())];
+    const failures = [...(await checkHeaders()), ...(await checkLiveApi()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck()), ...(await checkEmailFile())];
     report(failures);
     return;
   }
@@ -674,7 +758,7 @@ async function main(): Promise<void> {
   const failures = checkBundle();
   const server = await preview({ preview: { port, strictPort: true, host: "127.0.0.1", cors: false }, logLevel: "error" });
   try {
-    failures.push(...(await checkHeaders()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck()));
+    failures.push(...(await checkHeaders()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck()), ...(await checkEmailFile()));
   } finally {
     await new Promise<void>((resolve) => server.httpServer.close(() => resolve()));
   }

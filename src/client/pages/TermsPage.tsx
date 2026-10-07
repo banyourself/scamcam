@@ -3,7 +3,7 @@ import { Link } from "@/router";
 
 export function TermsPage() {
   return (
-    <DocumentPage title="Terms of service" reference="SC-POL-02" updated="2026-10-05">
+    <DocumentPage title="Terms of service" reference="SC-POL-02" updated="2026-10-07">
       <h2>What ScamCam is</h2>
       <p>
         ScamCam is a free, noncommercial tool that gives automated, informational assessments of links and messages.
@@ -27,8 +27,10 @@ export function TermsPage() {
 
       <h2>Information from other sources</h2>
       <p>
-        Results include information from Google Safe Browsing, URLhaus, Phishing.Database, domain registries, and DNS.
-        ScamCam does not control these sources, and they can be incomplete, out of date, or wrong.
+        Results include information from Google Safe Browsing, abuse.ch, Spamhaus, PhishStats, Cloudflare, public scam
+        lists, the FTC and FCC, Discord, Steam, domain registries, and DNS. ScamCam does not control these sources, and they
+        can be incomplete, out of date, or wrong. Their information is provided as is, without any warranty, and ScamCam is
+        not endorsed by or affiliated with any of them, including Valve and Steam.
       </p>
 
       <h2>Corrections</h2>

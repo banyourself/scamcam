@@ -257,6 +257,45 @@ engine, so a bot flood cannot turn a scam site into a "no known threat" result.
 | A list name injected into SQL | Names are checked against the six known lists and a pattern before any SQL is written, and D1 has a `CHECK` on the same six names | `test/node/domain-list.test.ts`, `test/worker/domain-lists.test.ts` |
 | A broken or stalled sync going unnoticed | Weekly alerts for a missing list, a list not refreshed in 2 days, and a list whose upstream data is too old | `test/worker/maintenance.test.ts` |
 
+## Discord, Steam, wallets, FCC numbers, email files, and more file types (2026-10-07)
+
+### Discord and Steam
+
+| Threat | Protection | Test |
+|---|---|---|
+| Visiting a submitted link | Neither lookup opens the link. The invite code or the profile name is read from the address and sent only to Discord's or Steam's own API, after a pattern check | `test/engine/scan-accounts.test.ts` |
+| A server or account name injecting text into reports | Names are never shown or stored; only a fixed brand name from ScamCam's own list appears when a name claims to be staff | `test/engine/scan-accounts.test.ts` |
+| The Steam key leaking | It is a Worker secret sent only to `api.steampowered.com`. Provider alerts never log addresses, and anything key-shaped in an error message is hidden | `test/engine/scan-accounts.test.ts`, `test/worker/provider-watch.test.ts` |
+| A verified server hiding a scam | Verification lowers the risk moderately, never for an invite read from a screenshot, and never outweighs a listing or a scam pattern in the message | `test/engine/scan-accounts.test.ts` |
+| Running past the Free plan's 50 subrequests | At most 2 invites and 2 accounts per scan, Steam lookups batched into one bans call and one summaries call, scanner only; the worst case measured 46 | `test/worker/security.test.ts` |
+| Responses that are too large or malformed | Answers are read with a 64 KB cap and checked with strict schemas; anything else counts as "did not respond" | `test/engine/scan-accounts.test.ts` |
+
+### Wallets and FCC numbers
+
+| Threat | Protection | Test |
+|---|---|---|
+| Wallets or numbers from a message leaking | Both are compared only with hashed lists in D1, in the same two queries as the site lists; nothing is sent to an outside service and evidence never names them | `test/engine/scan-phones.test.ts`, `test/worker/domain-lists.test.ts` |
+| A domain such as `0x1234.io` read as a wallet | Only `0x` and exactly 40 hex digits, with no dot, count as a wallet | `test/client/extract.test.ts` |
+| Two complaint lists condemning a number together | When the FTC list matched, the FCC match is weak, so the pair reaches Suspicious at most on its own | `test/engine/scan-phones.test.ts` |
+| A list name injected into SQL | The `CHECK` constraint now covers nine names; unknown names are still refused by the database | `test/worker/domain-lists.test.ts` |
+
+### Email files
+
+| Threat | Protection | Test |
+|---|---|---|
+| Email addresses, recipients, or attachments leaving the device | The browser reads the file; only the text, the sender's domain, the SPF, DKIM, and DMARC results, a reply-to flag, and each attachment's type, ending, and finding codes are sent. The API refuses any other field | `test/client/email-read.test.ts`, `test/worker/scan-api.test.ts`, the email step of `scripts/privacy-check.ts` (checked in Chrome) |
+| A forged `Authentication-Results` header | Only the first one is read, which is the one the receiving server adds at the top. A verified official sender is only noted as background, never lowers the risk, because scammers misuse real company mail | `test/client/email-read.test.ts`, `test/engine/scan-email.test.ts` |
+| Crafted HTML making the reader slow | The HTML reader is a single pass with no backtracking patterns and stops at 400,000 characters; emails over 25 MB are refused | `test/client/email-read.test.ts` |
+| Disguised links in HTML emails | Links become `[text](address)`, so the existing check for link text that shows one site and opens another applies | `test/client/email-read.test.ts`, `test/engine/scan-email.test.ts` |
+
+### More file types
+
+| Threat | Protection | Test |
+|---|---|---|
+| A zip bomb in an extension's manifest | Only `manifest.json` is unpacked, with the browser's own `DecompressionStream`, and reading stops at 256 KB | `test/client/file-inspect.test.ts` |
+| Broken or hostile extension packages | Header lengths are bounds-checked, unknown versions and bad JSON leave the type known but the permissions unread | `test/client/file-inspect.test.ts` |
+| False alarms on ordinary zips | A zip with a `manifest.json` counts as an extension only when the manifest has `manifest_version`; otherwise it stays an archive | `test/client/file-inspect.test.ts` |
+
 ## ThreatFox, list dates, and abuse.ch links (2026-10-06)
 
 | Issue | Change | Test |

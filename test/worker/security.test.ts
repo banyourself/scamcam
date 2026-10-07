@@ -208,4 +208,47 @@ describe("Workers Free plan limits", () => {
     expect(fake.requests.filter((request) => request.url.includes("/radar/")).length).toBeLessThanOrEqual(2);
     expect(used.fetches + used.spamhausLookups + used.queries, JSON.stringify(used)).toBeLessThan(freePlanSubrequestLimit);
   });
+
+  it("stays under 50 subrequests in the scanner when the 20 links include Discord invites and Steam profiles", async () => {
+    const queries = { queries: 0 };
+    const asked: string[][] = [];
+    const fake = fakeNetwork({
+      safeBrowsing: () => ({ cacheSeconds: 300 }),
+      radar: {},
+      discord: { aaaa: {}, bbbb: {} },
+      steamVanity: { first: "76561198000000001", second: "76561198000000002" },
+      steam: { "76561198000000001": {}, "76561198000000002": {} },
+    });
+    const links = [
+      ...Array.from({ length: 16 }, (_, index) => `https://login.secure${index}.account-check${index}.example/a/b/c/d?x=${index}`),
+      "https://discord.gg/aaaa",
+      "https://discord.gg/bbbb",
+      "https://steamcommunity.com/id/first",
+      "https://steamcommunity.com/id/second",
+    ];
+    const bindings = {
+      ...env,
+      DB: countingDatabase(env.DB, queries),
+      SAFE_BROWSING_API_KEY: "k",
+      URLHAUS_AUTH_KEY: "k",
+      SPAMHAUS_DQS_KEY: "0".repeat(26),
+      PHISHSTATS_API_KEY: "psk_test",
+      CLOUDFLARE_RADAR_TOKEN: "radar-test-token",
+      STEAM_WEB_API_KEY: "steam-test-key",
+    };
+    const { report } = await runScan(bindings, `my friend sent these, are they ok? ${links.join(" ")}`, {
+      fetcher: fake.fetcher,
+      lookups: { cache: memoryLookupCache(), state: createLookupState(), clock: Date.now },
+      aiModel: null,
+      extendedLookups: true,
+      dnsTransport: fakeSpamhaus({}, asked),
+    });
+    expect(report.notChecked.map((item) => item.name)).not.toContain("Steam account details (Steam Web API)");
+    expect(report.notChecked.map((item) => item.name)).not.toContain("Discord server details");
+    const used = { fetches: fake.requests.length, spamhausLookups: asked.flat().length, queries: queries.queries };
+    console.log(JSON.stringify({ scannerSubrequestsWithAccounts: used }));
+    expect(fake.requests.filter((request) => request.url.includes("discord.com/api"))).toHaveLength(2);
+    expect(fake.requests.filter((request) => request.url.includes("api.steampowered.com"))).toHaveLength(4);
+    expect(used.fetches + used.spamhausLookups + used.queries, JSON.stringify(used)).toBeLessThan(freePlanSubrequestLimit);
+  });
 });

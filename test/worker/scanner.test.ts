@@ -1,6 +1,7 @@
 import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { memoryLookupCache } from "../../src/engine/cache";
+import type { EmailFacts } from "../../src/shared/email";
 import type { ScanReport } from "../../src/shared/report";
 import { ScanReportSchema } from "../../src/shared/report-schema";
 import { reportSignatureHeader } from "../../src/shared/share";
@@ -41,6 +42,12 @@ describe("scanner Durable Object", () => {
     expect(outcome.report.level).toBe("high_risk");
     expect(outcome.signature).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(await reportIsAuthentic(outcome.report, outcome.signature!, env.SHARE_SIGNING_KEY)).toBe(true);
+  });
+
+  it("passes email details read on the device through to the scan", async () => {
+    const email: EmailFacts = { fromDomain: "steam-security-alert.example", spf: "fail", dkim: "none", dmarc: "fail", replyToDiffers: false, attachments: [] };
+    const outcome = await scanInScanner(env.SCANNER, "From: Steam Support\nSubject: Your account will be locked\n\nVerify your account today.", false, email);
+    expect(outcome.report.evidence.map((item) => item.id)).toEqual(expect.arrayContaining(["email-dmarc-fail", "email-name-mismatch"]));
   });
 
   it("keeps one named object so its caches stay warm", async () => {

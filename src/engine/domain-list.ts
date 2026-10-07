@@ -3,15 +3,36 @@ export const domainListKeyBytes = 8;
 export const domainListKeepSeconds = 10 * 24 * 60 * 60;
 
 export const domainListNames = ["phishing_database", "metamask", "scamsniffer", "phishdestroy", "scam_links", "cert_polska"] as const;
-export const phoneListNames = ["ftc_dnc"] as const;
-export const listNames = [...domainListNames, ...phoneListNames] as const;
+export const phoneListNames = ["ftc_dnc", "fcc_complaints"] as const;
+export const walletListNames = ["scamsniffer_wallets"] as const;
+export const listNames = [...domainListNames, ...phoneListNames, ...walletListNames] as const;
 
 export type DomainListName = (typeof domainListNames)[number];
 export type PhoneListName = (typeof phoneListNames)[number];
+export type WalletListName = (typeof walletListNames)[number];
 export type ListName = (typeof listNames)[number];
+export type ListKind = "domain" | "phone" | "wallet";
+
+const walletPattern = /^0x[0-9a-f]{40}$/;
 
 export function isPhoneList(name: ListName): name is PhoneListName {
   return (phoneListNames as readonly string[]).includes(name);
+}
+
+export function isWalletList(name: ListName): name is WalletListName {
+  return (walletListNames as readonly string[]).includes(name);
+}
+
+export function isDomainList(name: ListName): name is DomainListName {
+  return (domainListNames as readonly string[]).includes(name);
+}
+
+export function listKind(name: ListName): ListKind {
+  return isPhoneList(name) ? "phone" : isWalletList(name) ? "wallet" : "domain";
+}
+
+export function entryKind(entry: string): ListKind {
+  return entry.startsWith("+") ? "phone" : walletPattern.test(entry) ? "wallet" : "domain";
 }
 
 export interface DomainListDetails {
@@ -80,6 +101,22 @@ export const domainListDetails: Record<ListName, DomainListDetails> = {
     staleAfterDays: 10,
     alertAfterDays: 5,
   },
+  fcc_complaints: {
+    source: "FCC consumer complaints",
+    url: "https://opendata.fcc.gov/Consumer/CGB-Consumer-Complaints-Data/3xyp-aqkj",
+    title: "A phone number in this message was named in complaints to the FCC about unwanted calls",
+    about: "The Federal Communications Commission publishes the caller ID and callback numbers people name in complaints about unwanted calls and texts. It does not check the complaints.",
+    staleAfterDays: 10,
+    alertAfterDays: 4,
+  },
+  scamsniffer_wallets: {
+    source: "ScamSniffer scam wallets",
+    url: "https://github.com/scamsniffer/scam-database",
+    title: "A wallet address in this message is on ScamSniffer's scam list",
+    about: "ScamSniffer tracks the wallet addresses that crypto drainers and other scams use to collect stolen funds.",
+    staleAfterDays: 14,
+    alertAfterDays: 7,
+  },
 };
 
 export type DomainListResult =
@@ -103,6 +140,16 @@ export function normalizeListEntry(line: string): string | null {
     return null;
   }
   return hostnamePattern.test(entry) || ipv4Pattern.test(entry) ? entry : null;
+}
+
+export function normalizeWalletEntry(line: string): string | null {
+  const entry = line.trim().toLowerCase();
+  return walletPattern.test(entry) ? entry : null;
+}
+
+export function normalizerFor(name: ListName): (line: string) => string | null {
+  const kind = listKind(name);
+  return kind === "phone" ? normalizePhoneEntry : kind === "wallet" ? normalizeWalletEntry : normalizeListEntry;
 }
 
 export function normalizePhoneEntry(line: string): string | null {

@@ -169,3 +169,10 @@ const brandNamePatterns = new Map<Brand, RegExp>(
 export function brandsNamedIn(normalizedText: string): Brand[] {
   return brands.filter((brand) => brandNamePatterns.get(brand)!.test(normalizedText));
 }
+
+const staffWords = /\b(?:support|staff|official|admins?|administrators?|moderators?|trust (?:and|&) safety|help ?desk|appeals?|verif(?:y|ied|ication)|security|hype ?squad)\b/;
+
+export function staffClaimIn(name: string): Brand | null {
+  const normalized = name.normalize("NFKC").toLowerCase().replace(/[_.|]+/g, " ");
+  return staffWords.test(normalized) ? (brandsNamedIn(normalized)[0] ?? null) : null;
+}

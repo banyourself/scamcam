@@ -19,6 +19,7 @@ export const runnableKinds: readonly FileKind[] = [
   "macos_program",
   "linux_program",
   "disk_image",
+  "browser_extension",
 ];
 
 const kindTexts: Record<FileKind, SignalText> = {
@@ -71,6 +72,17 @@ const kindTexts: Record<FileKind, SignalText> = {
     strength: "moderate",
     title: "This is a disk image",
     detail: "Disk images (.iso, .img, .vhd) open like a folder and are used to slip programs past Windows security warnings.",
+  },
+  browser_extension: {
+    strength: "strong",
+    title: "This is a browser extension",
+    detail: "Extensions installed from a file skip the Chrome Web Store's and Firefox Add-ons' checks. Fake extensions sent in chats are used to steal logged-in accounts and crypto wallets. Only install extensions from the official store.",
+  },
+  roblox_model: {
+    strength: "weak",
+    direction: "context",
+    title: "This is a Roblox model or place",
+    detail: "Models and places can carry scripts that run in your game. ScamCam looked for known backdoor tricks in the scripts it could read. Scripts in binary files are often compressed, and those could not be read.",
   },
   archive: { strength: "weak", direction: "context", title: "This is a compressed archive", detail: "ScamCam read the names of the files inside on your device without unpacking them." },
   office_document: { strength: "weak", direction: "context", title: "This is an Office document", detail: "Office documents are usually safe to view, unless they contain macros or ask you to enable content." },
@@ -133,6 +145,20 @@ function findingText(finding: FileFinding, request: FileCheckRequest): SignalTex
       return { strength: "weak", direction: "context", title: "This looks like a Minecraft mod or plugin", detail: "Mods can carry malware, as the fractureiser attack showed in 2023. Only download mods from CurseForge, Modrinth, or the creator's official page." };
     case "too_large_to_hash":
       return { strength: "weak", direction: "context", title: "Too large to fingerprint on your device", detail: "Files over 100 MB are not fingerprinted, so malware lists could not be checked. Some malware is padded to a huge size for exactly this reason." };
+    case "extension_all_sites":
+      return { strength: "moderate", title: "Can read and change every website you visit", detail: "The extension asks for access to all sites, so it could see and change everything you do in your browser, including logins." };
+    case "extension_reads_cookies":
+      return { strength: "strong", title: "Can read your login cookies", detail: "Cookies keep you logged in. An extension that reads them can hand your Discord, Roblox, Steam, or other accounts to someone else without your password." };
+    case "extension_powerful":
+      return { strength: "moderate", title: "Asks for unusually powerful permissions", detail: "It asks to control other extensions, run programs on your computer, route your traffic, read your clipboard, or debug pages. Few honest extensions need that." };
+    case "python_bundle":
+      return { strength: "moderate", title: "Built from a Python script with PyInstaller", detail: "Many Discord token grabbers and game account stealers are Python scripts packed into a program this way. Some honest tools are packed this way too." };
+    case "shortcut_remote_file":
+      return { strength: "strong", title: "Opens a file or folder on another computer", detail: "This shortcut points to a network share or remote folder instead of a website. Attackers use these to run programs from their own servers and get past Windows security warnings." };
+    case "registry_startup":
+      return { strength: "strong", title: "Changes what starts with Windows or turns off protection", detail: "Opening this file would change settings that start programs automatically, take over how files open, or switch off Windows Defender. Malware uses these to stay on a computer." };
+    case "roblox_backdoor":
+      return { strength: "moderate", title: "Has a script that loads outside or hidden code", detail: "A script loads code by asset ID with require(), or runs hidden code with loadstring or getfenv. Some admin systems load this way, but free model backdoors use the same tricks to give someone else control of your game." };
   }
 }
 

@@ -3,6 +3,7 @@ import { createLookupState, memoryLookupCache, type Lookups } from "../engine/ca
 import { dohTransport } from "../engine/doh-transport";
 import type { DnsAnswer, DnsTransport } from "../engine/spamhaus";
 import type { AppBindings } from "./env";
+import type { EmailFacts } from "../shared/email";
 import type { FileCheckRequest } from "../shared/file-check";
 import { logEvent } from "./logging";
 import { runFileCheck, runScan, type ScanDependencies, type ScanOutcome } from "./scan-runner";
@@ -14,7 +15,10 @@ const alertEveryMs = 10 * 60 * 1000;
 const watchedHosts = new Map([
   ["api.phishstats.info", "phishstats"],
   ["api.cloudflare.com", "radar"],
+  ["discord.com", "discord"],
+  ["api.steampowered.com", "steam"],
 ]);
+const missingIsAnswer = new Set(["radar", "discord"]);
 
 export function describeError(error: unknown): string | undefined {
   const text = error instanceof Error ? `${error.name}: ${error.message}` : typeof error === "string" ? error : "";
@@ -83,7 +87,7 @@ export function watchedFetcher(fetcher: typeof fetch, clock: () => number = Date
     }
     try {
       const response = await fetcher(input, init);
-      if (!response.ok && !(provider === "radar" && response.status === 404)) {
+      if (!response.ok && !(missingIsAnswer.has(provider) && response.status === 404)) {
         const detail = await errorText(response.clone());
         alert(provider, { status: response.status, ...(detail ? { detail } : {}) });
       }
@@ -112,8 +116,8 @@ export class Scanner extends DurableObject<AppBindings> {
     };
   }
 
-  async scan(content: string, fromScreenshot = false): Promise<ScanOutcome> {
-    return runScan(this.env, content, this.dependencies(), fromScreenshot);
+  async scan(content: string, fromScreenshot = false, email?: EmailFacts): Promise<ScanOutcome> {
+    return runScan(this.env, content, this.dependencies(), fromScreenshot, email);
   }
 
   async checkFile(request: FileCheckRequest): Promise<ScanOutcome> {
@@ -121,9 +125,9 @@ export class Scanner extends DurableObject<AppBindings> {
   }
 }
 
-export async function scanInScanner(namespace: DurableObjectNamespace<Scanner>, content: string, fromScreenshot = false): Promise<ScanOutcome> {
+export async function scanInScanner(namespace: DurableObjectNamespace<Scanner>, content: string, fromScreenshot = false, email?: EmailFacts): Promise<ScanOutcome> {
   const stub = namespace.get(namespace.idFromName(scannerName), { locationHint: scannerLocation });
-  return (await stub.scan(content, fromScreenshot)) as ScanOutcome;
+  return (await stub.scan(content, fromScreenshot, email)) as ScanOutcome;
 }
 
 export async function checkFileInScanner(namespace: DurableObjectNamespace<Scanner>, request: FileCheckRequest): Promise<ScanOutcome> {

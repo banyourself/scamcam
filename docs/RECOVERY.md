@@ -62,6 +62,7 @@ Replace the secret first, then remove the old one, so checking keeps working.
 | `SPAMHAUS_DQS_KEY` | Ask Spamhaus for a new DQS key in its customer portal, then `npx wrangler secret put SPAMHAUS_DQS_KEY --env production` | Ask Spamhaus to retire the old key |
 | `PHISHSTATS_API_KEY` | Create a new key at phishstats.info (Settings, API keys), then `npx wrangler secret put PHISHSTATS_API_KEY --env production` | Delete the old key there |
 | `CLOUDFLARE_RADAR_TOKEN` | Roll the token in the Cloudflare dashboard, then `npx wrangler secret put CLOUDFLARE_RADAR_TOKEN --env production` | The old value stops working when rolled |
+| `STEAM_WEB_API_KEY` | Revoke the key and register a new one at steamcommunity.com/dev/apikey, then `npx wrangler secret put STEAM_WEB_API_KEY --env production` | The old key stops working when revoked |
 
 Then read the usage section of the next weekly report for calls that do not match normal traffic.
 
@@ -109,11 +110,12 @@ them for 90 days.
 | `maintenance_stuck` | A run has said "running" for more than 6 hours |
 | `cleanup_backlog_<table>` | The daily cleanup used its budget of 26 delete batches (500 rows each, shared by all tables) before it finished that table; the rest is deleted on the next runs |
 | `errors_high` | At least 50 errors in the last 7 days |
-| `phishing_list_stale`, `metamask_list_stale`, `scamsniffer_list_stale`, `phishdestroy_list_stale`, `scam_links_list_stale`, `cert_polska_list_stale`, `ftc_dnc_list_stale` | That list's source data is older than its alert age (2 days, 5 for `ftc_dnc` because the FTC publishes only on weekdays, or 180 for `scam_links`), whether the sync failed or the upstream project stopped publishing |
+| `phishing_list_stale`, `metamask_list_stale`, `scamsniffer_list_stale`, `phishdestroy_list_stale`, `scam_links_list_stale`, `cert_polska_list_stale`, `ftc_dnc_list_stale`, `fcc_complaints_list_stale`, `scamsniffer_wallets_list_stale` | That list's source data is older than its alert age (2 days; 4 for `fcc_complaints`; 5 for `ftc_dnc` because the FTC publishes only on weekdays; 7 for `scamsniffer_wallets`, whose address list changes less often; 180 for `scam_links`), whether the sync failed or the upstream project stopped publishing |
 | `scam_list_sync_late` | At least one list has not been refreshed by the sync for more than 2 days |
-| `scam_list_missing` | At least one of the seven lists has no copy in D1, so reports check fewer lists or phone numbers |
+| `scam_list_missing` | At least one of the nine lists has no copy in D1, so reports check fewer lists, phone numbers, or wallets |
 | `spamhaus_unavailable` | Spamhaus did not answer through Cloudflare's resolver, refused, or returned an error code (logged at most every 10 minutes with only the reason or HTTP status, never the query). Check the key and the free DQS usage limit |
 | `phishstats_unavailable`, `radar_unavailable` | PhishStats or Cloudflare Radar answered with an error or did not answer (logged at most every 10 minutes with the HTTP status and the provider's message). A 401 or 403 means the key or token needs checking, and a 429 means the daily quota ran out |
+| `discord_unavailable`, `steam_unavailable` | Discord's invite endpoint or the Steam Web API answered with an error or did not answer (logged at most every 10 minutes with the HTTP status and the provider's message, never the invite, the profile, or the key). An unknown invite (404) is a normal answer and raises nothing. For Steam, a 403 means the key needs checking; for Discord, a 429 means its rate limit for Cloudflare's addresses was reached |
 | `flags_waiting` | At least one flagged result is waiting for review. Run `npm run flags` |
 | `flags_daily_limit` | The daily cap on flags was reached, so new flags are refused until midnight UTC |
 | `scanner_unavailable` | A scan could not reach the Scanner Durable Object, so the Worker ran it itself; scans still work, but repeated alerts mean the scanner or its free quota needs a look |

@@ -22,7 +22,8 @@ report with:
 A clean result never means "safe". It means none of the sources knew of a problem when they were checked, and the
 report says so.
 
-Files are checked without being uploaded: the browser looks inside the file and sends only its fingerprints.
+Files are checked without being uploaded: the browser looks inside the file and sends only its fingerprints. Saved
+emails (.eml) are read on the device too, so email addresses and attachments never leave it.
 
 Reports can be shared with a link that expires after 5, 10, or 15 minutes. The link holds the decryption key, so
 ScamCam itself cannot read what was shared.
@@ -37,9 +38,9 @@ result, so flagging a scam site over and over cannot make it look safe.
 ## How a scan works
 
 1. **Read the input.** Links are pulled out of the text, invisible characters are stripped, and emails, phone
-   numbers, and codes are redacted before any check sees the message. US phone numbers are compared only with a
-   scrambled copy of the FTC's daily list of numbers people reported for unwanted calls, kept in ScamCam's own
-   database, so a number never leaves ScamCam. Screenshots are read on the visitor's own device with
+   numbers, and codes are redacted before any check sees the message. US phone numbers are compared only with
+   scrambled copies of the FTC's and FCC's lists of numbers people reported for unwanted calls, and wallet addresses
+   with ScamSniffer's list of scam wallets, all kept in ScamCam's own database, so neither ever leaves ScamCam. Screenshots are read on the visitor's own device with
    Tesseract.js and jsQR, so the image is never uploaded.
 2. **Check the links.** Look-alike and disguised addresses (other alphabets, misspellings, the `@` trick, brand names
    on the wrong domain), free hosting, short links, IP loggers, downloads, and endings that are abused far more than
@@ -53,7 +54,9 @@ result, so flagging a scam site over and over cannot make it look safe.
    never leave ScamCam for them: Phishing.Database, MetaMask's phishing list, ScamSniffer, PhishDestroy, a
    public-domain list of Discord and Steam scam links, and CERT Polska's warning list. Very popular domains in
    Cloudflare Radar's ranking only soften small warnings, such as an often-abused ending, and never outweigh a real
-   listing. Lookups are passive: ScamCam never opens a submitted link.
+   listing. Discord invites are checked with Discord (server age, verification, names that pretend to be staff) and
+   Steam profiles and trade links with the Steam Web API (trade bans, new accounts, names that pretend to be staff).
+   Lookups are passive: ScamCam never opens a submitted link.
 4. **Check the message.** Rules for the scripts scammers use, such as login code requests, QR code logins, cookie
    theft, fake "verify you are human" steps that make you paste a command, crypto wallet drainers, fake middlemen,
    fake staff, payment pressure, vote scams, and fake order or voicemail texts that push you to call a number. A

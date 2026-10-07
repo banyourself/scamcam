@@ -32,6 +32,38 @@ export interface AnalyzedLink {
   communitySite: string | null;
   brandsMentioned: Brand[];
   signals: Signal[];
+  discordInvite: string | null;
+  steamAccount: SteamRef | null;
+}
+
+export type SteamRef = { kind: "id"; value: string } | { kind: "vanity"; value: string };
+
+const steamIdBase = 76561197960265728n;
+const discordInviteHosts = new Set(["discord.com", "www.discord.com", "ptb.discord.com", "canary.discord.com", "discordapp.com", "www.discordapp.com"]);
+
+function discordInviteCode(hostname: string, url: URL): string | null {
+  const path = url.pathname;
+  const code = hostname === "discord.gg" || hostname === "www.discord.gg" ? /^\/([A-Za-z0-9-]{2,32})\/?$/.exec(path)?.[1] : discordInviteHosts.has(hostname) ? /^\/invite\/([A-Za-z0-9-]{2,32})\/?$/.exec(path)?.[1] : undefined;
+  return code ?? null;
+}
+
+function steamAccountRef(hostname: string, url: URL): SteamRef | null {
+  if (hostname !== "steamcommunity.com" && hostname !== "www.steamcommunity.com") {
+    return null;
+  }
+  const profile = /^\/profiles\/(7656119\d{10})(?:\/|$)/.exec(url.pathname)?.[1];
+  if (profile) {
+    return { kind: "id", value: profile };
+  }
+  const vanity = /^\/id\/([A-Za-z0-9_-]{2,32})(?:\/|$)/.exec(url.pathname)?.[1];
+  if (vanity) {
+    return { kind: "vanity", value: vanity };
+  }
+  const partner = /^\/tradeoffer\/new\/?$/.test(url.pathname) ? url.searchParams.get("partner") : null;
+  if (partner && /^\d{1,10}$/.test(partner) && Number(partner) > 0) {
+    return { kind: "id", value: (steamIdBase + BigInt(partner)).toString() };
+  }
+  return null;
 }
 
 const schemePattern = /^[a-z][a-z0-9+.-]*:\/\//i;
@@ -173,6 +205,8 @@ export function analyzeLink(original: string): AnalyzedLink {
     communitySite: null,
     brandsMentioned: [],
     signals: [],
+    discordInvite: null,
+    steamAccount: null,
   };
   const explicitHttp = /^http:\/\//i.test(original);
   let url: URL;
@@ -206,6 +240,8 @@ export function analyzeLink(original: string): AnalyzedLink {
   result.isPrivateSuffix = Boolean(parsed.isPrivate);
   result.officialBrand = officialBrandFor(registrable) ?? officialBrandFor(icannDomain);
   result.communitySite = communitySites[registrable] ? registrable : null;
+  result.discordInvite = discordInviteCode(hostname, url);
+  result.steamAccount = steamAccountRef(hostname, url);
   result.brandsMentioned = brands.filter((brand) => brandLabelsTouched(hostname, brand));
 
   const add = (partial: Omit<Signal, "source" | "link">) => result.signals.push(signal(hostname, partial));
@@ -234,6 +270,14 @@ export function analyzeLink(original: string): AnalyzedLink {
       title: `This is a ${name} login QR code`,
       detail: `Opening or scanning it with the ${name} app logs whoever made it into your account. ${name} only shows login QR codes on its own login page, never in a message.`,
       brandId: result.officialBrand.id,
+    });
+  } else if (result.officialBrand && result.discordInvite) {
+    add({
+      id: `discord-invite-${registrable}`,
+      direction: "context",
+      strength: "weak",
+      title: "This is an invite to a Discord server",
+      detail: "Anyone can make a Discord server and an invite to it, so an invite on discord.gg does not show that the server is safe or official.",
     });
   } else if (result.officialBrand) {
     add({

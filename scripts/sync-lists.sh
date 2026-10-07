@@ -61,6 +61,23 @@ ftc_list() {
   build "$name" text "ftc-${newest//-/}" "$list_date" "$min" "$max" && store "$name"
 }
 
+fcc_list() {
+  local name="$1" days="$2" min="$3" max="$4"
+  local since modified list_date
+  since=$(date -u -d "-${days} days" +%Y-%m-%dT00:00:00) || return 1
+  curl --fail --silent --show-error --get --max-filesize 30000000 --user-agent "ScamCam list sync (+https://scamcam.kevinle.tech)" \
+    --dump-header "lists/${name}.headers" "https://opendata.fcc.gov/resource/3xyp-aqkj.csv" \
+    --data-urlencode '$select=caller_id_number,advertiser_business_phone_number' \
+    --data-urlencode "\$where=issue='Unwanted Calls' AND ticket_created >= '${since}'" \
+    --data-urlencode '$limit=500000' --output "lists/${name}.csv" || return 1
+  [[ "$(head -c 18 "lists/${name}.csv")" == '"caller_id_number"' ]] || { echo "Unexpected FCC file" >&2; return 1; }
+  tail -n +2 "lists/${name}.csv" | tr ',' '\n' | tr -d '"' > "lists/${name}.input"
+  modified=$(grep -i '^last-modified:' "lists/${name}.headers" | tail -1 | cut -d' ' -f2- | tr -d '\r')
+  list_date=$(date -u -d "${modified:-now}" +%s) || return 1
+  [[ "$list_date" =~ ^[0-9]{10}$ ]] || { echo "Unexpected date for ${name}" >&2; return 1; }
+  build "$name" text "fcc-$(date -u -d "@${list_date}" +%Y%m%d%H%M)" "$list_date" "$min" "$max" && store "$name"
+}
+
 run() {
   local name="$1"
   shift
@@ -81,6 +98,8 @@ run phishdestroy github_list phishdestroy phishdestroy/destroylist main list.txt
 run scam_links github_list scam_links DevSpen/scam-links master src/links.txt text 2000 200000
 run cert_polska web_list cert_polska https://hole.cert.pl/domains/v2/domains.txt text 20000 2000000
 run ftc_dnc ftc_list ftc_dnc 30 50000 3000000
+run fcc_complaints fcc_list fcc_complaints 90 5000 1000000
+run scamsniffer_wallets github_list scamsniffer_wallets scamsniffer/scam-database main blacklist/all.json scamsniffer-addresses 2000 500000
 
 if ((${#failed[@]} > 0)); then
   echo "Lists that did not sync: ${failed[*]}" >&2

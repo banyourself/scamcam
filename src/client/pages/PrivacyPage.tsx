@@ -6,7 +6,7 @@ export function PrivacyPage() {
     <DocumentPage
       title="Privacy policy"
       reference="SC-POL-01"
-      updated="2026-10-06"
+      updated="2026-10-07"
       lead="ScamCam is built to know as little about you as possible."
     >
       <h2>The short version</h2>
@@ -15,6 +15,7 @@ export function PrivacyPage() {
         <li>What you paste is checked and then thrown away. It is not saved unless you choose to share a report or flag a result.</li>
         <li>Screenshots are read on your own device and are never uploaded.</li>
         <li>Files you check stay on your device. Only their fingerprints are sent, never the file or its name.</li>
+        <li>Email files are read on your device. Email addresses and attachments never leave it.</li>
         <li>ScamCam does not save your IP address.</li>
         <li>Nothing is sold or shared for marketing, ever.</li>
       </ul>
@@ -50,8 +51,9 @@ export function PrivacyPage() {
             <td>The link or message you submit</td>
             <td>To check it</td>
             <td>
-              Not stored. Emails, phone numbers, and long codes are hidden before any outside check. US phone numbers are
-              compared only with ScamCam&apos;s own scrambled copy of the FTC&apos;s list of reported numbers, never sent anywhere
+              Not stored. Emails, phone numbers, and long codes are hidden before any outside check. US phone numbers and
+              crypto wallet addresses are compared only with ScamCam&apos;s own scrambled copies of the FTC&apos;s and FCC&apos;s
+              lists of reported numbers and ScamSniffer&apos;s list of scam wallets, never sent anywhere
             </td>
           </tr>
           <tr>
@@ -63,6 +65,32 @@ export function PrivacyPage() {
             <td>A file you choose to check</td>
             <td>Your browser reads it on your device to find its real type and any warning signs, and works out its SHA-256 and SHA-1 fingerprints</td>
             <td>Never uploaded. Only the fingerprints, the size, the type, the file ending, and fixed codes for what was found are sent, never the file, its contents, or its name. Lookup answers are kept for up to a day under a scrambled key</td>
+          </tr>
+          <tr>
+            <td>An email file (.eml) you add</td>
+            <td>
+              Your browser reads it on your device: the sender&apos;s name, the subject, the text, the sender&apos;s domain, the
+              receiving mail server&apos;s sender checks (SPF, DKIM, and DMARC), whether replies would go to another domain, and
+              what is inside any attachments
+            </td>
+            <td>
+              Never uploaded. The text is shown to you first, then checked like a typed message. Only the sender&apos;s domain,
+              the check results, and each attachment&apos;s type, file ending, and fixed codes for what was found are sent with
+              it. Email addresses, recipients, attachment names, and the attachments themselves never leave your device. The
+              sender&apos;s domain is compared only with ScamCam&apos;s own copies of the scam lists
+            </td>
+          </tr>
+          <tr>
+            <td>The invite code in a Discord invite link, or the profile name or account number in a Steam profile or trade link</td>
+            <td>
+              To ask Discord about the server the invite opens (when it was made, whether Discord verified it, and whether its
+              name claims to be staff or support), and to ask Steam about the account (trade, community, and game bans, when it
+              was made if the profile is public, and whether its name claims to be staff or support)
+            </td>
+            <td>
+              The answers are kept in memory for up to an hour, in North America, under a scrambled key. Server and account
+              names are never shown or stored
+            </td>
           </tr>
           <tr>
             <td>The message with emails, phone numbers, long codes, links, and invisible characters removed (names and usernames stay)</td>
@@ -136,6 +164,12 @@ export function PrivacyPage() {
           link or your message. Spamhaus is asked through Cloudflare&apos;s DNS resolver.
         </li>
         <li>
+          <strong>Discord</strong> receives only the invite code from a discord.gg or discord.com/invite link, and{" "}
+          <strong>Steam</strong> (Valve) receives only the profile name or account number from a steamcommunity.com link,
+          with ScamCam&apos;s own Steam Web API key. Neither receives your message or your IP address. Steam information is
+          shown as is, without any warranty, and ScamCam is not endorsed by or affiliated with Valve or Steam.
+        </li>
+        <li>
           <strong>Workers AI</strong> (Cloudflare) receives a message only when ScamCam&apos;s rules cannot decide, with
           emails, phone numbers, long codes, links, and invisible characters removed. Names and usernames are not removed.
           Cloudflare says it does not use this content to train AI models, and keeps it only when a site also stores it in
@@ -148,12 +182,14 @@ export function PrivacyPage() {
         </li>
         <li>
           <strong>Phishing.Database, MetaMask&apos;s phishing list, ScamSniffer, PhishDestroy, a public-domain Discord and Steam
-          scam list, and CERT Polska&apos;s warning list</strong> are public lists of scam sites. ScamCam keeps a scrambled copy of
-          each and checks links against them without sending the links anywhere.
+          scam list, and CERT Polska&apos;s warning list</strong> are public lists of scam sites, and ScamSniffer also lists scam
+          wallet addresses. ScamCam keeps a scrambled copy of each and checks links, email senders, and wallet addresses
+          against them without sending them anywhere.
         </li>
         <li>
-          <strong>The FTC&apos;s Do Not Call reports</strong> are the phone numbers people reported to the Federal Trade Commission
-          for unwanted calls. ScamCam keeps a scrambled copy of the last month and checks numbers against it without sending
+          <strong>The FTC&apos;s Do Not Call reports and the FCC&apos;s consumer complaints</strong> are the phone numbers people
+          reported to the Federal Trade Commission and the Federal Communications Commission for unwanted calls and texts.
+          ScamCam keeps scrambled copies of the last one and three months and checks numbers against them without sending
           them anywhere.
         </li>
         <li>
@@ -189,8 +225,8 @@ export function PrivacyPage() {
       <h2>Where information is processed</h2>
       <p>
         Cloudflare runs ScamCam in data centers around the world, usually one near you. The lookup services listed above
-        are based in the United States, Switzerland (abuse.ch), and the countries where Spamhaus, PhishStats, and each domain
-        registry operate.
+        are based in the United States (including Discord and Steam), Switzerland (abuse.ch), and the countries where
+        Spamhaus, PhishStats, and each domain registry operate.
       </p>
 
       <h2>Your rights</h2>
@@ -203,8 +239,9 @@ export function PrivacyPage() {
 
       <h2>Changes</h2>
       <p>
-        This version takes effect on October 6, 2026. It adds result flags, the Spamhaus, PhishStats, and Cloudflare Radar
-        lookups, five more scam lists, the FTC&apos;s list of reported phone numbers, and links to other checkers. Any change will be posted on this page with a new date.
+        This version takes effect on October 7, 2026. It adds email file checks, Discord invite and Steam account lookups,
+        the FCC&apos;s complaint numbers, and ScamSniffer&apos;s list of scam wallets. Any change will be posted on this page
+        with a new date.
       </p>
     </DocumentPage>
   );

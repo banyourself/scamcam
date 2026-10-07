@@ -50,13 +50,13 @@ const familyAdvice: Record<ScamFamily, string> = {
   credential_theft: "Never type your password into a page you reached from a link. Open the site yourself instead.",
   command_paste: "Never paste a command someone gives you into the Run box, PowerShell, or a terminal. Real human checks never ask for that.",
   wallet_drainer: "Never connect your wallet or sign anything on a site someone sent you. Check the project's official account yourself.",
-  callback_scam: "Do not call the number in the message. Check your orders in the company's official app or website, and if you need to call, use the number on its website or on your card.",
+  callback_scam: "Do not call the number in the message. Check your orders in the company's official app or website, and if you need to call, use the number on its website or on your card. If you already called and gave card details or let someone onto your computer, call your bank using the number on your card.",
 };
 
-function recommendationsFor(level: RiskLevel, families: ScamFamily[], brandIds: string[], linksFromPicture: boolean): string[] {
+function recommendationsFor(level: RiskLevel, families: ScamFamily[], brandIds: string[], linksFromPicture: boolean, hasLinks: boolean): string[] {
   const tips: string[] = [];
   if (level === "confirmed_malicious" || level === "high_risk") {
-    tips.push("Do not open the link, log in, or download anything from it.");
+    tips.push(hasLinks ? "Do not open the link, log in, or download anything from it." : "Do not reply, call any number in it, or send money, codes, or files.");
   }
   if (linksFromPicture) {
     tips.push("A screenshot only shows a link's text. To see where it really goes, copy the link itself (right-click or long-press it, then Copy Link) and check that.");
@@ -164,5 +164,5 @@ export function decideVerdict(input: VerdictInput): Verdict {
   }
 
   const brandIds = [...new Set(all.map((signal) => signal.brandId).filter((id): id is string => Boolean(id)))];
-  return { level, confidence, summary, recommendations: recommendationsFor(level, input.families, brandIds, Boolean(input.linksFromPicture)), score, contradiction };
+  return { level, confidence, summary, recommendations: recommendationsFor(level, input.families, brandIds, Boolean(input.linksFromPicture), input.linkCount > 0), score, contradiction };
 }

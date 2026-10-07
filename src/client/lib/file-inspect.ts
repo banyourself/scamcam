@@ -22,9 +22,25 @@ const decoyExtensions = new Set([
 const scriptExtensions = new Set(["bat", "cmd", "ps1", "psm1", "psd1", "vbs", "vbe", "js", "jse", "wsf", "wsh", "hta", "sh", "bash", "command", "py", "pyw", "reg", "msc", "chm", "inf"]);
 const shortcutExtensions = new Set(["lnk", "url", "scf", "appref-ms", "library-ms", "search-ms", "searchconnector-ms", "settingcontent-ms"]);
 const programExtensions = new Set([
-  "exe", "scr", "com", "pif", "cpl", "msi", "msix", "msixbundle", "appx", "dll", "sys", "xll", "jar", "apk", "xapk", "iso", "img", "vhd", "vhdx",
-  "dmg", "pkg", "app", ...scriptExtensions, ...shortcutExtensions,
+  "exe", "scr", "com", "pif", "cpl", "msi", "msix", "msixbundle", "appx", "appinstaller", "dll", "sys", "xll", "jar", "apk", "xapk", "iso", "img", "vhd", "vhdx",
+  "dmg", "pkg", "app", "crx", "xpi", ...scriptExtensions, ...shortcutExtensions,
 ]);
+const extensionPackages = new Set(["crx", "xpi"]);
+const maxManifestBytes = 256 * 1024;
+const allSitesPattern = /^(?:<all_urls>|(?:\*|https?|wss?):\/\/\*\/.*)$/;
+const powerfulPermissions = new Set(["debugger", "nativemessaging", "management", "proxy", "clipboardread"]);
+const pyinstallerCookie = "MEI\x0c\x0b\x0a\x0b\x0e";
+const remoteTarget = /(?:^|\n)\s*(?:url|iconfile)\s*=\s*(?:file:|\\\\|search-ms:|search:)|\\\\[a-z0-9._-]+(?:@ssl)?(?:@\d{1,5})?\\|davwwwroot|crumb=location:|<url>\s*(?:https?:|\\\\)/;
+const registryKeys = [
+  /\\currentversion\\run(?:once|services|servicesonce)?\]/,
+  /\\currentversion\\winlogon\]/,
+  /\\currentversion\\policies\\system\]/,
+  /\\image file execution options\\/,
+  /\\windows defender\b/,
+  /\\shell\\open\\command\]/,
+  /\\currentcontrolset\\services\\/,
+];
+const robloxBackdoor = [/\brequire\s*\(\s*\d{5,}\s*\)/, /\bloadstring\s*\(/, /\bgetfenv\s*\(/];
 const archiveExtensions = new Set(["zip", "rar", "7z", "gz", "tgz", "tar", "bz2", "xz", "cab", "iso", "img"]);
 const directionControls = /[\u202a-\u202e\u2066-\u2069\u200e\u200f]/g;
 const paddedName = /[\s\u00a0\u2000-\u200b\u3000]{3,}\.[^.\s]{1,12}$/u;
@@ -128,9 +144,12 @@ function peInfo(head: Uint8Array): { library: boolean; signed: boolean } | null 
 interface ZipEntry {
   name: string;
   encrypted: boolean;
+  method: number;
+  compressedSize: number;
+  localOffset: number;
 }
 
-async function zipEntries(source: ByteSource): Promise<ZipEntry[] | null> {
+async function zipEntries(source: ByteSource, base = 0): Promise<ZipEntry[] | null> {
   const start = Math.max(0, source.size - tailBytes);
   const tail = await source.read(start, source.size - start);
   let eocd = -1;
@@ -147,7 +166,7 @@ async function zipEntries(source: ByteSource): Promise<ZipEntry[] | null> {
   let directorySize = u32le(tail, eocd + 12);
   let directoryOffset = u32le(tail, eocd + 16);
   if ((total === 0xffff || directorySize === 0xffffffff || directoryOffset === 0xffffffff) && eocd >= 20 && u32le(tail, eocd - 20) === 0x07064b50) {
-    const recordOffset = u64le(tail, eocd - 12);
+    const recordOffset = base + u64le(tail, eocd - 12);
     const record = await source.read(recordOffset, 56);
     if (record.length < 56 || u32le(record, 0) !== 0x06064b50) {
       return null;
@@ -156,10 +175,10 @@ async function zipEntries(source: ByteSource): Promise<ZipEntry[] | null> {
     directorySize = u64le(record, 40);
     directoryOffset = u64le(record, 48);
   }
-  if (directoryOffset >= source.size) {
+  if (base + directoryOffset >= source.size) {
     return null;
   }
-  const directory = await source.read(directoryOffset, Math.min(directorySize, maxCentralDirectory));
+  const directory = await source.read(base + directoryOffset, Math.min(directorySize, maxCentralDirectory));
   const entries: ZipEntry[] = [];
   let offset = 0;
   while (offset + 46 <= directory.length && entries.length < Math.min(total, maxEntries)) {
@@ -173,21 +192,114 @@ async function zipEntries(source: ByteSource): Promise<ZipEntry[] | null> {
     const commentLength = u16le(directory, offset + 32);
     const nameBytes = directory.subarray(offset + 46, offset + 46 + nameLength);
     const name = (flags & 0x800) !== 0 ? new TextDecoder("utf-8").decode(nameBytes) : latin1(nameBytes);
-    entries.push({ name: name.toLowerCase(), encrypted: (flags & 1) !== 0 || method === 99 });
+    entries.push({
+      name: name.toLowerCase(),
+      encrypted: (flags & 1) !== 0 || method === 99,
+      method,
+      compressedSize: u32le(directory, offset + 20),
+      localOffset: u32le(directory, offset + 42),
+    });
     offset += 46 + nameLength + extraLength + commentLength;
   }
   return entries;
 }
 
-function zipFindings(entries: ZipEntry[], extension: string | null): { kind: FileKind; findings: FileFinding[]; inside: string[] } {
+async function inflate(data: Uint8Array<ArrayBuffer>, maxBytes: number): Promise<Uint8Array | null> {
+  if (typeof DecompressionStream === "undefined") {
+    return null;
+  }
+  try {
+    const reader = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw")).getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      size += value.byteLength;
+      if (size > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+async function readZipText(source: ByteSource, entry: ZipEntry, base: number): Promise<string | null> {
+  if (entry.encrypted || entry.compressedSize > maxManifestBytes || (entry.method !== 0 && entry.method !== 8)) {
+    return null;
+  }
+  const header = await source.read(base + entry.localOffset, 30);
+  if (header.length < 30 || u32le(header, 0) !== 0x04034b50) {
+    return null;
+  }
+  const data = await source.read(base + entry.localOffset + 30 + u16le(header, 26) + u16le(header, 28), entry.compressedSize);
+  if (data.length < entry.compressedSize) {
+    return null;
+  }
+  const bytes = entry.method === 0 ? data : await inflate(data.slice(), maxManifestBytes);
+  return bytes ? new TextDecoder("utf-8").decode(bytes) : null;
+}
+
+function manifestFindings(text: string): FileFinding[] | null {
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(text.replace(/^\ufeff/, ""));
+  } catch {
+    return null;
+  }
+  if (typeof manifest !== "object" || manifest === null || typeof (manifest as { manifest_version?: unknown }).manifest_version !== "number") {
+    return null;
+  }
+  const record = manifest as Record<string, unknown>;
+  const strings = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").map((item) => item.toLowerCase()) : []);
+  const scripts = Array.isArray(record.content_scripts) ? record.content_scripts.flatMap((script: unknown) => strings((script as { matches?: unknown } | null)?.matches)) : [];
+  const permissions = [...strings(record.permissions), ...strings(record.optional_permissions), ...strings(record.host_permissions), ...strings(record.optional_host_permissions), ...scripts];
+  const findings: FileFinding[] = [];
+  if (permissions.some((permission) => allSitesPattern.test(permission))) {
+    findings.push("extension_all_sites");
+  }
+  if (permissions.includes("cookies")) {
+    findings.push("extension_reads_cookies");
+  }
+  if (permissions.some((permission) => powerfulPermissions.has(permission))) {
+    findings.push("extension_powerful");
+  }
+  return findings;
+}
+
+async function extensionManifest(source: ByteSource, entries: ZipEntry[], base: number): Promise<FileFinding[] | null> {
+  const entry = entries.find((candidate) => candidate.name === "manifest.json");
+  const text = entry ? await readZipText(source, entry, base) : null;
+  return text === null ? null : manifestFindings(text);
+}
+
+function zipFindings(entries: ZipEntry[], extension: string | null, skipExtension = false): { kind: FileKind; findings: FileFinding[]; inside: string[] } {
   const names = entries.map((entry) => entry.name);
   const has = (name: string) => names.includes(name);
-  if (has("[content_types].xml")) {
+  if (has("[content_types].xml") && !has("appxmanifest.xml") && !has("appxmetadata/appxbundlemanifest.xml")) {
     const macros = names.some((name) => name.endsWith("vbaproject.bin")) || ["docm", "dotm", "xlsm", "xltm", "xlam", "pptm", "potm", "ppam"].includes(extension ?? "");
     return { kind: "office_document", findings: macros ? ["office_macros"] : [], inside: [] };
   }
+  if (has("appxmanifest.xml") || has("appxmetadata/appxbundlemanifest.xml")) {
+    return { kind: "windows_installer", findings: [], inside: [] };
+  }
   if (has("androidmanifest.xml") && names.some((name) => name.endsWith(".dex"))) {
     return { kind: "android_app", findings: [], inside: [] };
+  }
+  if (!skipExtension && has("manifest.json") && !names.some((name) => name.endsWith(".class"))) {
+    return { kind: "browser_extension", findings: [], inside: [] };
   }
   if (has("meta-inf/manifest.mf") || names.some((name) => name.endsWith(".class"))) {
     return { kind: "java_archive", findings: minecraftFiles.some(has) ? ["minecraft_mod"] : [], inside: [] };
@@ -214,10 +326,23 @@ function zipFindings(entries: ZipEntry[], extension: string | null): { kind: Fil
   return { kind: "archive", findings: [...findings], inside: inside.slice(0, 5) };
 }
 
+function decodedText(bytes: Uint8Array): string {
+  return bytes[0] === 0xff && bytes[1] === 0xfe ? new TextDecoder("utf-16le").decode(bytes) : latin1(bytes);
+}
+
 function textKind(text: string, extension: string | null): FileKind | null {
   const start = text.replace(/^\ufeff/, "").trimStart().slice(0, 4096).toLowerCase();
-  if (start.includes("<hta:application")) {
+  if (start.includes("<hta:application") || start.startsWith("windows registry editor version") || start.startsWith("regedit4")) {
     return "script";
+  }
+  if (start.startsWith("[internetshortcut]")) {
+    return "windows_shortcut";
+  }
+  if (/^(?:<\?xml[^>]*>\s*)?<roblox[\s>]/.test(start)) {
+    return "roblox_model";
+  }
+  if (/^(?:<\?xml[^>]*>\s*)?<appinstaller[\s>]/.test(start)) {
+    return "windows_installer";
   }
   if (/^<(?:!doctype html|html|head|body|script|meta|iframe|form)\b/.test(start)) {
     return "web_page";
@@ -270,7 +395,23 @@ function scriptFindings(text: string): FileFinding[] {
 
 function shortcutFindings(bytes: Uint8Array): FileFinding[] {
   const text = `${latin1(bytes)}\n${new TextDecoder("utf-16le").decode(bytes)}`.toLowerCase();
-  return shortcutCommands.some((command) => text.includes(command)) ? ["shortcut_runs_command"] : [];
+  const findings: FileFinding[] = [];
+  if (shortcutCommands.some((command) => text.includes(command))) {
+    findings.push("shortcut_runs_command");
+  }
+  if (remoteTarget.test(text)) {
+    findings.push("shortcut_remote_file");
+  }
+  return findings;
+}
+
+function registryFindings(text: string): FileFinding[] {
+  const lower = text.toLowerCase();
+  return registryKeys.some((key) => key.test(lower)) ? ["registry_startup"] : [];
+}
+
+function robloxFindings(text: string): FileFinding[] {
+  return robloxBackdoor.some((pattern) => pattern.test(text)) ? ["roblox_backdoor"] : [];
 }
 
 const vbaProjectMarker = [..."_VBA_PROJECT"].map((char) => `${char}\0`).join("");
@@ -295,6 +436,25 @@ export async function inspectSource(name: string, source: ByteSource): Promise<O
     if (pe.signed) {
       findings.add("program_signed");
     }
+    const tailStart = Math.max(0, source.size - tailBytes);
+    if (latin1(await source.read(tailStart, source.size - tailStart)).includes(pyinstallerCookie)) {
+      findings.add("python_bundle");
+    }
+  } else if (ascii(head, 0, 4) === "Cr24") {
+    kind = "browser_extension";
+    const version = u32le(head, 4);
+    const base = version === 3 ? 12 + u32le(head, 8) : version === 2 ? 16 + u32le(head, 8) + u32le(head, 12) : -1;
+    const entries = base > 0 && base < source.size ? await zipEntries(source, base) : null;
+    for (const finding of (entries ? await extensionManifest(source, entries, base) : null) ?? []) {
+      findings.add(finding);
+    }
+  } else if (ascii(head, 0, 8) === "<roblox!") {
+    kind = "roblox_model";
+    for (const finding of robloxFindings(latin1(await scan()))) {
+      findings.add(finding);
+    }
+  } else if (ascii(head, 0, 4) === "ITSF") {
+    kind = "script";
   } else if (matches(head, [0x4c, 0x00, 0x00, 0x00, 0x01, 0x14, 0x02, 0x00])) {
     kind = "windows_shortcut";
     for (const finding of shortcutFindings(await scan())) {
@@ -312,7 +472,15 @@ export async function inspectSource(name: string, source: ByteSource): Promise<O
   } else if (matches(head, [0x50, 0x4b, 0x03, 0x04]) || matches(head, [0x50, 0x4b, 0x05, 0x06])) {
     const entries = await zipEntries(source);
     if (entries) {
-      const zip = zipFindings(entries, extension);
+      let zip = zipFindings(entries, extension);
+      if (zip.kind === "browser_extension") {
+        const permissions = await extensionManifest(source, entries, 0);
+        if (permissions) {
+          zip = { ...zip, findings: permissions };
+        } else if (!extensionPackages.has(extension ?? "")) {
+          zip = zipFindings(entries, extension, true);
+        }
+      }
       kind = zip.kind;
       inside = zip.inside;
       for (const finding of zip.findings) {
@@ -352,19 +520,31 @@ export async function inspectSource(name: string, source: ByteSource): Promise<O
   ) {
     kind = "image";
   } else {
-    const text = latin1(head);
+    const text = decodedText(head);
     const markup = textKind(text, extension);
     if (markup) {
       kind = markup;
-      const body = latin1(await scan());
-      for (const finding of [...markupFindings(markup, body), ...(markup === "script" ? scriptFindings(body) : [])]) {
+      const raw = await scan();
+      const body = decodedText(raw);
+      const extra =
+        markup === "script"
+          ? [...scriptFindings(body), ...registryFindings(body)]
+          : markup === "windows_shortcut"
+            ? shortcutFindings(raw)
+            : markup === "roblox_model"
+              ? robloxFindings(body)
+              : [];
+      for (const finding of [...markupFindings(markup, body), ...extra]) {
         findings.add(finding);
       }
     } else if (extension && scriptExtensions.has(extension)) {
       kind = "script";
-      for (const finding of scriptFindings(latin1(await scan()))) {
+      const body = decodedText(await scan());
+      for (const finding of [...scriptFindings(body), ...(extension === "reg" ? registryFindings(body) : [])]) {
         findings.add(finding);
       }
+    } else if (extension === "appinstaller") {
+      kind = "windows_installer";
     } else if (extension && shortcutExtensions.has(extension)) {
       kind = "windows_shortcut";
       for (const finding of shortcutFindings(await scan())) {
@@ -376,7 +556,9 @@ export async function inspectSource(name: string, source: ByteSource): Promise<O
       kind = "disk_image";
     }
   }
-  const disguised = ["windows_program", "windows_library", "windows_installer", "windows_shortcut", "script", "android_app", "java_archive", "macos_program", "linux_program", "disk_image"].includes(kind);
+  const disguised =
+    ["windows_program", "windows_library", "windows_installer", "windows_shortcut", "script", "android_app", "java_archive", "macos_program", "linux_program", "disk_image", "browser_extension"].includes(kind) &&
+    !(kind === "browser_extension" && extension === "zip");
   if (disguised && extension && decoyExtensions.has(extension)) {
     findings.add("extension_mismatch");
   }

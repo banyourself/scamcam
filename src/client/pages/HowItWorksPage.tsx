@@ -8,7 +8,7 @@ export function HowItWorksPage() {
     <DocumentPage
       title="How it works"
       reference="SC-DOC-01"
-      updated="2026-10-06"
+      updated="2026-10-07"
       lead="ScamCam treats every check like a case: collect evidence from independent sources, compare it, and only then reach a verdict you can inspect."
     >
       <h2>Evidence before AI</h2>
@@ -22,9 +22,18 @@ export function HowItWorksPage() {
         <li>
           <strong>Look inside files on your device.</strong> If you check a file, your browser reads it without opening or
           running it. It finds what the file really is, whatever its name says, and looks for disguised endings such as{" "}
-          <code>photo.jpg.exe</code>, Office macros, PDF actions, fake login pages, and programs inside archives. Only the
-          file&apos;s fingerprints are sent, and ScamCam looks them up in MalwareBazaar, CIRCL hashlookup, and Team Cymru&apos;s
-          Malware Hash Registry. The file itself is never uploaded.
+          <code>photo.jpg.exe</code>, Office macros, PDF actions, fake login pages, programs inside archives, browser
+          extensions that can read your login cookies, programs packed from Python scripts (a common way to build Discord
+          token grabbers), shortcuts and registry files that reach other computers or change startup settings, and Roblox
+          models with backdoor scripts. Only the file&apos;s fingerprints are sent, and ScamCam looks them up in MalwareBazaar,
+          CIRCL hashlookup, and Team Cymru&apos;s Malware Hash Registry. The file itself is never uploaded.
+        </li>
+        <li>
+          <strong>Read email files on your device.</strong> If you add a saved email (.eml), your browser reads its sender,
+          subject, and text, and the results of the receiving mail server&apos;s sender checks (SPF, DKIM, and DMARC). ScamCam
+          warns when the sender was faked, when the sender&apos;s name says Steam or Discord but the email came from somewhere
+          else, when replies would go to a different domain, and when an attachment can run code. Email addresses and
+          attachments never leave your device.
         </li>
         <li>
           <strong>Look at the link itself.</strong> ScamCam finds the real domain (the part someone actually registered),
@@ -40,7 +49,10 @@ export function HowItWorksPage() {
           domains first seen in the last day, PhishStats, Cloudflare&apos;s 1.1.1.2 security filter, abuse.ch&apos;s URLhaus and
           ThreatFox, how old the domain is, and its DNS records. Six scam lists are checked against a scrambled copy kept by
           ScamCam: Phishing.Database, MetaMask&apos;s phishing list, ScamSniffer, PhishDestroy, a public-domain list of Discord
-          and Steam scam links, and CERT Polska&apos;s warning list. Very popular sites in{" "}
+          and Steam scam links, and CERT Polska&apos;s warning list. For a Discord invite, ScamCam asks Discord when the
+          server was made, whether Discord verified it, and whether its name pretends to be staff or support. For a Steam
+          profile or trade link, it asks Steam whether the account is banned from trading, how new it is, and whether its
+          name pretends to be staff. Very popular sites in{" "}
           <a href="https://radar.cloudflare.com/domains">Cloudflare Radar</a>&apos;s ranking (
           <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>) only soften small warnings, such as an
           often-abused ending, and never outweigh a real listing. ScamCam never opens the link itself. Google works to provide the most
@@ -52,8 +64,9 @@ export function HowItWorksPage() {
           that match known scam scripts, including fake &quot;verify you are human&quot; steps that ask you to paste a
           command, crypto wallet drainers, texts that ask you to reply so a link will work, and fake order or voicemail
           texts that tell you to call a number. ScamCam also notices when a message names a service like Steam or Discord
-          but links somewhere else. US phone numbers stay hidden and are compared only with ScamCam&apos;s own scrambled copy
-          of the FTC&apos;s list of numbers people reported for unwanted calls.
+          but links somewhere else. US phone numbers stay hidden and are compared only with ScamCam&apos;s own scrambled copies
+          of the FTC&apos;s and FCC&apos;s lists of numbers people reported for unwanted calls, and crypto wallet addresses are
+          compared with ScamSniffer&apos;s list of scam wallets.
         </li>
         <li>
           <strong>Only if it is still unclear,</strong> a small AI model reads the message, with emails, phone numbers,

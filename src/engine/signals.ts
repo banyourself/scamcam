@@ -39,6 +39,7 @@ export const sourceNames = {
   domain: "ScamCam domain check",
   message: "ScamCam message rules",
   file: "ScamCam file check (on your device)",
+  email: "ScamCam email check",
   safeBrowsing: "Google Safe Browsing",
   rdap: "RDAP registry data",
   dns: "DNS lookup (Cloudflare 1.1.1.1)",
@@ -48,9 +49,12 @@ export const sourceNames = {
   phishingDatabase: "Phishing.Database (community list)",
   scamLists: "Community scam lists",
   phoneReports: "FTC Do Not Call reports",
+  phoneComplaints: "FCC consumer complaints",
   spamhaus: "Spamhaus DBL and ZRD",
   phishstats: "PhishStats",
   radar: "Cloudflare Radar domain ranking",
+  discord: "Discord server details",
+  steam: "Steam account details (Steam Web API)",
   ai: "AI pattern check (Workers AI)",
 } as const;
 

@@ -25,9 +25,9 @@ describe("phone numbers in messages", () => {
       title: "A phone number in this message was reported to the FTC for unwanted calls",
       source: { name: "FTC Do Not Call reports", url: "https://www.ftc.gov/policy-notices/open-government/data-sets/do-not-call-data" },
     });
-    expect(report.recommendations).toContain(
-      "Do not call the number in the message. Check your orders in the company's official app or website, and if you need to call, use the number on its website or on your card.",
-    );
+    expect(report.recommendations[0]).toBe("Do not reply, call any number in it, or send money, codes, or files.");
+    expect(report.recommendations.some((tip) => tip.startsWith("Do not call the number in the message."))).toBe(true);
+    expect(report.recommendations.join(" ")).not.toContain("Do not open the link");
     expect(asked.flat()).toEqual(expect.arrayContaining(["+17607662951", "+14699825001"]));
     const everything = JSON.stringify(report) + JSON.stringify(fake.requests);
     for (const digits of ["7607662951", "4699825001", "982-5001"]) {
@@ -52,9 +52,54 @@ describe("phone numbers in messages", () => {
     expect(quiet.notChecked.some((item) => item.name === "FTC Do Not Call reports")).toBe(false);
   });
 
+  it("adds FCC complaints as a second, smaller warning when the FTC also has reports", async () => {
+    const both = await scanContent("hey it's me, my new number is 469-982-5001", options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: ["+14699825001"], fcc_complaints: ["+14699825001"] }) }).scan);
+    expect(both.evidence.find((item) => item.id === "fcc-complaints")).toMatchObject({
+      signal: "raises_risk",
+      title: "A phone number in this message was named in complaints to the FCC about unwanted calls",
+      source: { name: "FCC consumer complaints", url: "https://opendata.fcc.gov/Consumer/CGB-Consumer-Complaints-Data/3xyp-aqkj" },
+    });
+    expect(["unknown", "suspicious"]).toContain(both.level);
+    const only = await scanContent("call me back at 469-982-5001", options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: [], fcc_complaints: ["+14699825001"] }) }).scan);
+    expect(only.evidence.some((item) => item.id === "fcc-complaints")).toBe(true);
+    expect(only.evidence.some((item) => item.id === "ftc-dnc")).toBe(false);
+    expect(JSON.stringify(both) + JSON.stringify(only)).not.toContain("4699825001");
+    const missing = await scanContent("call me at 714-555-0199", options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: [] }) }).scan);
+    expect(missing.notChecked).toContainEqual({ name: "FCC consumer complaints", reason: "not_configured" });
+  });
+
   it("counts a reported number as one warning sign, not proof", async () => {
     const report = await scanContent("hey it's me, my new number is 469-982-5001", options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: ["+14699825001"] }) }).scan);
     expect(report.evidence.some((item) => item.id === "ftc-dnc")).toBe(true);
     expect(["unknown", "suspicious"]).toContain(report.level);
+  });
+});
+
+describe("wallet addresses in messages", () => {
+  const wallet = `0x${"7538fd1e30".repeat(4)}`;
+
+  it("warns about a wallet on ScamSniffer's list as a drainer and sends it nowhere", async () => {
+    const asked: string[][] = [];
+    const { scan, fake } = options({ scamLists: listsOf({ phishing_database: [], scamsniffer_wallets: [wallet] }, asked) });
+    const report = await scanContent(`To claim your airdrop, send 0.01 ETH for gas to ${wallet.toUpperCase().replace("0X", "0x")}`, scan);
+    expect(report.evidence.find((item) => item.id === "scam-wallet")).toMatchObject({
+      signal: "raises_risk",
+      title: "A wallet address in this message is on ScamSniffer's scam list",
+      source: { name: "ScamSniffer scam wallets", url: "https://github.com/scamsniffer/scam-database" },
+    });
+    expect(["suspicious", "high_risk"]).toContain(report.level);
+    expect(report.recommendations).toContain("Never connect your wallet or sign anything on a site someone sent you. Check the project's official account yourself.");
+    expect(asked.flat()).toContain(wallet);
+    expect(fake.requests).toEqual([]);
+  });
+
+  it("stays quiet about wallets that are not listed, and says when the wallet list is not connected", async () => {
+    const clean = await scanContent(`my address is ${wallet}`, options({ scamLists: listsOf({ phishing_database: [], scamsniffer_wallets: [] }) }).scan);
+    expect(clean.evidence.some((item) => item.id === "scam-wallet")).toBe(false);
+    expect(clean.level).toBe("no_known_threat");
+    const missing = await scanContent(`my address is ${wallet}`, options({ scamLists: listsOf({ phishing_database: [] }) }).scan);
+    expect(missing.notChecked).toContainEqual({ name: "ScamSniffer scam wallets", reason: "not_configured" });
+    const quiet = await scanContent("gg wp", options({ scamLists: listsOf({ phishing_database: [] }) }).scan);
+    expect(quiet.notChecked.some((item) => item.name === "ScamSniffer scam wallets")).toBe(false);
   });
 });

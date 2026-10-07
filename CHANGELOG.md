@@ -3,6 +3,47 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-07: Discord and Steam checks, scam wallets, FCC numbers, email files, and more file types
+
+- **Discord invites.** For a discord.gg or discord.com/invite link, the scanner asks Discord's public invite endpoint
+  (no key) when the server was made, whether Discord verified it, and whether its name claims to be a company's staff
+  or support. A server that claims to be support without being verified is a strong warning, a server made in the last
+  30 days a weak one, and an invite that no longer works is noted. Invites no longer count as links to Discord's
+  official website, because anyone can make a server. Server names are never shown or stored.
+- **Steam accounts.** For a steamcommunity.com profile, custom profile name, or trade offer link, the scanner asks the
+  Steam Web API about trade bans (strong), trade probation and community bans (moderate), game bans (background only),
+  accounts made in the last 30 days when the profile is public (moderate), and names that claim to be staff. It needs
+  `STEAM_WEB_API_KEY`; until I set it, reports list Steam as not connected.
+- **Scam wallets.** Wallet addresses in a message (0x and 40 hex digits) are compared with a hashed copy of
+  ScamSniffer's daily list of 4,599 scam wallets (`blacklist/all.json`; the older `address.json` stopped updating in
+  2024). A match is a strong warning in the wallet drainer family.
+- **FCC complaint numbers.** The daily sync now also downloads the caller ID and callback numbers from the last 90 days
+  of the FCC's consumer complaints about unwanted calls (28,734 unique numbers on 2026-10-07). A match is a moderate
+  warning, or a weak one when the FTC's list already matched, so two lists about the same kind of report do not add up
+  to a scam verdict on their own.
+- **Email files.** A saved .eml file can be added like any other file. The browser reads the sender's name, the
+  subject, and the text (HTML links become link text plus address, so disguised links are caught), the receiving
+  server's SPF, DKIM, and DMARC results, whether replies go to another domain, and the attachments, which are looked at
+  with the same on-device file checks. Only the text, the sender's domain, those results, and each attachment's type
+  and findings are sent. New warnings cover a failed sender check, a sender name that says Steam or Discord from
+  another domain, a look-alike sender domain, a sender domain on a scam list, replies to another domain, and risky
+  attachments.
+- **More file types.** Browser extensions (.crx, .xpi, and extension zips) with the permissions they ask for, including
+  reading login cookies; programs packed from Python with PyInstaller; .url, .search-ms, and .library-ms shortcuts that
+  open files on another computer; .reg files that change startup or security settings, in either text encoding;
+  .appinstaller files and MSIX packages; CHM help files by their contents; and Roblox models with backdoor tricks
+  (`require` by asset ID, `loadstring`, `getfenv`).
+- **Advice.** A high-risk message with no links now says not to reply, call any number in it, or send money, codes, or
+  files, instead of "do not open the link". The callback scam advice now says to call the bank if card details were
+  already given.
+- Migration `0008` allows the two new lists. A scan in the scanner with 20 links, two Discord invites, and two Steam
+  profiles uses 46 of the 50 subrequests (26 fetches, 6 Spamhaus lookups, 14 queries).
+- Verified: 675 Vitest tests in 44 files and 19 Node tests pass, the browser privacy check reads a test email in Chrome
+  and confirms no address, recipient, or attachment leaves the page, the accessibility audit passes with the email
+  details box in both themes at both widths, and the restore drill matches every table with eight migrations. Discord's
+  invite endpoint, ScamSniffer's file, and the FCC dataset were checked live from my computer; Steam is tested only
+  with a fake server until the key is set.
+
 ## 2026-10-06: Phone number checks, callback scam rules, and the text box
 
 - **Fake order and voicemail callback scams.** A text claiming a $999 Walmart laptop order, with "call us back or press

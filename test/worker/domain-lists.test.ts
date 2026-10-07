@@ -135,4 +135,23 @@ describe("scam lists in D1", () => {
     const sites = results.get("phishing_database");
     expect(sites?.status === "ok" && [...sites.listed]).toEqual(["steam-gift.example"]);
   });
+
+  it("checks wallets and FCC numbers in the same two queries, each only against its own kind of list", async () => {
+    const now = nowInSeconds();
+    const wallet = `0x${"ab".repeat(20)}`;
+    await loadList("v1", now, [...listed, wallet]);
+    await loadList("fcc-1", now, ["+14699825001"], "fcc_complaints");
+    await loadList("wallets-1", now, [wallet, "steam-gift.example"], "scamsniffer_wallets");
+    const counter = { queries: 0 };
+    const results = await d1DomainLists(countingDatabase(env.DB, counter), memoryLookups()).lookup(["steam-gift.example", "+14699825001", wallet]);
+    expect(counter.queries).toBe(2);
+    const listedIn = (list: ListName) => {
+      const result = results.get(list);
+      return result?.status === "ok" ? [...result.listed] : null;
+    };
+    expect(listedIn("scamsniffer_wallets")).toEqual([wallet]);
+    expect(listedIn("fcc_complaints")).toEqual(["+14699825001"]);
+    expect(listedIn("phishing_database")).toEqual(["steam-gift.example"]);
+    expect(listedIn("ftc_dnc")).toBeNull();
+  });
 });

@@ -3,12 +3,14 @@ import {
   domainListDetails,
   domainListKeepSeconds,
   domainListKey,
-  isPhoneList,
+  entryKind,
+  listKind,
   listNames,
   shardContains,
   shardOf,
   type DomainListLookup,
   type DomainListResults,
+  type ListKind,
   type ListName,
 } from "../../engine/domain-list";
 import { nowInSeconds } from "../retention";
@@ -31,10 +33,6 @@ function toBytes(value: unknown): Uint8Array | null {
 
 function isListName(value: string): value is ListName {
   return (listNames as readonly string[]).includes(value);
-}
-
-function isPhoneName(name: string): boolean {
-  return name.startsWith("+");
 }
 
 export function d1DomainLists(db: D1Database, lookups: Lookups, now: () => number = nowInSeconds): DomainListLookup {
@@ -62,11 +60,12 @@ export function d1DomainLists(db: D1Database, lookups: Lookups, now: () => numbe
           return results;
         }
         const keys = new Map(await Promise.all(checked.map(async (name) => [name, await domainListKey(name)] as const)));
-        const namesFor = (list: ListName) => checked.filter((name) => isPhoneName(name) === isPhoneList(list));
+        const namesFor = (list: ListName) => checked.filter((name) => entryKind(name) === listKind(list));
         const shards = new Map<string, Uint8Array>();
-        const missing = { domain: { lists: new Set<ListName>(), shards: new Set<number>() }, phone: { lists: new Set<ListName>(), shards: new Set<number>() } };
+        const kinds: ListKind[] = ["domain", "phone", "wallet"];
+        const missing = new Map(kinds.map((kind) => [kind, { lists: new Set<ListName>(), shards: new Set<number>() }]));
         for (const list of active) {
-          const group = isPhoneList(list.name) ? missing.phone : missing.domain;
+          const group = missing.get(listKind(list.name))!;
           for (const shard of new Set(namesFor(list.name).map((name) => shardOf(keys.get(name)!)))) {
             const remembered = recallFromMemory(lookups, `list:${list.name}:${list.version}:${shard}`);
             if (remembered instanceof Uint8Array) {
@@ -79,7 +78,7 @@ export function d1DomainLists(db: D1Database, lookups: Lookups, now: () => numbe
         }
         const clauses: string[] = [];
         const values: (string | number)[] = [];
-        for (const group of [missing.domain, missing.phone]) {
+        for (const group of missing.values()) {
           if (group.lists.size === 0) {
             continue;
           }

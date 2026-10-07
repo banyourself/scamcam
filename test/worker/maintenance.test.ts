@@ -113,7 +113,7 @@ describe("weekly maintenance", () => {
     expect(detail.rows.error_events).toBe(1);
     expect(detail.missingExpiry).toEqual({ error_events: 0, maintenance_runs: 0, provider_usage: 0, domain_lists: 0, domain_list_shards: 0, shared_reports: 0, result_flags: 0 });
     expect(detail.lists.phishing_database).toBeNull();
-    expect(Object.keys(detail.lists)).toHaveLength(7);
+    expect(Object.keys(detail.lists)).toHaveLength(9);
     expect(typeof detail.storage.sizeBytes === "number" || detail.storage.sizeBytes === null).toBe(true);
   });
 });

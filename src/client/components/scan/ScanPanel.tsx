@@ -1,6 +1,7 @@
 import { useDeferredValue, useId, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent } from "react";
 import { extractInput, maxInputLength } from "../../../shared/extract";
-import { describeFile, maxFileBytes } from "../../../shared/file-check";
+import { isEmailFile, type EmailFacts } from "../../../shared/email";
+import { describeFile, fileKindNames, maxFileBytes } from "../../../shared/file-check";
 import type { ScanReport } from "../../../shared/report";
 import { reportSignatureHeader } from "../../../shared/share";
 import { TurnstileWidget } from "@/components/scan/TurnstileWidget";
@@ -70,6 +71,7 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
   const [readNote, setReadNote] = useState("");
   const [fromScreenshot, setFromScreenshot] = useState(false);
   const [staged, setStaged] = useState<{ name: string; inspection: FileInspection } | null>(null);
+  const [email, setEmail] = useState<EmailFacts | null>(null);
   const [inspecting, setInspecting] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const anyFileInput = useRef<HTMLInputElement>(null);
@@ -89,6 +91,7 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
   function clearText() {
     setText("");
     setFromScreenshot(false);
+    setEmail(null);
     setReadNote("");
     setError("");
     textBox.current?.focus();
@@ -136,10 +139,24 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
     }
     setInspecting(true);
     try {
+      if (isEmailFile(file)) {
+        const { readEmail } = await import("@/lib/email-read");
+        const read = await readEmail(file);
+        setText(read.content);
+        setEmail(read.facts);
+        setFromScreenshot(false);
+        setStaged(null);
+        setReadNote("Read from the email file on this device. Check the text, then press Check it.");
+        return;
+      }
       const { inspectFile } = await import("@/lib/file-inspect");
       setStaged({ name: file.name, inspection: await inspectFile(file) });
-    } catch {
-      setError("This file could not be read on your device. Try saving it again, then check it.");
+    } catch (problem) {
+      setError(
+        problem instanceof Error && problem.name === "EmailReadError"
+          ? problem.message
+          : "This file could not be read on your device. Try saving it again, then check it.",
+      );
     } finally {
       setInspecting(false);
       if (anyFileInput.current) {
@@ -229,7 +246,12 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
       const response = await fetch("/api/v1/scans", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ content: text, ...(token ? { turnstileToken: token } : {}), ...(fromScreenshot ? { fromScreenshot: true } : {}) }),
+        body: JSON.stringify({
+          content: text,
+          ...(token ? { turnstileToken: token } : {}),
+          ...(fromScreenshot ? { fromScreenshot: true } : {}),
+          ...(email ? { email } : {}),
+        }),
       });
       if (!response.ok) {
         setError(await readError(response));
@@ -282,6 +304,7 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
             setText(event.target.value);
             if (event.target.value.trim() === "") {
               setFromScreenshot(false);
+              setEmail(null);
             }
           }}
           onPaste={pasted}
@@ -347,6 +370,33 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
                 : readNote || "Or paste or drop a screenshot or file here."}
           </p>
         </div>
+
+        {email && (
+          <section aria-label="Email details" className="border border-rule-strong bg-panel-2 px-4 py-3 text-sm">
+            <p className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-ink-faint">Email details sent with the check</p>
+            <p className="mt-1 text-ink-soft">
+              Sender domain: <span className="break-all font-mono text-ink">{email.fromDomain ?? "not found"}</span>
+            </p>
+            <p className="mt-1 text-ink-soft">
+              Sender checks by the receiving server: SPF {email.spf}, DKIM {email.dkim}, DMARC {email.dmarc}
+              {email.replyToDiffers ? ". Replies go to a different domain." : "."}
+            </p>
+            <p className="mt-1 text-ink-soft">
+              {email.attachments.length === 0
+                ? "No attachments that need checking."
+                : `Checked on this device: ${email.attachments.map((attachment) => fileKindNames[attachment.kind]).join(", ")}.`}
+            </p>
+            <p className="mt-2 text-xs text-ink-faint">
+              Email addresses, recipients, and attachments stay on this device. Only the text above, the sender&apos;s domain, these
+              check results, and the attachment types and findings are sent.
+            </p>
+            <div className="mt-3">
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => setEmail(null)}>
+                Remove email details
+              </Button>
+            </div>
+          </section>
+        )}
 
         {staged && (
           <section aria-label="File to check" className="border border-rule-strong bg-panel-2 px-4 py-3 text-sm">

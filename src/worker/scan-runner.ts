@@ -4,6 +4,7 @@ import { fileReport } from "../engine/file-scan";
 import { lookupFileHashes } from "../engine/hash-lookups";
 import { scanContent, type BudgetedProvider } from "../engine/scan";
 import type { DnsTransport } from "../engine/spamhaus";
+import type { EmailFacts } from "../shared/email";
 import type { FileCheckRequest } from "../shared/file-check";
 import type { ScanReport } from "../shared/report";
 import { ScanReportSchema } from "../shared/report-schema";
@@ -54,7 +55,7 @@ function aiModelFor(env: AppBindings, injected: TextModel | null): TextModel | n
   return { run: (model, input) => binding.run(model, input) };
 }
 
-export async function runScan(env: AppBindings, content: string, dependencies: ScanDependencies, fromScreenshot = false): Promise<ScanOutcome> {
+export async function runScan(env: AppBindings, content: string, dependencies: ScanDependencies, fromScreenshot = false, email?: EmailFacts): Promise<ScanOutcome> {
   const takeBudget = budgetTaker(env);
   const model = aiModelFor(env, dependencies.aiModel);
   const report = await scanContent(content, {
@@ -80,10 +81,12 @@ export async function runScan(env: AppBindings, content: string, dependencies: S
     lookups: dependencies.lookups,
     scamLists: d1DomainLists(env.DB, dependencies.lookups),
     fromScreenshot,
+    email,
     extendedLookups: dependencies.extendedLookups ?? false,
     spamhaus: env.SPAMHAUS_DQS_KEY && dependencies.dnsTransport ? { key: env.SPAMHAUS_DQS_KEY, transport: dependencies.dnsTransport } : undefined,
     phishstatsKey: env.PHISHSTATS_API_KEY || undefined,
     radarToken: env.CLOUDFLARE_RADAR_TOKEN || undefined,
+    steamKey: env.STEAM_WEB_API_KEY || undefined,
   });
   const checked = ScanReportSchema.parse(report);
   return { report: checked, signature: await signReport(checked, env.SHARE_SIGNING_KEY) };

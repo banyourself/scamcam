@@ -71,4 +71,25 @@ describe("provider alerts", () => {
     ]);
     expect(log.mock.calls.join(" ")).not.toContain("private-domain");
   });
+
+  it("logs Discord and Steam errors without the invite, the profile, or the Steam key, and stays quiet about missing invites", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const answers: Record<string, () => Response> = {
+      "discord.com": () => new Response(JSON.stringify({ message: "Unknown Invite", code: 10006 }), { status: 404 }),
+      "api.steampowered.com": () => new Response("<html><body>Forbidden</body></html>", { status: 403 }),
+    };
+    const fetcher = watchedFetcher(async (input) => answers[new URL(String(input)).hostname]!());
+    await fetcher("https://discord.com/api/v10/invites/secretcode?with_counts=true");
+    await fetcher("https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key=hiddensteamkeyvalue&vanityurl=privateprofile");
+    answers["discord.com"] = () => new Response(JSON.stringify({ message: "You are being rate limited.", retry_after: 1 }), { status: 429 });
+    await fetcher("https://discord.com/api/v10/invites/secretcode?with_counts=true");
+    expect(alertsFrom(log).map(({ alert, status, detail }) => ({ alert, status, detail }))).toEqual([
+      { alert: "steam_unavailable", status: 403, detail: undefined },
+      { alert: "discord_unavailable", status: 429, detail: "You are being rate limited." },
+    ]);
+    const logged = log.mock.calls.join(" ");
+    for (const secret of ["secretcode", "hiddensteamkeyvalue", "privateprofile"]) {
+      expect(logged).not.toContain(secret);
+    }
+  });
 });

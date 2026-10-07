@@ -9,6 +9,8 @@ export const fileKinds = [
   "macos_program",
   "linux_program",
   "disk_image",
+  "browser_extension",
+  "roblox_model",
   "archive",
   "office_document",
   "pdf",
@@ -43,6 +45,13 @@ export const fileFindings = [
   "script_downloads",
   "minecraft_mod",
   "too_large_to_hash",
+  "extension_all_sites",
+  "extension_reads_cookies",
+  "extension_powerful",
+  "python_bundle",
+  "shortcut_remote_file",
+  "registry_startup",
+  "roblox_backdoor",
 ] as const;
 
 export type FileFinding = (typeof fileFindings)[number];
@@ -62,6 +71,8 @@ export const fileKindNames: Record<FileKind, string> = {
   macos_program: "Mac program or disk image",
   linux_program: "Linux program",
   disk_image: "Disk image",
+  browser_extension: "Browser extension",
+  roblox_model: "Roblox model or place",
   archive: "Compressed archive",
   office_document: "Office document",
   pdf: "PDF document",

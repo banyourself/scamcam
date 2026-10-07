@@ -62,6 +62,25 @@ describe("POST /api/v1/scans", () => {
     expect(bad.response.status).toBe(400);
   });
 
+  it("accepts email details read on the device and refuses anything extra or malformed", async () => {
+    const email = { fromDomain: "steam-security-alert.example", spf: "fail", dkim: "none", dmarc: "fail", replyToDiffers: true, attachments: [{ kind: "windows_program", extension: "exe", findings: ["double_extension"] }] };
+    const { response } = await scan({ content: "From: Steam Support\nSubject: Your account will be locked\n\nVerify your account today.", turnstileToken: "t", email });
+    expect(response.status).toBe(200);
+    const report = await response.json<{ level: string; evidence: { id: string }[] }>();
+    expect(report.evidence.map((item) => item.id)).toEqual(expect.arrayContaining(["email-dmarc-fail", "email-name-mismatch", "attachment-1-file-kind-windows_program"]));
+    expect(report.level).toBe("high_risk");
+    for (const bad of [
+      { ...email, fromAddress: "someone@example.com" },
+      { ...email, fromDomain: "not a domain" },
+      { ...email, dmarc: "maybe" },
+      { ...email, attachments: [{ kind: "windows_program", findings: [], name: "invoice.exe" }] },
+      { ...email, attachments: Array.from({ length: 6 }, () => ({ kind: "pdf", findings: [] })) },
+    ]) {
+      const refused = await scan({ content: "hello there", turnstileToken: "t", email: bad });
+      expect(refused.response.status, JSON.stringify(bad)).toBe(400);
+    }
+  });
+
   it("stores nothing that was submitted", async () => {
     await scan({ content: "send me your password at https://steam-login.example/secret-path-123", turnstileToken: "token" });
     const tables = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE '_cf%' AND name NOT LIKE 'sqlite%' AND name != 'd1_migrations'").all<{ name: string }>();

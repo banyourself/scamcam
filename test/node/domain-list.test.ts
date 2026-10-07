@@ -95,6 +95,26 @@ test("the list builder refuses an unknown list name or format", () => {
   }
 });
 
+test("the list builder reads ScamSniffer's wallet addresses and skips malformed ones", () => {
+  const folder = mkdtempSync(join(tmpdir(), "scamcam-list-"));
+  try {
+    const good = Array.from({ length: 150 }, (_, index) => `0x${index.toString(16).padStart(40, "0")}`);
+    const input = { address: [...good, `0x${"A".repeat(40)} `, "0x123", "null", `00x${"1".repeat(40)}`, `0x${"2".repeat(40)}m`], domains: ["scam.example"], combined: {} };
+    writeFileSync(join(folder, "all.json"), JSON.stringify(input));
+    const summary = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [script, "--input", join(folder, "all.json"), "--out", join(folder, "wallets.sql"), "--list", "scamsniffer_wallets", "--format", "scamsniffer-addresses", "--version", "w1", "--min-entries", "100"],
+        { encoding: "utf8" },
+      ),
+    ) as { unique: number; invalid: number; list: string };
+    assert.deepEqual([summary.unique, summary.invalid, summary.list], [151, 4, "scamsniffer_wallets"]);
+    assert.match(readFileSync(join(folder, "wallets.sql"), "utf8"), /VALUES \('scamsniffer_wallets', 'w1', 151,/);
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+});
+
 test("the list builder reads FTC phone numbers for the phone list and skips anything that is not a US number", () => {
   const folder = mkdtempSync(join(tmpdir(), "scamcam-list-"));
   try {

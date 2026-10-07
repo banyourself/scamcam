@@ -1,11 +1,14 @@
+import type { EmailFacts } from "../shared/email";
 import { extractInput, maskedLinks, qrValues, withoutQrLabels } from "../shared/extract";
 import type { Evidence, ScanReport, UncheckedSource } from "../shared/report";
-import { brandsNamedIn, freeHostingSuffixes, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
+import { brands, brandsNamedIn, freeHostingSuffixes, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
 import type { AiReviewResult } from "./ai-review";
 import { cacheKey, memoryLookups, recallFromMemory, recordOutcome, rememberInMemory, sourceIsOpen, type Lookups } from "./cache";
+import { discordInviteDocs, lookupDiscordInvite, type DiscordInviteResult } from "./discord-invite";
 import { isPrivateAddress, lookupDns, lookupFilteredDns, type DnsResult, type FilterResult } from "./dns";
-import { candidateNames, domainListDetails, isPhoneList, type DomainListLookup, type DomainListName, type DomainListResult } from "./domain-list";
+import { candidateNames, domainListDetails, isDomainList, type DomainListLookup, type DomainListName, type DomainListResult } from "./domain-list";
 import { caseNumber } from "./case-number";
+import { emailSignals, senderLink, senderNameIn } from "./email-signals";
 import { aimsAtCheckers } from "./injection";
 import { analyzeMessage, familyNames, normalizeMessage } from "./message-rules";
 import { lookupPhishstats, phishstatsHomePage, type PhishstatsResult } from "./phishstats";
@@ -15,6 +18,7 @@ import { isRedirectorHost, maxUnwrapDepth, unwrapRedirect } from "./redirects";
 import { searchSafeBrowsing, threatDefinitionUrls, threatDescriptions, type SafeBrowsingResult } from "./safe-browsing";
 import { sourceNames, strengthPoints, type ScamFamily, type Signal } from "./signals";
 import { lookupSpamhaus, spamhausDblUrl, spamhausZrdUrl, type DblListing, type DnsTransport, type SpamhausResult } from "./spamhaus";
+import { lookupSteamAccounts, maxSteamAccounts, steamHomePage, type SteamAccountResult } from "./steam";
 import { analyzeLink, type AnalyzedLink } from "./url-analysis";
 import { lookupThreatfoxHost, threatfoxHomePage, type ThreatfoxResult } from "./threatfox";
 import { lookupUrlhausHost, sameUrl, urlhausHomePage, type UrlhausResult } from "./urlhaus";
@@ -36,10 +40,14 @@ export interface ScanOptions {
   spamhaus?: { key: string; transport: DnsTransport } | undefined;
   phishstatsKey?: string | undefined;
   radarToken?: string | undefined;
+  steamKey?: string | undefined;
+  email?: EmailFacts | undefined;
 }
 
 const maxNetworkLinks = 3;
 const maxRadarLinks = 2;
+const maxDiscordInvites = 2;
+const newAccountDays = 30;
 const recentReportDays = 90;
 const maxUnwrappedLinks = 5;
 const cloudflareFilterUrl = "https://developers.cloudflare.com/1.1.1.1/setup/#1111-for-families";
@@ -401,6 +409,44 @@ function phoneReportSignals(matched: number, result: DomainListResult, now: Date
   ];
 }
 
+function phoneComplaintSignals(matched: number, result: DomainListResult, alsoReported: boolean, now: Date): Signal[] {
+  if (matched === 0 || result.status !== "ok") {
+    return [];
+  }
+  return [
+    {
+      id: "fcc-complaints",
+      source: sourceNames.phoneComplaints,
+      sourceUrl: domainListDetails.fcc_complaints.url,
+      direction: "raises",
+      strength: alsoReported ? "weak" : "moderate",
+      title:
+        matched === 1
+          ? "A phone number in this message was named in complaints to the FCC about unwanted calls"
+          : `${matched} phone numbers in this message were named in complaints to the FCC about unwanted calls`,
+      detail: `People named ${matched === 1 ? "this number" : "these numbers"} as the caller ID or the number to call back in complaints to the Federal Communications Commission in the last three months. The FCC does not check complaints, and callers can fake a number, so treat this as one warning sign.${listDateNote(result.syncedAt, now)}`,
+    },
+  ];
+}
+
+function walletSignals(matched: number, result: DomainListResult, now: Date): Signal[] {
+  if (matched === 0 || result.status !== "ok") {
+    return [];
+  }
+  return [
+    {
+      id: "scam-wallet",
+      source: domainListDetails.scamsniffer_wallets.source,
+      sourceUrl: domainListDetails.scamsniffer_wallets.url,
+      direction: "raises",
+      strength: "strong",
+      family: "wallet_drainer",
+      title: matched === 1 ? "A wallet address in this message is on ScamSniffer's scam list" : `${matched} wallet addresses in this message are on ScamSniffer's scam list`,
+      detail: `ScamSniffer lists ${matched === 1 ? "this address" : "these addresses"} as used by crypto drainers or other scams to collect stolen funds. Do not send anything to it or approve anything it asks for. Lists like this can contain mistakes, so ScamCam treats one listing as a warning sign, not proof.${listDateNote(result.syncedAt, now)}`,
+    },
+  ];
+}
+
 function longDate(day: string): string {
   return new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
@@ -464,6 +510,178 @@ function radarSignals(link: AnalyzedLink, domain: string, result: RadarResult): 
       detail: "Cloudflare Radar ranks domains by real traffic. Very popular sites are rarely made for scams, but they can still be hacked or misused, so this does not prove a link is safe. Ranking data from Cloudflare Radar, CC BY-NC 4.0.",
     },
   ];
+}
+
+function daysSince(iso: string | null, now: Date): number | null {
+  const days = iso ? Math.floor((now.getTime() - Date.parse(iso)) / day) : Number.NaN;
+  return Number.isFinite(days) && days >= 0 ? days : null;
+}
+
+function madeAgo(days: number): string {
+  return days === 0 ? "today" : `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function discordSignals(link: AnalyzedLink, result: DiscordInviteResult, now: Date, fromPicture: boolean): Signal[] {
+  const code = link.discordInvite!;
+  const base = { source: sourceNames.discord, sourceUrl: discordInviteDocs, link: link.hostname! };
+  if (result.status === "missing") {
+    return [
+      {
+        ...base,
+        id: `discord-gone-${code}`,
+        direction: "context",
+        strength: "moderate",
+        title: "This Discord invite does not work anymore",
+        detail: "The invite has expired or its server was deleted. Scam servers are often removed after reports, and their invites stop working.",
+      },
+    ];
+  }
+  if (result.status !== "ok") {
+    return [];
+  }
+  const signals: Signal[] = [];
+  const claimed = brands.find((brand) => brand.id === result.claimsBrand);
+  if (claimed && !result.verified) {
+    signals.push({
+      ...base,
+      id: `discord-impostor-${code}`,
+      direction: "raises",
+      strength: "strong",
+      brandId: claimed.id,
+      title: `This server's name claims to be ${claimed.name} staff or support`,
+      detail: `Discord has not verified it as an official ${claimed.name} server. Fake support and staff servers are used to steal accounts, so do not log in, scan QR codes, or run anything they send you.`,
+    });
+  }
+  const age = daysSince(result.createdAt, now);
+  if (age !== null && age < newAccountDays) {
+    signals.push({
+      ...base,
+      id: `discord-new-${code}`,
+      direction: "raises",
+      strength: "weak",
+      title: `This Discord server was made ${madeAgo(age)}`,
+      detail: "Fake giveaway and support servers are usually new, because Discord removes them after reports. Many honest servers are new too.",
+    });
+  }
+  if (fromPicture) {
+    return signals;
+  }
+  if (result.verified) {
+    signals.push({
+      ...base,
+      id: `discord-verified-${code}`,
+      direction: "lowers",
+      strength: "moderate",
+      title: "Discord has verified this server",
+      detail: "Discord verifies the official servers of games, companies, and creators. People inside it can still send scams, so be careful with direct messages from members.",
+    });
+  } else if (result.partnered) {
+    signals.push({
+      ...base,
+      id: `discord-partner-${code}`,
+      direction: "lowers",
+      strength: "weak",
+      title: "This is a Discord Partner server",
+      detail: "Discord chose it for its Partner Program, which is for active, well-run communities. People inside it can still send scams, so be careful with direct messages from members.",
+    });
+  }
+  return signals;
+}
+
+function steamSignals(link: AnalyzedLink, result: SteamAccountResult, now: Date): Signal[] {
+  const ref = link.steamAccount!;
+  const account = `${ref.kind}-${ref.value.toLowerCase()}`;
+  const base = { source: sourceNames.steam, sourceUrl: steamHomePage, link: link.hostname! };
+  if (result.status === "missing") {
+    return [
+      {
+        ...base,
+        id: `steam-missing-${account}`,
+        direction: "context",
+        strength: "weak",
+        title: "This Steam profile does not exist",
+        detail: "Steam has no account at this address. It may have been deleted, or the link is wrong.",
+      },
+    ];
+  }
+  if (result.status !== "ok") {
+    return [];
+  }
+  const signals: Signal[] = [];
+  if (result.tradeBan === "banned") {
+    signals.push({
+      ...base,
+      id: `steam-trade-ban-${account}`,
+      direction: "raises",
+      strength: "strong",
+      title: "Steam has banned this account from trading",
+      detail: "Steam bans trading on accounts involved in scams, stolen items, or other trading abuse. Do not trade with it or open links it sends you.",
+    });
+  } else if (result.tradeBan === "probation") {
+    signals.push({
+      ...base,
+      id: `steam-trade-probation-${account}`,
+      direction: "raises",
+      strength: "moderate",
+      title: "This Steam account is on trade probation",
+      detail: "Steam limits trading on this account after a trading problem. Be careful with any trade it offers.",
+    });
+  }
+  if (result.communityBanned) {
+    signals.push({
+      ...base,
+      id: `steam-community-ban-${account}`,
+      direction: "raises",
+      strength: "moderate",
+      title: "Steam has banned this account from its community",
+      detail: "Steam bans accounts from its community features for breaking the rules, for example by spamming or scamming.",
+    });
+  }
+  const claimed = brands.find((brand) => brand.id === result.claimsBrand);
+  if (claimed) {
+    signals.push({
+      ...base,
+      id: `steam-impostor-${account}`,
+      direction: "raises",
+      strength: "strong",
+      brandId: claimed.id,
+      title: `This Steam account's name claims to be ${claimed.name} staff or support`,
+      detail: `Real ${claimed.name} staff never add you as a friend or message you on Steam about your account. Names like this are used in fake support and fake report scams.`,
+    });
+  }
+  const age = daysSince(result.createdAt, now);
+  if (age !== null && age < newAccountDays) {
+    signals.push({
+      ...base,
+      id: `steam-new-${account}`,
+      direction: "raises",
+      strength: "moderate",
+      title: `This Steam account was made ${madeAgo(age)}`,
+      detail: "Scammers often use new accounts, because their old ones get banned. Many honest players are new too.",
+    });
+  }
+  if (result.gameBans > 0) {
+    signals.push({
+      ...base,
+      id: `steam-game-bans-${account}`,
+      direction: "context",
+      strength: "weak",
+      title: `This Steam account has ${result.gameBans} game ban${result.gameBans === 1 ? "" : "s"}`,
+      detail: "Game and anti-cheat bans are for cheating, not scams, so this only describes the account's history.",
+    });
+  }
+  return signals;
+}
+
+function uniqueBy(links: AnalyzedLink[], keyOf: (link: AnalyzedLink) => string | null): AnalyzedLink[] {
+  const seen = new Map<string, AnalyzedLink>();
+  for (const link of links) {
+    const key = keyOf(link);
+    if (key !== null && !seen.has(key)) {
+      seen.set(key, link);
+    }
+  }
+  return [...seen.values()];
 }
 
 function isBroadName(name: string): boolean {
@@ -635,8 +853,10 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   }
   const message = analyzeMessage(messageText);
   const targetsCheckers = aimsAtCheckers(messageText);
+  const sender = senderLink(options.email);
   const ruleSignals = [
     ...message.signals,
+    ...(options.email ? emailSignals(options.email, sender, senderNameIn(extracted.redactedText)) : []),
     ...hiddenCharacterSignals(extracted.hidden),
     ...(targetsCheckers
       ? [
@@ -825,25 +1045,74 @@ export async function scanContent(content: string, options: ScanOptions): Promis
       })(),
     );
   }
+  if (options.extendedLookups) {
+    const invites = uniqueBy(readable, (link) => link.discordInvite).slice(0, maxDiscordInvites);
+    if (invites.length > 0) {
+      tasks.push(
+        (async () => {
+          const results = await Promise.all(invites.map((link) => lookupDiscordInvite(link.discordInvite!, { fetcher: options.fetcher, lookups })));
+          for (const [index, link] of invites.entries()) {
+            attach(link, discordSignals(link, results[index]!, now, pictureLinks.has(link)));
+          }
+          if (results.some((result) => result.status === "unavailable")) {
+            notChecked.push({ name: sourceNames.discord, reason: "unavailable" });
+          }
+        })(),
+      );
+    }
+    const accounts = uniqueBy(readable, (link) => (link.steamAccount ? `${link.steamAccount.kind}:${link.steamAccount.value.toLowerCase()}` : null)).slice(0, maxSteamAccounts);
+    if (accounts.length > 0 && !options.steamKey) {
+      notChecked.push({ name: sourceNames.steam, reason: "not_configured" });
+    } else if (accounts.length > 0 && options.steamKey) {
+      const key = options.steamKey;
+      tasks.push(
+        (async () => {
+          const results = await lookupSteamAccounts(
+            accounts.map((link) => link.steamAccount!),
+            { key, fetcher: options.fetcher, lookups },
+          );
+          for (const [index, link] of accounts.entries()) {
+            attach(link, steamSignals(link, results[index]!, now));
+          }
+          if (results.some((result) => result.status === "unavailable")) {
+            notChecked.push({ name: sourceNames.steam, reason: "unavailable" });
+          }
+        })(),
+      );
+    }
+  }
   const listedLinks = readable.filter((link) => !link.officialBrand).slice(0, maxListedLinks);
   const phones = extracted.phones;
-  const phoneSignals: Signal[] = [];
-  if (listedLinks.length > 0 || phones.length > 0) {
+  const wallets = extracted.wallets;
+  const senderNames = sender && !sender.officialBrand ? candidateNames(sender.hostname!, sender.registrableDomain) : [];
+  const listMatchSignals: Signal[] = [];
+  if (listedLinks.length > 0 || phones.length > 0 || wallets.length > 0 || senderNames.length > 0) {
     if (!options.scamLists) {
-      if (listedLinks.length > 0) {
+      if (listedLinks.length > 0 || senderNames.length > 0) {
         notChecked.push({ name: sourceNames.scamLists, reason: "not_configured" });
       }
       if (phones.length > 0) {
         notChecked.push({ name: sourceNames.phoneReports, reason: "not_configured" });
+        notChecked.push({ name: sourceNames.phoneComplaints, reason: "not_configured" });
+      }
+      if (wallets.length > 0) {
+        notChecked.push({ name: domainListDetails.scamsniffer_wallets.source, reason: "not_configured" });
       }
     } else {
       const lists = options.scamLists;
       tasks.push(
         (async () => {
           const namesByLink = new Map(listedLinks.map((link) => [link, candidateNames(link.hostname!, link.registrableDomain)]));
-          const results = await lists.lookup([...new Set([...[...namesByLink.values()].flat(), ...phones])]);
-          const domainResults = [...results].filter((entry): entry is [DomainListName, DomainListResult] => !isPhoneList(entry[0]));
-          if (listedLinks.length > 0) {
+          const results = await lists.lookup([...new Set([...[...namesByLink.values()].flat(), ...senderNames, ...phones, ...wallets])]);
+          const domainResults = [...results].filter((entry): entry is [DomainListName, DomainListResult] => isDomainList(entry[0]));
+          if (sender && senderNames.length > 0) {
+            for (const [list, result] of domainResults) {
+              listMatchSignals.push(
+                ...listSignals(list, sender, senderNames, result, false, now).map((signal) => ({ ...signal, id: `sender-${signal.id}`, title: `Sender: ${signal.title}` })),
+              );
+            }
+          }
+          if (listedLinks.length > 0 || senderNames.length > 0) {
             const answers = domainResults.map(([, result]) => result);
             if (answers.length === 0 || answers.every((answer) => answer.status === "not_configured")) {
               notChecked.push({ name: sourceNames.scamLists, reason: "not_configured" });
@@ -859,13 +1128,24 @@ export async function scanContent(content: string, options: ScanOptions): Promis
               }
             }
           }
+          const unchecked = (name: string, result: DomainListResult) => {
+            if (result.status !== "ok") {
+              notChecked.push({ name, reason: result.status === "stale" ? "out_of_date" : result.status });
+            }
+          };
+          const matches = (result: DomainListResult, entries: string[]) => (result.status === "ok" ? entries.filter((entry) => result.listed.has(entry)).length : 0);
           if (phones.length > 0) {
             const reports = results.get("ftc_dnc") ?? { status: "not_configured" };
-            if (reports.status === "ok") {
-              phoneSignals.push(...phoneReportSignals(phones.filter((phone) => reports.listed.has(phone)).length, reports, now));
-            } else {
-              notChecked.push({ name: sourceNames.phoneReports, reason: reports.status === "stale" ? "out_of_date" : reports.status });
-            }
+            const complaints = results.get("fcc_complaints") ?? { status: "not_configured" };
+            const reported = matches(reports, phones);
+            listMatchSignals.push(...phoneReportSignals(reported, reports, now), ...phoneComplaintSignals(matches(complaints, phones), complaints, reported > 0, now));
+            unchecked(sourceNames.phoneReports, reports);
+            unchecked(sourceNames.phoneComplaints, complaints);
+          }
+          if (wallets.length > 0) {
+            const scamWallets = results.get("scamsniffer_wallets") ?? { status: "not_configured" };
+            listMatchSignals.push(...walletSignals(matches(scamWallets, wallets), scamWallets, now));
+            unchecked(domainListDetails.scamsniffer_wallets.source, scamWallets);
           }
         })(),
       );
@@ -927,7 +1207,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     }
   }
   const linkSignals = links.map((link) => [...link.signals, ...(extraSignals.get(link) ?? [])]);
-  const nonOfficial = readable.filter((link) => !link.officialBrand || pictureLinks.has(link));
+  const nonOfficial = readable.filter((link) => !link.officialBrand || link.discordInvite || pictureLinks.has(link));
   const verdictFor = (messageSignals: Signal[], families: ScamFamily[]) =>
     decideVerdict({
       messageSignals,
@@ -940,9 +1220,9 @@ export async function scanContent(content: string, options: ScanOptions): Promis
       officialBrandNames: [...new Set(readable.map((link) => link.officialBrand?.name).filter((name): name is string => Boolean(name)))],
       linksFromPicture: pictureLinks.size > 0,
     });
-  const baseSignals = [...ruleSignals, ...phoneSignals];
+  const baseSignals = [...ruleSignals, ...listMatchSignals];
   let messageSignals = baseSignals;
-  const linkFamilies = linkSignals.flat().flatMap((signal) => (signal.family ? [signal.family] : []));
+  const linkFamilies = [...linkSignals.flat(), ...listMatchSignals].flatMap((signal) => (signal.family ? [signal.family] : []));
   let verdict = verdictFor(messageSignals, [...new Set([...message.families, ...linkFamilies])]);
   const reviewText = messageText.replace(/\s+/g, " ").trim();
   const strongLinkWarning = linkSignals.some((signals) => signals.some((signal) => signal.direction === "raises" && strengthPoints[signal.strength] >= 4));
@@ -968,6 +1248,10 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     } else if (review.status !== "ok") {
       notChecked.push({ name: sourceNames.ai, reason: "unavailable" });
     }
+  }
+  const riskyAttachment = messageSignals.some((signal) => signal.id.startsWith("attachment-") && signal.direction === "raises" && strengthPoints[signal.strength] >= 2);
+  if (riskyAttachment && ["suspicious", "high_risk", "confirmed_malicious"].includes(verdict.level)) {
+    verdict.recommendations = [...new Set(["Do not open the attachments, and do not enable editing or content in them.", ...verdict.recommendations])].slice(0, 6);
   }
   if (verdict.contradiction) {
     generalSignals.push({

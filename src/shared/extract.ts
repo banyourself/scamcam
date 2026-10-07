@@ -3,6 +3,7 @@ import { removeHiddenCharacters, type HiddenCharacters } from "./hidden";
 export const maxInputLength = 4000;
 export const maxLinks = 20;
 export const maxPhones = 5;
+export const maxWallets = 5;
 export const qrLabel = "QR code: ";
 
 export interface MaskedLink {
@@ -52,6 +53,7 @@ export interface ExtractedInput {
   redactedText: string;
   links: string[];
   phones: string[];
+  wallets: string[];
   redactions: Redactions;
   truncated: boolean;
   hidden: Omit<HiddenCharacters, "text">;
@@ -65,6 +67,7 @@ const usPhonePattern = /(?<![\p{L}\p{N}/=?&#.+-])(?:\+?1[ .-]?)?\(?([2-9]\d{2})\
 const linkPattern =
   /(?:https?:\/\/(?:[^\s/@]+@)?)?(?:(?<![\p{L}\p{N}.])\d{1,3}(?:\.\d{1,3}){3}(?![\p{L}\p{N}.])|(?:[\p{L}\p{N}_](?:[\p{L}\p{N}_-]{0,61}[\p{L}\p{N}_])?\.){1,30}(?:xn--[a-z0-9-]{2,59}|\p{L}{2,63}))(?::\d{2,5})?(?:[/?#][^\s<>"'`[\]|]*)?/giu;
 const trailingPunctuation = /[.,;:!?)\]}'"]+$/u;
+const walletPattern = /(?<![\p{L}\p{N}])0x[0-9a-fA-F]{40}(?![\p{L}\p{N}])/gu;
 
 function countAndReplace(text: string, pattern: RegExp, replacement: string, keep: (offset: number) => boolean = () => false): [string, number] {
   let count = 0;
@@ -120,5 +123,7 @@ export function extractInput(rawText: string): ExtractedInput {
     }
   }
 
-  return { redactedText, links, phones, redactions: { emails, phoneNumbers, codes }, truncated, hidden };
+  const wallets = [...new Set([...redactedText.matchAll(walletPattern)].map((match) => match[0].toLowerCase()))].slice(0, maxWallets);
+
+  return { redactedText, links, phones, wallets, redactions: { emails, phoneNumbers, codes }, truncated, hidden };
 }
