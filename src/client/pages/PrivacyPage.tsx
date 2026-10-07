@@ -164,6 +164,10 @@ export function PrivacyPage() {
           link or your message. Spamhaus is asked through Cloudflare&apos;s DNS resolver.
         </li>
         <li>
+          <strong>Bitly, is.gd, and v.gd</strong> receive only the short code of one of their own short links, such as{" "}
+          <em>bit.ly/abc</em>, so ScamCam can learn where it leads without opening it.
+        </li>
+        <li>
           <strong>Discord</strong> receives only the invite code from a discord.gg or discord.com/invite link, and{" "}
           <strong>Steam</strong> (Valve) receives only the profile name or account number from a steamcommunity.com link,
           with ScamCam&apos;s own Steam Web API key. Neither receives your message or your IP address. Steam information is
@@ -240,7 +244,8 @@ export function PrivacyPage() {
       <h2>Changes</h2>
       <p>
         This version takes effect on October 7, 2026. It adds email file checks, Discord invite and Steam account lookups,
-        the FCC&apos;s complaint numbers, and ScamSniffer&apos;s list of scam wallets. Any change will be posted on this page
+        short link expansion with Bitly and is.gd, the FCC&apos;s complaint numbers, and ScamSniffer&apos;s list of scam
+        wallets. Any change will be posted on this page
         with a new date.
       </p>
     </DocumentPage>

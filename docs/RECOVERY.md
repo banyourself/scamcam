@@ -63,6 +63,7 @@ Replace the secret first, then remove the old one, so checking keeps working.
 | `PHISHSTATS_API_KEY` | Create a new key at phishstats.info (Settings, API keys), then `npx wrangler secret put PHISHSTATS_API_KEY --env production` | Delete the old key there |
 | `CLOUDFLARE_RADAR_TOKEN` | Roll the token in the Cloudflare dashboard, then `npx wrangler secret put CLOUDFLARE_RADAR_TOKEN --env production` | The old value stops working when rolled |
 | `STEAM_WEB_API_KEY` | Revoke the key and register a new one at steamcommunity.com/dev/apikey, then `npx wrangler secret put STEAM_WEB_API_KEY --env production` | The old key stops working when revoked |
+| `BITLY_TOKEN` | Delete the token in Bitly's Developer settings and generate a new one, then `npx wrangler secret put BITLY_TOKEN --env production` | The old token stops working when deleted |
 | `DISCORD_BOT_TOKEN` | Reset the token on the bot page of the Discord Developer Portal, then `npx wrangler secret put DISCORD_BOT_TOKEN --env production` | The old token stops working when reset |
 
 Then read the usage section of the next weekly report for calls that do not match normal traffic.
@@ -118,6 +119,7 @@ them for 90 days.
 | `spamhaus_unavailable` | Spamhaus did not answer through Cloudflare's resolver, refused, or returned an error code (logged at most every 10 minutes with only the reason or HTTP status, never the query). Check the key and the free DQS usage limit |
 | `phishstats_unavailable`, `radar_unavailable` | PhishStats or Cloudflare Radar answered with an error or did not answer (logged at most every 10 minutes with the HTTP status and the provider's message). A 401 or 403 means the key or token needs checking, and a 429 means the daily quota ran out |
 | `urlhaus_unavailable`, `threatfox_unavailable`, `malwarebazaar_unavailable` | An abuse.ch API answered with an error or did not answer in time (logged at most every 10 minutes with the HTTP status and abuse.ch's message, or the error name such as `TimeoutError`, never the host, file fingerprint, or key). A 401 means the Auth-Key needs checking |
+| `bitly_unavailable`, `isgd_unavailable` | Bitly's expand API or is.gd's lookup answered with an error or did not answer (logged at most every 10 minutes with the status and message, never the short code or the token). For Bitly, a 401 or 403 means the token needs checking |
 | `discord_unavailable`, `steam_unavailable` | Discord's invite endpoint or the Steam Web API answered with an error or did not answer (logged at most every 10 minutes with the HTTP status and the provider's message, never the invite, the profile, or the key). An unknown invite (404) is a normal answer and raises nothing. For Steam, a 403 means the key needs checking; for Discord, a 429 means its rate limit for Cloudflare's addresses was reached |
 | `flags_waiting` | At least one flagged result is waiting for review. Run `npm run flags` |
 | `flags_daily_limit` | The daily cap on flags was reached, so new flags are refused until midnight UTC |

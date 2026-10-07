@@ -98,6 +98,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | PhishStats | The registrable domain, or the exact host for shared hosting | Working: a live scan of a reported `pages.dev` site on 2026-10-06 showed its PhishStats report. Shared hosting lookups use a "starts with" search (0.2 s), since a "contains" search took 5.4 s; capped at 140 calls a day |
 | Cloudflare Radar | The registrable domain only | Token set on 2026-10-06; confirmed live with a scan of `wikipedia.org` |
 | Discord invite endpoint | The invite code only, from the scanner, with ScamCam's bot token | Working: a live scan of `discord.gg/minecraft` on 2026-10-07 showed "Discord has verified this server". Without the token, the first live lookup answered 429 |
+| Bitly and is.gd/v.gd link expansion | Only the short code of their own links, from the scanner | Built 2026-10-07 with my Bitly token; tested with a fake server, answer formats checked live |
 | Steam Web API | The profile name or account number only, from the scanner | Key set on 2026-10-07; a live scan of a real profile reached Steam without errors |
 | ScamSniffer scam wallets and FCC consumer complaints | Nothing from visitors; the sync downloads them | Synced to production on 2026-10-07 (4,599 wallets, 28,734 numbers); both matched in live scans |
 | Workers AI (`@cf/qwen/qwen3-30b-a3b-fp8`) | The redacted message with links replaced by `[link]` | On, capped at 2,000 calls a day |
@@ -110,7 +111,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 | Where | Names |
 |---|---|
 | Worker secrets (production) | `TURNSTILE_SECRET_KEY`, `SAFE_BROWSING_API_KEY`, and `URLHAUS_AUTH_KEY`, which I typed in myself at launch, and `SHARE_SIGNING_KEY` for share links and flags ([DEPLOYMENT.md](DEPLOYMENT.md), step 8) |
-| Worker secrets for the extra sources | `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`, which I typed in myself on 2026-10-06 ([DEPLOYMENT.md](DEPLOYMENT.md), step 11), `STEAM_WEB_API_KEY` and `DISCORD_BOT_TOKEN` (both 2026-10-07, step 12) |
+| Worker secrets for the extra sources | `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`, which I typed in myself on 2026-10-06 ([DEPLOYMENT.md](DEPLOYMENT.md), step 11), `STEAM_WEB_API_KEY`, `DISCORD_BOT_TOKEN`, and `BITLY_TOKEN` (all 2026-10-07, step 12) |
 | GitHub secrets | `CLOUDFLARE_D1_TOKEN` (D1 Edit only) and `CLOUDFLARE_ACCOUNT_ID` |
 | GitHub variable | `PHISHING_DATABASE_SYNC=enabled` |
 | Local | `.dev.vars`, ignored by git; `.dev.vars.example` holds only Cloudflare's public Turnstile test keys, a local-only signing key, and empty placeholders |
@@ -134,7 +135,7 @@ How each suite runs is in [TEST_PLAN.md](TEST_PLAN.md).
 
 | Check | Result |
 |---|---|
-| Subrequests | 6.7 per cold scan on average for the benchmark (most 13), 31 for 20 links in the engine, 44 for 20 links through the whole Worker route, 40 for 20 links in the scanner with every source on (20 fetches, 6 Spamhaus lookups, 14 queries, 2026-10-06), and 46 when two of the links are Discord invites and two are Steam profiles (26 fetches, 6 Spamhaus lookups, 14 queries, 2026-10-07); 0 for a warm repeat |
+| Subrequests | 6.7 per cold scan on average for the benchmark (most 13), 31 for 20 links in the engine, 44 for 20 links through the whole Worker route, 40 for 20 links in the scanner with every source on (20 fetches, 6 Spamhaus lookups, 14 queries, 2026-10-06), and 48 when two of the links are Discord invites, two Steam profiles, and two Bitly links (28 fetches, 6 Spamhaus lookups, 14 queries, 2026-10-07); 0 for a warm repeat |
 | Slow inputs | The slowest crafted input scans in under 1 ms in Node; before the fix the worst took about 23 ms |
 | Concurrency | 16 simultaneous scans from one address: exactly 10 allowed (local simulator) |
 | Cleanup | 10,250 expired rows in one table: 10,000 removed on the first run, 250 on the next. With a backlog in every table: 11,000 rows in 26 batches, fewer than 35 queries |

@@ -270,6 +270,15 @@ engine, so a bot flood cannot turn a scam site into a "no known threat" result.
 | Running past the Free plan's 50 subrequests | At most 2 invites and 2 accounts per scan, Steam lookups batched into one bans call and one summaries call, scanner only; the worst case measured 46 | `test/worker/security.test.ts` |
 | Responses that are too large or malformed | Answers are read with a 64 KB cap and checked with strict schemas; anything else counts as "did not respond" | `test/engine/scan-accounts.test.ts` |
 
+### Short link expansion
+
+| Threat | Protection | Test |
+|---|---|---|
+| Visiting a submitted link | Only the shortening service's own lookup API is asked; neither the short link nor its destination is opened | `test/engine/scan-short-links.test.ts` |
+| A destination that is not a web address | Only `http` and `https` answers with a host are used; anything else counts as no answer | `test/engine/scan-short-links.test.ts` |
+| The Bitly token leaking | A Worker secret sent only to `api-ssl.bitly.com`; alerts never log codes or tokens | `test/engine/scan-short-links.test.ts`, `test/worker/provider-watch.test.ts` |
+| Running past 50 subrequests | At most 2 expansions per scan, scanner only; the worst case measured 48 | `test/worker/security.test.ts` |
+
 ### Wallets and FCC numbers
 
 | Threat | Protection | Test |

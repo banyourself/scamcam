@@ -3,6 +3,22 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-07: Short link expansion
+
+- **Bitly, is.gd, and v.gd links now show where they lead.** The scanner asks the shortening service itself, through
+  its official API, which address a short code points to: Bitly's `v4/expand` with my free token (`BITLY_TOKEN`), and
+  is.gd's and v.gd's `forward.php` lookup, which needs no key. The destination is then checked like any other link,
+  including redirect wrappers behind it, and the "a short link hides where it really goes" warning is replaced by
+  "Bitly says this short link goes to ...". Neither the short link nor the destination is ever opened.
+- A link that is.gd has disabled for abuse (its error code 2) is a strong warning; a code that does not exist is
+  noted. At most two short links are expanded per scan, answers are kept in memory for 6 hours, and the Worker
+  fallback skips expansion.
+- A 20-link scan in the scanner with two Discord invites, two Steam profiles, and two Bitly links uses 48 of the 50
+  subrequests (28 fetches, 6 Spamhaus lookups, 14 queries), so the next outside source must replace a fetch rather than
+  add one, unless the plan changes.
+- Verified: the is.gd and v.gd answer formats and Bitly's endpoint (401 without a token) were checked live from my
+  computer; expansion is tested with a fake server until the first live scan.
+
 ## 2026-10-07: Rules for scams that often come without a link
 
 - **Why.** The FBI's 2025 Internet Crime Report puts investment scams at $8.65 billion lost, business email scams at

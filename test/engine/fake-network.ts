@@ -7,6 +7,7 @@ import { radarEndpoint } from "../../src/engine/radar";
 import { rdapBootstrapUrl } from "../../src/engine/rdap";
 import { safeBrowsingEndpoint } from "../../src/engine/safe-browsing";
 import type { DnsAnswer, DnsTransport } from "../../src/engine/spamhaus";
+import { bitlyExpandEndpoint, isgdEndpoints } from "../../src/engine/short-links";
 import { steamApiBase } from "../../src/engine/steam";
 import { threatfoxEndpoint } from "../../src/engine/threatfox";
 import { urlhausHostEndpoint } from "../../src/engine/urlhaus";
@@ -35,6 +36,8 @@ export interface FakeNetworkOptions {
   steam?: Record<string, FakeSteamAccount>;
   steamVanity?: Record<string, string>;
   steamStatus?: number;
+  shortLinks?: Record<string, string>;
+  bitlyStatus?: number;
   down?: boolean;
   now?: Date;
 }
@@ -197,6 +200,22 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
         approximate_member_count: server.members ?? 120,
         approximate_presence_count: 10,
       });
+    }
+    if (url === bitlyExpandEndpoint) {
+      if (options.bitlyStatus) {
+        return json({ message: "FORBIDDEN" }, options.bitlyStatus);
+      }
+      const id = (JSON.parse(body) as { bitlink_id?: string }).bitlink_id ?? "";
+      const target = options.shortLinks?.[id];
+      return target && target !== "missing" ? json({ link: `https://${id}`, id, long_url: target, long_urls: [target], created_at: "2026-10-01T00:00:00+0000" }) : json({ message: "NOT_FOUND" }, 404);
+    }
+    if (url.startsWith(isgdEndpoints["is.gd"]) || url.startsWith(isgdEndpoints["v.gd"])) {
+      const parsed = new URL(url);
+      const target = options.shortLinks?.[`${parsed.hostname}/${parsed.searchParams.get("shorturl") ?? ""}`];
+      if (target === "disabled") {
+        return json({ errorcode: 2, errormessage: "The requested shortened URL has been disabled." });
+      }
+      return target && target !== "missing" ? json({ url: target }) : json({ errorcode: 1, errormessage: "Sorry, the link you accessed doesn't exist on our service." });
     }
     if (url.startsWith(steamApiBase)) {
       if (options.steamStatus) {

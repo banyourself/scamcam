@@ -20,6 +20,9 @@ const watchedHosts = new Map([
   ["urlhaus-api.abuse.ch", "urlhaus"],
   ["threatfox-api.abuse.ch", "threatfox"],
   ["mb-api.abuse.ch", "malwarebazaar"],
+  ["api-ssl.bitly.com", "bitly"],
+  ["is.gd", "isgd"],
+  ["v.gd", "isgd"],
 ]);
 const missingIsAnswer = new Set(["radar", "discord"]);
 

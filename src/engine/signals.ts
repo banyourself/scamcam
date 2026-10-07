@@ -66,6 +66,8 @@ export const sourceNames = {
   radar: "Cloudflare Radar domain ranking",
   discord: "Discord server details",
   steam: "Steam account details (Steam Web API)",
+  bitly: "Bitly link expansion",
+  isgd: "is.gd link expansion",
   ai: "AI pattern check (Workers AI)",
 } as const;
 

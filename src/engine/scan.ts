@@ -18,6 +18,7 @@ import { isRedirectorHost, maxUnwrapDepth, unwrapRedirect } from "./redirects";
 import { searchSafeBrowsing, threatDefinitionUrls, threatDescriptions, type SafeBrowsingResult } from "./safe-browsing";
 import { sourceNames, strengthPoints, type ScamFamily, type Signal } from "./signals";
 import { lookupSpamhaus, spamhausDblUrl, spamhausZrdUrl, type DblListing, type DnsTransport, type SpamhausResult } from "./spamhaus";
+import { bitlyHomePage, expandShortLink, isgdHomePage, maxExpandedLinks, shortLinkRef, type ShortLinkRef, type ShortLinkService } from "./short-links";
 import { lookupSteamAccounts, maxSteamAccounts, steamHomePage, type SteamAccountResult } from "./steam";
 import { analyzeLink, type AnalyzedLink } from "./url-analysis";
 import { lookupThreatfoxHost, threatfoxHomePage, type ThreatfoxResult } from "./threatfox";
@@ -42,6 +43,7 @@ export interface ScanOptions {
   radarToken?: string | undefined;
   steamKey?: string | undefined;
   discordToken?: string | undefined;
+  bitlyToken?: string | undefined;
   email?: EmailFacts | undefined;
 }
 
@@ -685,6 +687,82 @@ function steamSignals(link: AnalyzedLink, result: SteamAccountResult, now: Date)
   return signals;
 }
 
+const shortLinkServices: Record<ShortLinkService, { name: string; source: string; url: string }> = {
+  bitly: { name: "Bitly", source: sourceNames.bitly, url: bitlyHomePage },
+  isgd: { name: "is.gd", source: sourceNames.isgd, url: isgdHomePage },
+};
+
+function refFor(link: AnalyzedLink): ShortLinkRef | null {
+  if (!link.href) {
+    return null;
+  }
+  try {
+    return shortLinkRef(link.hostname, new URL(link.href).pathname);
+  } catch {
+    return null;
+  }
+}
+
+async function expandShortLinks(links: AnalyzedLink[], wrappers: Set<AnalyzedLink>, options: ScanOptions, lookups: Lookups): Promise<UncheckedSource[]> {
+  const candidates = uniqueBy(links, (link) => {
+    const ref = refFor(link);
+    return ref ? `${ref.host}/${ref.code}` : null;
+  }).slice(0, maxExpandedLinks);
+  const results = await Promise.all(candidates.map((link) => expandShortLink(refFor(link)!, { fetcher: options.fetcher, lookups, bitlyToken: options.bitlyToken })));
+  const gaps: UncheckedSource[] = [];
+  for (const [index, short] of candidates.entries()) {
+    const result = results[index]!;
+    const ref = refFor(short)!;
+    const service = shortLinkServices[ref.service];
+    const base = { source: service.source, sourceUrl: service.url, link: short.hostname! };
+    if (result.status === "not_configured" || result.status === "unavailable") {
+      gaps.push({ name: service.source, reason: result.status });
+      continue;
+    }
+    if (result.status === "disabled") {
+      short.signals.push({
+        ...base,
+        id: `short-disabled-${ref.host}-${ref.code}`,
+        direction: "raises",
+        strength: "strong",
+        title: `${service.name} has disabled this short link`,
+        detail: `${service.name} turns off short links that were used for spam, phishing, or other abuse.`,
+      });
+      continue;
+    }
+    if (result.status === "missing") {
+      short.signals.push({
+        ...base,
+        id: `short-missing-${ref.host}-${ref.code}`,
+        direction: "context",
+        strength: "weak",
+        title: "This short link does not exist anymore",
+        detail: `${service.name} has no link with this code. It may have been removed after reports, or the link is mistyped.`,
+      });
+      continue;
+    }
+    const destinations = withDestinations([result.target], wrappers).filter((destination) => destination.hostname && !links.some((link) => link.href === destination.href));
+    const first = destinations[0];
+    if (!first) {
+      continue;
+    }
+    links.push(...destinations);
+    wrappers.add(short);
+    short.signals = [
+      ...short.signals.filter((signal) => !signal.id.startsWith("shortener-") && signal.direction !== "lowers"),
+      {
+        ...base,
+        id: `expanded-${ref.host}-${ref.code}`,
+        direction: "context",
+        strength: "weak",
+        title: `${service.name} says this short link goes to ${first.displayHostname}`,
+        detail: `ScamCam asked ${service.name} where the link leads, without opening it, and checked that address too.`,
+      },
+    ];
+  }
+  return gaps;
+}
+
 function uniqueBy(links: AnalyzedLink[], keyOf: (link: AnalyzedLink) => string | null): AnalyzedLink[] {
   const seen = new Map<string, AnalyzedLink>();
   for (const link of links) {
@@ -856,6 +934,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   const realLinks = linksOutsideLinkText(extracted.redactedText, extracted.links);
   const wrappers = new Set<AnalyzedLink>();
   const links = withDestinations(realLinks, wrappers);
+  const expansionGaps = options.extendedLookups ? await expandShortLinks(links, wrappers, options, lookups) : [];
   addDisguiseSignals(extracted.redactedText, links);
   const pictureLinks = options.fromScreenshot ? markPictureLinks(links, realLinks, qrValues(extracted.redactedText)) : new Set<AnalyzedLink>();
   const readable = links.filter((link) => link.hostname);
@@ -885,7 +964,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   ];
   const urlOnly = extracted.links.length === 1 && messageText.replaceAll("[link]", "").trim() === "";
   const networkLinks = pickNetworkLinks(readable);
-  const notChecked: UncheckedSource[] = [];
+  const notChecked: UncheckedSource[] = [...expansionGaps];
   const extraSignals = new Map<AnalyzedLink, Signal[]>();
   const attach = (link: AnalyzedLink, signals: Signal[]) => extraSignals.set(link, [...(extraSignals.get(link) ?? []), ...signals]);
   const generalSignals: Signal[] = [];
