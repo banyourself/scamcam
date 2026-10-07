@@ -3,6 +3,21 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-07: Report it, and public anonymous totals
+
+- Reports that come back suspicious or worse now end with **Report it**: a Copy summary button that builds a plain-text
+  summary in the browser (the rating, what was checked, the reasons that raised risk, and the case number), and the
+  places that fit what was checked: Google Safe Browsing (with the link filled in) and Microsoft for links, Discord,
+  Steam Support, and APWG for messages, Microsoft's file submission for files, and the FTC for all of them, plus what
+  to do first if money or a password was lost. Nothing is sent until the visitor opens one of those sites.
+- New public **Totals** page (/stats) and `GET /api/v1/stats`: checks and results for the last 7 and 30 days. Each scan
+  adds one to a daily counter keyed only by the date, the kind of input, and the result level (migration `0009`,
+  table `scan_totals`). Nothing checked and nothing about who checked it is stored. Counters expire after 90 days and
+  the weekly maintenance run deletes them, so the daily cleanup keeps its query budget.
+- Privacy policy lists the counters, and the footer links the Totals page.
+- Verified: typecheck, 795 Vitest tests in 51 files (7 new: the counter stores no content, the totals add up and
+  ignore old days, expiry, and the report summary and places), and the build.
+
 ## 2026-10-07: Browser extension for Edge and Chrome
 
 - New ScamCam extension (`extension/`): right-click a link, selected text, or a page and choose Check with ScamCam, or

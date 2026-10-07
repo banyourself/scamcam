@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { countInBackground } from "./stats";
 import type { Context } from "hono";
 import { maxInputLength } from "../../shared/extract";
 import { ApiErrorSchema } from "../../shared/api";
@@ -91,6 +92,7 @@ export const scanRoutes = new OpenAPIHono<AppEnv>().openapi(scanRoute, async (c)
       }
     : undefined;
   const { report, signature } = await scanFor(c, body.content, body.fromScreenshot ?? false, email);
+  countInBackground(c, report);
   if (signature) {
     c.header(reportSignatureHeader, signature);
   }

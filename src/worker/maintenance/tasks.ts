@@ -18,6 +18,7 @@ import { budgetedProviders, dailyLimit, providerUsageSince, usageDay } from "../
 import type { AppBindings } from "../env";
 import { domainListStatuses } from "../repositories/domain-lists";
 import { waitingFlags } from "../repositories/result-flags";
+import { deleteExpiredTotals } from "../repositories/scan-totals";
 import { logEvent } from "../logging";
 import { cleanupMaxBatchesPerRun, nowInSeconds } from "../retention";
 
@@ -168,6 +169,7 @@ export async function runWeeklyMaintenance(env: AppBindings): Promise<Maintenanc
   const missingLists = listNames.filter((name) => !statuses.has(name));
   const lateLists = [...statuses.values()].filter((status) => checkedAt - status.refreshedAt > alertThresholds.listSyncLateSeconds);
   const flags = await waitingFlags(env.DB, checkedAt);
+  const totalsDeleted = await deleteExpiredTotals(env.DB, checkedAt);
   const alerts = [
     ...storageAlerts(storage),
     ...usageAlerts(usage),
@@ -182,6 +184,7 @@ export async function runWeeklyMaintenance(env: AppBindings): Promise<Maintenanc
   return {
     rows,
     missingExpiry,
+    totalsDeleted,
     storage,
     usage,
     errors: { total: errorTotal, byCode: errors },

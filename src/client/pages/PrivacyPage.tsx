@@ -137,6 +137,11 @@ export function PrivacyPage() {
             <td>3 days in Cloudflare Workers Logs. They contain no IP address, message, or link, and Cloudflare&apos;s own per-request logs are turned off</td>
           </tr>
           <tr>
+            <td>Anonymous daily totals: the date, whether a link, message, or file was checked, and the result level</td>
+            <td>To show weekly totals on the public totals page</td>
+            <td>90 days. Never the link, message, file, or anything about who checked it</td>
+          </tr>
+          <tr>
             <td>Error type and page</td>
             <td>To find bugs</td>
             <td>7 days</td>

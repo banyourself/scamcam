@@ -39,6 +39,10 @@ With the ScamCam extension for Edge and Chrome, people can right-click a link, a
 choose Check with ScamCam. It opens the site with the text filled in and cannot read any page itself
 ([/extension](https://scamcam.kevinle.tech/extension)).
 
+Reports that come back suspicious or worse end with Report it: a copy-ready summary and the right places to report
+the scam. A public [Totals](https://scamcam.kevinle.tech/stats) page shows anonymous weekly and monthly counts, kept only
+as daily counters of the input kind and result.
+
 If a result looks wrong, the visitor can flag it. A flag goes into a queue I review by hand and never changes any
 result, so flagging a scam site over and over cannot make it look safe.
 

@@ -2,6 +2,7 @@ import { googleAdvisoryUrl, riskExplanations, riskLabels, uncheckedReasons, type
 import { Link } from "@/router";
 import { cn } from "@/lib/cn";
 import { ExternalChecks } from "./ExternalChecks";
+import { ReportIt } from "./ReportIt";
 import { levelTextClass } from "./levels";
 import { RiskMeter } from "./RiskMeter";
 
@@ -115,6 +116,8 @@ export function ReportView({ report }: { report: ScanReport }) {
       )}
 
       <ExternalChecks report={report} />
+
+      <ReportIt report={report} />
 
       <footer className="space-y-2 border-t border-rule bg-panel-2 px-5 py-4 text-xs text-ink-soft">
         <p>

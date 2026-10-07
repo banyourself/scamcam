@@ -12,6 +12,7 @@ import { HowItWorksPage } from "@/pages/HowItWorksPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PrivacyPage } from "@/pages/PrivacyPage";
 import { SecurityPage } from "@/pages/SecurityPage";
+import { StatsPage } from "@/pages/StatsPage";
 import { SharedReportPage } from "@/pages/SharedReportPage";
 import { TermsPage } from "@/pages/TermsPage";
 import { usePath } from "@/router";
@@ -24,6 +25,7 @@ const routes: Record<string, ComponentType> = {
   "/": HomePage,
   "/how-it-works": HowItWorksPage,
   "/extension": ExtensionPage,
+  "/stats": StatsPage,
   "/privacy": PrivacyPage,
   "/terms": TermsPage,
   "/acceptable-use": AcceptableUsePage,

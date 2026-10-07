@@ -37,6 +37,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | AI step | 2026-10-05 | `@cf/qwen/qwen3-30b-a3b-fp8` for messages the rules cannot decide; one label, can add a warning but never lower a result, 2,000 calls a day |
 | File checks | 2026-10-06 | "Check a file", paste, or drop: the browser finds the real type and warning signs and sends only fingerprints; MalwareBazaar, CIRCL hashlookup, and Team Cymru's Malware Hash Registry are checked ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#file-checks-2026-10-06)) |
 | Minecraft mods and modpacks | 2026-10-07 | Mods are read on the device for what account stealers do (login folders, webhooks, hidden downloads, anti-analysis checks, hidden commands, launcher accounts, the login token), then compared with Modrinth by SHA-1 and mod ID (a reviewed release public for two weeks with nothing malware-like reads "No known threat detected"; newer releases get no credit, against hacked developer accounts); `.mrpack` and CurseForge packs are checked for unsafe downloads and carried mods ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#minecraft-mods-and-modpacks-2026-10-07)) |
+| Report it and Totals | Built 2026-10-07, not yet deployed | Suspicious or worse reports offer a copy-ready summary and the right places to report; /stats shows anonymous 7 and 30 day totals from `scan_totals` (migration `0009`, apply before deploying) |
 | Browser extension | 2026-10-07 | `extension/`: right-click or toolbar "Check with ScamCam" opens the site with the text after `#check=`; no host permissions, nothing stored; manual install from /extension until the Edge Add-ons listing is approved ([EDGE-LISTING.md](EDGE-LISTING.md)) |
 | Screenshot reading | 2026-10-06 | "Read a screenshot", paste, or drop: the browser reads the text (Tesseract.js 7.0.0, English `best_int` model) and any QR code (jsQR 1.4.0), inverts dark-mode screenshots first, and adds the text to the box for review |
 | Share links | 2026-10-06 | Share on a report: 5, 10, or 15 minutes (10 by default), message text only if ticked; the link opens a read-only snapshot with its expiry |
@@ -125,7 +126,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Check | Latest recorded result |
 |---|---|
-| Vitest (worker, engine, and client projects) | 788 tests in 49 files pass (2026-10-07, with the browser extension hand-off) |
+| Vitest (worker, engine, and client projects) | 795 tests in 51 files pass (2026-10-07, with Report it and the anonymous totals) |
 | Node config and script tests (`npm run test:config`) | 19 pass |
 | Accessibility (`npm run test:a11y`) | Passes; 64 axe-core checks, including the open flag form and the email details box in both themes at both widths |
 | Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot, file, Minecraft mod, email file, flag (scan, flag, confirmation), and share steps |

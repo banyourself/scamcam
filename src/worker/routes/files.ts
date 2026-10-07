@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { countInBackground } from "./stats";
 import { ApiErrorSchema } from "../../shared/api";
 import { fileExtensionPattern, fileFindings, fileKinds, maxFileBytes, maxPackJars, modIdPattern, sha1Pattern, type FileCheckRequest } from "../../shared/file-check";
 import { ScanReportSchema } from "../../shared/report-schema";
@@ -66,5 +67,6 @@ export const fileRoutes = new OpenAPIHono<AppEnv>().openapi(fileRoute, async (c)
   if (signature) {
     c.header(reportSignatureHeader, signature);
   }
+  countInBackground(c, report);
   return c.json(report, 200);
 });

@@ -7,6 +7,7 @@ const groups = [
       { to: "/", label: "Check a link or message" },
       { to: "/how-it-works", label: "How it works" },
       { to: "/extension", label: "Browser extension" },
+      { to: "/stats", label: "Totals" },
       { to: "/contact", label: "Contact and corrections" },
     ],
   },
