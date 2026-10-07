@@ -129,8 +129,10 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
       }
       const where = new URL(url).searchParams.get("_where") ?? "";
       const byHost = /^\(host,eq,([^)]+)\)$/.exec(where);
-      const byUrl = /^\(url,like,~([^~]+)~\)$/.exec(where);
-      const records = (options.phishstats ?? []).filter((record) => (byHost ? record.host === byHost[1] : byUrl ? record.url.includes(byUrl[1]!) : false));
+      const byUrl = /^\(url,like,https:\/\/([^~]+)~\)~or\(url,like,http:\/\/([^~]+)~\)$/.exec(where);
+      const records = (options.phishstats ?? []).filter((record) =>
+        byHost ? record.host === byHost[1] : byUrl ? record.url.startsWith(`https://${byUrl[1]}`) || record.url.startsWith(`http://${byUrl[2]}`) : false,
+      );
       return json(records.map((record, index) => ({ id: 1000 + index, score: null, ...record })));
     }
     if (url.startsWith(radarEndpoint)) {

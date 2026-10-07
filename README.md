@@ -74,9 +74,9 @@ result, so flagging a scam site over and over cannot make it look safe.
 - **Nothing is kept.** Submitted messages and links are checked and discarded. A report is stored only if someone
   chooses to share it, and then only encrypted, for at most 15 minutes. A flagged result keeps only the verdict, the
   names of the findings, and the domain or file fingerprint, for 30 days, never the message or the full link.
-- **Keys stay private.** Spamhaus is asked over DNS straight to its own servers, so the access key never passes
-  through a public resolver, and every outside key lives in Cloudflare's secret store, never in the code or the
-  browser.
+- **Keys stay private.** Every outside key lives in Cloudflare's secret store, never in the code or the browser.
+  Spamhaus lookups go through Cloudflare's own DNS over HTTPS resolver with the question in the request body, so the
+  access key never appears in an address or in ScamCam's logs.
 - **No accounts, trackers, ads, or analytics scripts.** ScamCam's own pages and API set no cookies.
 - **Abuse resistant.** Cloudflare Turnstile, per-visitor rate limits, strict input validation, daily budgets for
   every outside source, and signed reports so nobody can share a fake "this is safe" result under ScamCam's name.

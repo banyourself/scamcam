@@ -51,7 +51,7 @@ export function phishstatsUrl(target: PhishstatsTarget): string | null {
   if (!hostPattern.test(target.hostname) || !hostPattern.test(target.registrableDomain)) {
     return null;
   }
-  const where = target.privateSuffix ? `(url,like,~://${target.hostname}~)` : `(host,eq,${target.registrableDomain})`;
+  const where = target.privateSuffix ? `(url,like,https://${target.hostname}~)~or(url,like,http://${target.hostname}~)` : `(host,eq,${target.registrableDomain})`;
   return `${phishstatsEndpoint}?_where=${where}&_sort=-id&_size=${pageSize}`;
 }
 

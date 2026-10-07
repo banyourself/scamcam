@@ -130,7 +130,7 @@ export function PrivacyPage() {
         <li>
           <strong>Domain registries, Cloudflare DNS (1.1.1.1 and its 1.1.1.2 security filter), URLhaus and ThreatFox (abuse.ch), Spamhaus, PhishStats, and Cloudflare Radar</strong>{" "}
           receive only the website name, for example <em>example.com</em> or <em>login.example.com</em>, never the rest of the
-          link or your message. Spamhaus is asked directly over DNS, without going through a public resolver.
+          link or your message. Spamhaus is asked through Cloudflare&apos;s DNS resolver.
         </li>
         <li>
           <strong>Workers AI</strong> (Cloudflare) receives a message only when ScamCam&apos;s rules cannot decide, with

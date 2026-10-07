@@ -16,7 +16,7 @@ export function isDnsName(name: string): boolean {
   return name.length > 0 && name.length <= maxNameLength && name.split(".").every((label) => labelPattern.test(label));
 }
 
-export function encodeDnsQuery(id: number, name: string): Uint8Array {
+export function encodeDnsQuery(id: number, name: string, recursionDesired = false): Uint8Array {
   if (!Number.isInteger(id) || id < 0 || id > 0xffff || !isDnsName(name)) {
     throw new RangeError("The DNS query is not valid");
   }
@@ -25,6 +25,7 @@ export function encodeDnsQuery(id: number, name: string): Uint8Array {
   const bytes = new Uint8Array(headerBytes + nameBytes + 4);
   const view = new DataView(bytes.buffer);
   view.setUint16(0, id);
+  view.setUint16(2, recursionDesired ? 0x0100 : 0);
   view.setUint16(4, 1);
   let offset = headerBytes;
   for (const label of labels) {

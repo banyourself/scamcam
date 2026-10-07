@@ -1,10 +1,9 @@
 import { DurableObject } from "cloudflare:workers";
 import { createLookupState, memoryLookupCache, type Lookups } from "../engine/cache";
-import { lookupDns } from "../engine/dns";
-import { spamhausServers, type DnsAnswer, type DnsTransport } from "../engine/spamhaus";
+import { dohTransport } from "../engine/doh-transport";
+import type { DnsAnswer, DnsTransport } from "../engine/spamhaus";
 import type { AppBindings } from "./env";
 import type { FileCheckRequest } from "../shared/file-check";
-import { describeError, tcpDnsTransport } from "./dns-tcp";
 import { logEvent } from "./logging";
 import { runFileCheck, runScan, type ScanDependencies, type ScanOutcome } from "./scan-runner";
 
@@ -12,11 +11,20 @@ export const scannerName = "scanner";
 export const scannerLocation = "wnam";
 const cachedLookups = 5000;
 const alertEveryMs = 10 * 60 * 1000;
-const ipv4Pattern = /^(?:\d{1,3}\.){3}\d{1,3}$/;
 const watchedHosts = new Map([
   ["api.phishstats.info", "phishstats"],
   ["api.cloudflare.com", "radar"],
 ]);
+
+export function describeError(error: unknown): string | undefined {
+  const text = error instanceof Error ? `${error.name}: ${error.message}` : typeof error === "string" ? error : "";
+  const cleaned = text
+    .replace(/[A-Za-z0-9]{16,}/g, "[hidden]")
+    .replace(/[^A-Za-z0-9 .,:()_[\]/-]/g, "")
+    .trim()
+    .slice(0, 160);
+  return cleaned === "" ? undefined : cleaned;
+}
 
 function problemWith(answer: DnsAnswer): string | null {
   if (answer.status === "failed") {
@@ -40,16 +48,8 @@ export function watchedTransport(transport: DnsTransport, clock: () => number = 
         lastAlert = clock();
         const answered = answers.filter((answer) => answer.status === "answered").length;
         const failed = answers.find((answer) => answer.status === "failed");
-        logEvent("alert", {
-          task: "scan",
-          alert: "spamhaus_unavailable",
-          reason,
-          answered,
-          asked: answers.length,
-          ms: clock() - started,
-          ...(failed?.status === "failed" && failed.attempts ? { attempts: failed.attempts } : {}),
-          ...(failed?.status === "failed" && failed.detail ? { detail: failed.detail } : {}),
-        });
+        const detail = failed?.status === "failed" ? describeError(failed.detail ?? "") : undefined;
+        logEvent("alert", { task: "scan", alert: "spamhaus_unavailable", reason, answered, asked: answers.length, ms: clock() - started, ...(detail ? { detail } : {}) });
       }
       return answers;
     },
@@ -100,14 +100,7 @@ export class Scanner extends DurableObject<AppBindings> {
   private readonly lookupCache = memoryLookupCache(Date.now, cachedLookups);
   private readonly lookups: Lookups = { cache: this.lookupCache, state: this.lookupState, clock: Date.now };
   private readonly fetcher = watchedFetcher((input, init) => fetch(input, init));
-  private readonly dnsTransport = watchedTransport(
-    tcpDnsTransport(spamhausServers, {
-      resolveAddress: async (hostname) => {
-        const result = await lookupDns(hostname, this.fetcher, this.lookups);
-        return result.status === "ok" ? (result.addresses.find((address) => ipv4Pattern.test(address)) ?? null) : null;
-      },
-    }),
-  );
+  private readonly dnsTransport = watchedTransport(dohTransport(this.fetcher));
 
   private dependencies(): ScanDependencies {
     return {

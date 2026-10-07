@@ -89,9 +89,9 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | Team Cymru Malware Hash Registry | A file's SHA-1, through Cloudflare DNS | Working, no key (checked locally on 2026-10-06) |
 | Cloudflare 1.1.1.2 security DNS | The hostname only | Working; verified locally on 2026-10-06 against Cloudflare's own blocked test hosts |
 | Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen, CERT Polska | Nothing from visitors; a GitHub Actions job downloads the public lists | All six synced to production on 2026-10-07; matches are a strong warning, never confirmation |
-| Spamhaus DQS (DBL and ZRD) | The registrable domain inside the query name, over TCP straight to Spamhaus | Deployed on 2026-10-06; starts when `SPAMHAUS_DQS_KEY` is set. Reached from local workerd with a placeholder key on 2026-10-06 |
-| PhishStats | The registrable domain, or the exact host for shared hosting | Starts when `PHISHSTATS_API_KEY` is set; capped at 140 calls a day. Its query syntax was checked live without a key on 2026-10-06 |
-| Cloudflare Radar | The registrable domain only | Starts when `CLOUDFLARE_RADAR_TOKEN` is set; not yet called with a real token |
+| Spamhaus DQS (DBL and ZRD) | The registrable domain inside the query name, through Cloudflare's DNS over HTTPS resolver | Key set on 2026-10-06. Direct TCP to Spamhaus's servers turned out to be blocked by Cloudflare in production, so lookups now use Cloudflare's resolver; a live answer with the real key is still to be confirmed |
+| PhishStats | The registrable domain, or the exact host for shared hosting | Key set on 2026-10-06; answered live for normal domains. Lookups for shared hosting timed out with a "contains" search (5.4 s) and now use a "starts with" search (0.2 s); capped at 140 calls a day |
+| Cloudflare Radar | The registrable domain only | Token set on 2026-10-06; confirmed live with a scan of `wikipedia.org` |
 | Workers AI (`@cf/qwen/qwen3-30b-a3b-fp8`) | The redacted message with links replaced by `[link]` | On, capped at 2,000 calls a day |
 | Cloudflare Turnstile | The token and the visitor's IP address | Production widget |
 
@@ -102,7 +102,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 | Where | Names |
 |---|---|
 | Worker secrets (production) | `TURNSTILE_SECRET_KEY`, `SAFE_BROWSING_API_KEY`, and `URLHAUS_AUTH_KEY`, which I typed in myself at launch, and `SHARE_SIGNING_KEY` for share links and flags ([DEPLOYMENT.md](DEPLOYMENT.md), step 8) |
-| Worker secrets still to set | `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN` ([DEPLOYMENT.md](DEPLOYMENT.md), step 11) |
+| Worker secrets for the extra sources | `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`, which I typed in myself on 2026-10-06 ([DEPLOYMENT.md](DEPLOYMENT.md), step 11) |
 | GitHub secrets | `CLOUDFLARE_D1_TOKEN` (D1 Edit only) and `CLOUDFLARE_ACCOUNT_ID` |
 | GitHub variable | `PHISHING_DATABASE_SYNC=enabled` |
 | Local | `.dev.vars`, ignored by git; `.dev.vars.example` holds only Cloudflare's public Turnstile test keys, a local-only signing key, and empty placeholders |
@@ -113,7 +113,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Check | Latest recorded result |
 |---|---|
-| Vitest (worker, engine, and client projects) | 609 tests in 39 files pass (2026-10-06, with flags, the new lists, Spamhaus, PhishStats, and Radar) |
+| Vitest (worker, engine, and client projects) | 610 tests in 40 files pass (2026-10-06, after moving Spamhaus to DNS over HTTPS) |
 | Node config and script tests (`npm run test:config`) | 17 pass |
 | Accessibility (`npm run test:a11y`) | Passes; 60 axe-core checks, including the open flag form in both themes at both widths |
 | Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot, file, flag (scan, flag, confirmation), and share steps |
@@ -126,7 +126,7 @@ How each suite runs is in [TEST_PLAN.md](TEST_PLAN.md).
 
 | Check | Result |
 |---|---|
-| Subrequests | 6.7 per cold scan on average for the benchmark (most 13), 31 for 20 links in the engine, 44 for 20 links through the whole Worker route, and 35 for 20 links in the scanner with every source on (20 fetches, 1 DNS connection, 14 queries, 2026-10-06); 0 for a warm repeat |
+| Subrequests | 6.7 per cold scan on average for the benchmark (most 13), 31 for 20 links in the engine, 44 for 20 links through the whole Worker route, and 40 for 20 links in the scanner with every source on (20 fetches, 6 Spamhaus lookups, 14 queries, 2026-10-06); 0 for a warm repeat |
 | Slow inputs | The slowest crafted input scans in under 1 ms in Node; before the fix the worst took about 23 ms |
 | Concurrency | 16 simultaneous scans from one address: exactly 10 allowed (local simulator) |
 | Cleanup | 10,250 expired rows in one table: 10,000 removed on the first run, 250 on the next. With a backlog in every table: 11,000 rows in 26 batches, fewer than 35 queries |
@@ -183,17 +183,16 @@ duration about ten times faster than needed. Every lookup now clears its timer w
    2026-10-09; the five lists added on 2026-10-06 keep covering phishing sites in the meantime.
 5. Ask abuse.ch (contact form) to confirm that showing per-lookup results with credit is fine, and ask Team Cymru
    (support@cymru.com) the same for the Malware Hash Registry.
-6. Set `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`, then confirm each live: a scan of
-   `dbltest.com` should show the Spamhaus spam listing, and a scan of a popular site should show the Cloudflare Radar
-   note.
+6. Confirm Spamhaus and PhishStats live after the DNS over HTTPS and search fixes: a scan of `dbltest.com` should
+   show the Spamhaus spam listing, and a scan of `https://zoomusinvite2.pages.dev/` should show PhishStats reports.
 7. Review flags with `npm run flags` whenever the weekly report raises `flags_waiting`.
 
 ### Not verified yet
 
-- Subrequest counts are measured locally (44 for a 20-link scan in the Worker, 35 in the scanner) but not yet recorded on Cloudflare.
-- Spamhaus over TCP from Cloudflare's network. Local workerd reached all of Spamhaus's servers, but outbound TCP from
-  production has not been seen yet, and no answer with a real key has been seen.
-- PhishStats and Cloudflare Radar answers with real keys.
+- Subrequest counts are measured locally (44 for a 20-link scan in the Worker, 40 in the scanner) but not yet recorded on Cloudflare.
+- A Spamhaus answer with the real key through Cloudflare's resolver. Production showed on 2026-10-06 that Workers
+  cannot open TCP connections to outside DNS servers (Cloudflare answers "proxy request failed, cannot connect to the
+  specified address"), so the first design could not work there.
 - The rate limiting binding counts per Cloudflare location and is eventually consistent, so the concurrency result
   comes from the local simulator only. The live check saw a 429 within 15 scans.
 - A live URLhaus match. Only "no results" answers have been seen live; matches are tested with a fake server.

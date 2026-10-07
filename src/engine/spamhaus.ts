@@ -4,16 +4,15 @@ import { isDnsName } from "./dns-wire";
 export const spamhausSource = "spamhaus";
 export const spamhausDblUrl = "https://www.spamhaus.org/blocklists/domain-blocklist/";
 export const spamhausZrdUrl = "https://docs.spamhaus.com/datasets/docs/source/10-data-type-documentation/datasets/030-datasets.html#zero-reputation-domains-zrd";
-export const spamhausServers = ["a.gns.spamhaus.net", "b.gns.spamhaus.net", "c.gns.spamhaus.net", "d.gns.spamhaus.net", "e.gns.spamhaus.net"];
 
 const keyPattern = /^[A-Za-z0-9]{16,64}$/;
 const maxDomainLength = 160;
 const memorySeconds = 60;
 const nxdomain = 3;
 
-export type DnsFailure = "connect_failed" | "connect_timeout" | "write_failed" | "reply_timeout" | "closed_early" | "malformed";
+export type DnsFailure = "http_error" | "reply_timeout" | "request_failed" | "malformed";
 
-export type DnsAnswer = { status: "answered"; rcode: number; addresses: string[] } | { status: "failed"; reason?: DnsFailure; detail?: string; attempts?: number };
+export type DnsAnswer = { status: "answered"; rcode: number; addresses: string[] } | { status: "failed"; reason?: DnsFailure; detail?: string };
 
 export interface DnsTransport {
   resolve(names: string[]): Promise<DnsAnswer[]>;

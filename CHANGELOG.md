@@ -3,6 +3,20 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-06: Spamhaus and PhishStats fixes after release
+
+- **Spamhaus** never answered in production. The logs showed why: Cloudflare refuses Workers' TCP connections to outside
+  DNS servers ("proxy request failed, cannot connect to the specified address"), even though the same code reached
+  Spamhaus from a local copy of the runtime. Lookups now go over DNS over HTTPS through Cloudflare's own resolver, each
+  question in a POST body so the key is never in an address. Spamhaus's free DQS terms set no rule on resolvers; the
+  public-resolver block I had read about applies to the Spamhaus Project's public mirrors. The unused TCP code is gone.
+- **PhishStats** timed out on shared-hosting links such as `pages.dev` sites, because their lookup used a "contains"
+  search that took 5.4 seconds. It now uses a "starts with" search, which took 0.2 seconds for the same record.
+- Spamhaus, PhishStats, and Cloudflare Radar failures now raise alerts with the reason or HTTP status and the
+  provider's own message, never the domain or a key. Radar was confirmed working with a scan of `wikipedia.org`.
+- Verified: 610 Vitest tests in 40 files and 17 Node tests pass, and a local copy of the runtime asked Cloudflare's
+  real resolver over DNS over HTTPS.
+
 ## 2026-10-06: Result flags, five more scam lists, Spamhaus, PhishStats, Radar, and a license
 
 - **Flag result as incorrect.** Every report now has a button to flag it for review, with four reasons and an optional

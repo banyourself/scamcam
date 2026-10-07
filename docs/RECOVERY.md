@@ -112,7 +112,8 @@ them for 90 days.
 | `phishing_list_stale`, `metamask_list_stale`, `scamsniffer_list_stale`, `phishdestroy_list_stale`, `scam_links_list_stale`, `cert_polska_list_stale` | That list's source data is older than its alert age (2 days, or 180 for `scam_links`), whether the sync failed or the upstream project stopped publishing |
 | `scam_list_sync_late` | At least one list has not been refreshed by the sync for more than 2 days |
 | `scam_list_missing` | At least one of the six lists has no copy in D1, so reports check fewer lists |
-| `spamhaus_unavailable` | Spamhaus did not answer, refused, or returned an error code (logged at most every 10 minutes with only the code, never the query). Check the key and the free DQS usage limit |
+| `spamhaus_unavailable` | Spamhaus did not answer through Cloudflare's resolver, refused, or returned an error code (logged at most every 10 minutes with only the reason or HTTP status, never the query). Check the key and the free DQS usage limit |
+| `phishstats_unavailable`, `radar_unavailable` | PhishStats or Cloudflare Radar answered with an error or did not answer (logged at most every 10 minutes with the HTTP status and the provider's message). A 401 or 403 means the key or token needs checking, and a 429 means the daily quota ran out |
 | `flags_waiting` | At least one flagged result is waiting for review. Run `npm run flags` |
 | `flags_daily_limit` | The daily cap on flags was reached, so new flags are refused until midnight UTC |
 | `scanner_unavailable` | A scan could not reach the Scanner Durable Object, so the Worker ran it itself; scans still work, but repeated alerts mean the scanner or its free quota needs a look |

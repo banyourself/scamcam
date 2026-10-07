@@ -200,11 +200,12 @@ describe("Workers Free plan limits", () => {
       dnsTransport: fakeSpamhaus({}, asked),
     });
     expect(report.notChecked.map((item) => item.name)).not.toContain("Spamhaus DBL and ZRD");
-    const used = { fetches: fake.requests.length, connections: asked.length, queries: queries.queries };
+    const used = { fetches: fake.requests.length, spamhausLookups: asked.flat().length, queries: queries.queries };
     console.log(JSON.stringify({ scannerSubrequestsForTwentyLinks: used }));
     expect(asked).toHaveLength(1);
+    expect(used.spamhausLookups).toBeLessThanOrEqual(6);
     expect(fake.requests.filter((request) => request.url.includes("phishstats"))).toHaveLength(1);
     expect(fake.requests.filter((request) => request.url.includes("/radar/")).length).toBeLessThanOrEqual(2);
-    expect(used.fetches + used.connections + used.queries, JSON.stringify(used)).toBeLessThan(freePlanSubrequestLimit);
+    expect(used.fetches + used.spamhausLookups + used.queries, JSON.stringify(used)).toBeLessThan(freePlanSubrequestLimit);
   });
 });

@@ -230,14 +230,15 @@ engine, so a bot flood cannot turn a scam site into a "no known threat" result.
 
 | Threat | Protection | Test |
 |---|---|---|
-| The Spamhaus key showing up in a public resolver's logs | Queries go over DNS on TCP straight to Spamhaus's own nameservers, all of a scan's questions on one connection that is closed at once. Query names are never logged; the alert records only an error code, at most once every 10 minutes | `test/worker/dns-tcp.test.ts` |
+| The Spamhaus key leaking | Cloudflare blocks Workers from opening TCP connections to outside DNS servers (seen in production), so lookups go through Cloudflare's own DNS over HTTPS resolver, run by the company that already hosts ScamCam. Each question travels in a POST body, never in an address. ScamCam never logs query names; the alert records only a reason or HTTP status, at most once every 10 minutes | `test/engine/doh-transport.test.ts`, `test/worker/provider-watch.test.ts` |
 | A malformed key or domain changing which DNS zone is asked | The key must be 16 to 64 letters and digits, domains must be valid DNS names of at most 160 characters, and the DNS encoder refuses anything else | `test/engine/spamhaus.test.ts`, `test/engine/dns-wire.test.ts` |
-| A forged or garbled DNS answer | TCP only, a random id per question, answers matched by id, truncated replies ignored, and bounded lengths and name parsing | Same files |
+| A forged or garbled DNS answer | HTTPS to Cloudflare's resolver only, replies capped at 4 KB, truncated or garbled replies refused, and bounded name parsing | Same files and `test/engine/doh-transport.test.ts` |
 | An error read as "not listed" | Spamhaus error codes, server failures, and timeouts show as "did not respond", never as clean | `test/engine/spamhaus.test.ts` |
 | Outside keys leaking | The PhishStats key goes in a header and the Radar token in `Authorization`, never in an address. All three are Worker secrets that never reach the browser | `test/engine/phishstats-radar.test.ts` |
 | A scam site borrowing credit from popularity | Radar only removes two small warnings (an often-abused ending and a brand mismatch), only for domains in the top 100,000 without a security category, and never for shared hosting, community sites, or private suffixes. A listing still decides | `test/engine/scan-extended.test.ts` |
 | Text from these services in reports | Reports show only counts, dates, and fixed wording, never free text from Spamhaus, PhishStats, or Radar | Code review |
-| Running past the Free plan's 50 subrequests | All three run only in the scanner; a 20-link scan there with every source on used 35 (20 fetches, 1 DNS connection, 14 queries) | `test/worker/security.test.ts` |
+| Running past the Free plan's 50 subrequests | All three run only in the scanner; a 20-link scan there with every source on used 40 (20 fetches, 6 Spamhaus lookups, 14 queries) | `test/worker/security.test.ts` |
+| A failing source going unnoticed | Spamhaus, PhishStats, and Radar failures raise `spamhaus_unavailable`, `phishstats_unavailable`, or `radar_unavailable` with only the reason, HTTP status, and the provider's own message, with anything key-shaped hidden | `test/worker/provider-watch.test.ts` |
 
 ### More scam lists
 

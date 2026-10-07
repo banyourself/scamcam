@@ -10,7 +10,9 @@ const tenant = { hostname: "free-skins.pages.dev", registrableDomain: "free-skin
 describe("PhishStats lookups", () => {
   it("asks by site for normal domains and by exact host for tenants of shared hosting", () => {
     expect(phishstatsUrl(site)).toBe("https://api.phishstats.info/api/phishing?_where=(host,eq,scam-site.example)&_sort=-id&_size=30");
-    expect(phishstatsUrl(tenant)).toBe("https://api.phishstats.info/api/phishing?_where=(url,like,~://free-skins.pages.dev~)&_sort=-id&_size=30");
+    expect(phishstatsUrl(tenant)).toBe(
+      "https://api.phishstats.info/api/phishing?_where=(url,like,https://free-skins.pages.dev~)~or(url,like,http://free-skins.pages.dev~)&_sort=-id&_size=30",
+    );
     for (const hostname of ["a,b.example", "x).example", "x~y.example", "under_score.example", "203.0.113.5"]) {
       expect(phishstatsUrl({ hostname, registrableDomain: hostname, privateSuffix: false }), hostname).toBeNull();
     }

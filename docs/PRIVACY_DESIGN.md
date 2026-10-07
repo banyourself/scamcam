@@ -34,7 +34,7 @@ history, screenshots, cookies other than strictly necessary security cookies fro
 | CIRCL hashlookup | A file's SHA-256 only | Each file check with a fingerprint |
 | Team Cymru Malware Hash Registry, through Cloudflare DNS | A file's SHA-1 only | Each file check with a fingerprint |
 | Cloudflare 1.1.1.2 security DNS | The hostname only | Up to 3 per scan |
-| Spamhaus DQS (DBL and ZRD) | The registrable domain inside a DNS name that also holds the access key, sent over TCP straight to Spamhaus's nameservers | Up to 3 domains per scan on one connection, only in the scanner, when the key is set; never logged |
+| Spamhaus DQS (DBL and ZRD), through Cloudflare's DNS over HTTPS resolver | The registrable domain inside a DNS name that also holds ScamCam's access key, sent in a request body to Cloudflare's resolver, which asks Spamhaus | Up to 3 domains per scan (6 lookups), only in the scanner, when the key is set; never logged by ScamCam. Cloudflare says it deletes resolver logs within 25 hours |
 | PhishStats | The registrable domain, or the exact host for tenants of shared hosting | The main link only, only in the scanner, when the key is set; at most 140 a day |
 | Cloudflare Radar | The registrable domain only | Up to 2 per scan, only in the scanner, when the token is set; never for shared hosting |
 | VirusTotal, Google Safe Browsing site status, urlscan.io, Cisco Talos, ScamAdviser, URLVoid, Hybrid Analysis | Nothing from ScamCam. The report links to their public pages; they see the domain or fingerprint in the address only if the visitor clicks | Only when the visitor clicks |
