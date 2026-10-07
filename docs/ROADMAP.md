@@ -17,6 +17,7 @@ Every feature ships with tests, a security review, and updates to [STATUS.md](ST
 | File checks | 2026-10-06 | Files are read on the visitor's device and checked by fingerprint against MalwareBazaar, CIRCL hashlookup, and Team Cymru, without uploading them |
 | Screenshot reading | 2026-10-06 | Screenshots are read in the visitor's browser (Tesseract.js for text, jsQR for QR codes) and never uploaded, with strict file checks against fake images and decompression bombs |
 | Share links | 2026-10-06 | Opt-in links that work for 5, 10, or 15 minutes, encrypted with a key only the link holds, signed reports only, message text only when ticked |
+| Minecraft mods and modpacks | 2026-10-07 | Mods read on the device for what account stealers do, compared with Modrinth by fingerprint and mod ID, and modpacks checked for unsafe downloads and carried mods; the three link rule gaps closed and measured on a fresh sample |
 | Scanner and newer checks | 2026-10-06 | The scan engine runs in a Durable Object to stay inside the Free plan's CPU limit; redirect wrappers decoded, Cloudflare's security filter, copy-paste command, wallet drainer, and reply-to-activate rules, brand mismatch, and abused endings |
 
 ## Next
@@ -25,7 +26,6 @@ Every feature ships with tests, a security review, and updates to [STATUS.md](ST
 
 1. Leave out low-confidence screenshot text, such as a QR code's pattern read as letters.
 2. Watch the first daily and weekly maintenance reports for alerts ([RECOVERY.md](RECOVERY.md)).
-3. Close the three rule gaps from the held-out benchmark with a fresh sample from the list.
 
 The other open items, including the CPU time measurement on the Free plan, are in [STATUS.md](STATUS.md#open-items).
 

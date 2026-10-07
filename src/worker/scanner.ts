@@ -23,8 +23,9 @@ const watchedHosts = new Map([
   ["api-ssl.bitly.com", "bitly"],
   ["is.gd", "isgd"],
   ["v.gd", "isgd"],
+  ["api.modrinth.com", "modrinth"],
 ]);
-const missingIsAnswer = new Set(["radar", "discord"]);
+const missingIsAnswer = new Set(["radar", "discord", "modrinth"]);
 
 export function describeError(error: unknown): string | undefined {
   const text = error instanceof Error ? `${error.name}: ${error.message}` : typeof error === "string" ? error : "";

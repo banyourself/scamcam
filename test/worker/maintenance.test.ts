@@ -175,13 +175,13 @@ describe("monitoring and alerts", () => {
     await env.DB.prepare("INSERT INTO maintenance_runs (task, status, started_at, finished_at, expires_at) VALUES ('daily', 'failed', ?1, ?1, ?2)")
       .bind(now - 86_400 * 2, now + 86_400)
       .run();
-    await insertList("phishing_database", now - 4 * 86_400, now - 2 * 3600);
+    await insertList("phishing_database", now - 22 * 86_400, now - 2 * 3600);
     await insertFreshLists(["phishing_database"]);
     await runMaintenance("weekly", env);
     const weekly = await detailOf("weekly");
     expect(weekly.errors).toEqual({ total: 52, byCode: { TypeError: 40, RangeError: 12 } });
     expect(weekly.runs).toEqual({ failed: 1, stuck: 0 });
-    expect(weekly.lists.phishing_database).toEqual({ version: "v1", entries: 150000, ageHours: 96, refreshedHoursAgo: 2 });
+    expect(weekly.lists.phishing_database).toEqual({ version: "v1", entries: 150000, ageHours: 528, refreshedHoursAgo: 2 });
     expect(weekly.alerts).toEqual(["maintenance_failed", "errors_high", "phishing_list_stale"]);
   });
 

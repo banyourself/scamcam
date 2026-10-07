@@ -1,7 +1,7 @@
 import type { EmailFacts } from "../shared/email";
 import { extractInput, maskedLinks, qrValues, withoutQrLabels } from "../shared/extract";
 import type { Evidence, ScanReport, UncheckedSource } from "../shared/report";
-import { brands, brandsNamedIn, freeHostingSuffixes, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
+import { brands, brandsNamedIn, freeHostOf, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
 import type { AiReviewResult } from "./ai-review";
 import { cacheKey, memoryLookups, recallFromMemory, recordOutcome, rememberInMemory, sourceIsOpen, type Lookups } from "./cache";
 import { discordInviteDocs, lookupDiscordInvite, type DiscordInviteResult } from "./discord-invite";
@@ -84,7 +84,7 @@ function pickNetworkLinks(links: AnalyzedLink[]): AnalyzedLink[] {
 
 function isSharedHost(link: AnalyzedLink): boolean {
   const host = link.hostname ?? "";
-  return Boolean(link.officialBrand) || urlShorteners.has(link.registrableDomain ?? "") || freeHostingSuffixes.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
+  return Boolean(link.officialBrand) || urlShorteners.has(link.registrableDomain ?? "") || freeHostOf(host) !== null;
 }
 
 function rdapSignals(link: AnalyzedLink, result: RdapResult, now: Date): Signal[] {
@@ -778,7 +778,7 @@ function isBroadName(name: string): boolean {
   return (
     urlShorteners.has(name) ||
     userContentHosts.includes(name) ||
-    freeHostingSuffixes.some((suffix) => name === suffix) ||
+    freeHostOf(name) === name ||
     Boolean(officialBrandFor(name))
   );
 }

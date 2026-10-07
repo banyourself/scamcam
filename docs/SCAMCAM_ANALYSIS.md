@@ -192,7 +192,12 @@ flagged 71 of 200 gaming-impersonation domains (recall 0.355), 2 of 200 random p
 0 of 178 legitimate sites. The 129 missed gaming domains came back "Unknown", never "No known threat". The labels
 are the list's, which has known false positives, so recall here means agreement with the list. Gaps found: brand
 names as subdomains of unrelated sites, brand plus gift words on cheap endings, and brand words on free blog hosting.
-They need a fresh sample before any rule change.
+
+Those gaps were closed on 2026-10-07 using this sample, which makes it a tuning set (127 of 200 gaming domains are now
+flagged). A fresh sample from the same commit (seed 20261007, excluding every domain in the first, gaming domains
+picked by the same kind of game-word match) is the new held-out set, run once before and after the change: 53 and then
+94 of 200 gaming-impersonation domains flagged (recall 0.265 and 0.470), 0 of 200 random phishing domains both times,
+and 0 of 178 legitimate sites both times.
 
 ### Hidden characters and checker instructions
 
@@ -222,7 +227,7 @@ skips the AI.
 | Crypto wallet connection | Strong warning, new family `wallet_drainer` | Fake airdrops, mints, and wallet verification pages drain connected wallets; "steam wallet" is excluded |
 | Reply to activate a link | Strong warning | Scam texts ask for a "Y" reply so the phone turns links back on |
 | Message names a brand, link goes elsewhere | Weak warning, moderate when a scam family also matched | A message about Steam or Discord whose link belongs to neither, and does not imitate them by name |
-| Endings abused far more than most | Weak warning, linked to Interisle's Phishing Landscape 2025 | .xin, .bond, .help, .win, and .cfd have the highest phishing rate for their size |
+| Endings abused far more than most | Weak warning, linked to Interisle's Phishing Landscape 2025 | The 20 endings with the highest phishing rate for their size, from .xin and .bond to .best and .buzz (2026-10-07; the first five until then) |
 | Login QR codes | Critical warning in the QR code login takeover family, and no "official" credit | A Discord (`discord.com/ra/...`) or Steam (`s.team/q/...`) login QR code logs in whoever made it, so sharing one is the takeover itself |
 | Link text that hides the real address | Critical warning, and the summary names the site it pretends to be | Discord's `[shown](real)` and Slack's `<real\|shown>` formats; only flagged when the shown text is a different domain from the real one, and only the real address is checked |
 | Links read from screenshots | No "official" credit, a note on each official-looking link, and advice to copy the link itself | A screenshot shows only a link's text, so `rockstargames.com/gift` in a picture may open anything. Links decoded from a QR code in the screenshot are real and keep their credit |
@@ -277,3 +282,41 @@ visitors. Hybrid Analysis, OPSWAT MetaDefender, Kaspersky OpenTIP, and MalShare 
 
 Checked against real services on 2026-10-06: the EICAR antivirus test file came back as confirmed malware from Team
 Cymru (100% of engines) and CIRCL (tagged by malshare.com), and MalwareBazaar answered that it has no sample on record.
+
+## Minecraft mods and modpacks (2026-10-07)
+
+Fake and infected mods are a main way Minecraft accounts and Discord logins are stolen: fractureiser got into real
+uploads in 2023, Check Point described fake cheat mods spread from starred GitHub projects in 2025, and McAfee counted
+more than 3,820 different WeedHack mod files in 2026. Hash lists only know files someone already reported, so the
+browser also reads the text in a mod's class files (constants, text hidden in base64, and text built from byte or char
+arrays) and the jars bundled inside it:
+
+| Finding | Strength | Why |
+|---|---|---|
+| The folders where Discord, browsers, Telegram, or wallets keep logins | Critical | Mods have no reason to look there |
+| A Discord webhook or Telegram bot address, plain with its token or hidden in encoded text | Strong | Where stolen data is sent |
+| A URL class loader with a hidden address, or with the four-part URL constructor fractureiser used | Strong | Downloads and runs code |
+| Two or more security tools (Wireshark, HTTP Debugger, Process Hacker, VirtualBox tools), or one with `tasklist` | Strong | Hiding from researchers |
+| A process call with a Defender exclusion, a startup registry key, `schtasks /create`, `mshta`, `attrib +h`, or a download cradle | Strong | Hidden Windows commands |
+| The Minecraft login token (1.8.9 Forge names, Fabric's `class_320` members, or Mojang's `User` getters) read in a class, plus a network call | Moderate | What session stealers take, but some account tools need it |
+| Launcher account files (official launcher, Lunar, Prism, and others) | Moderate | The same |
+| A hidden address that is not an official Minecraft host, or a link to a bare public IP address | Moderate | How malware fetches its next part |
+| A Windows program or script inside the mod | Moderate | Can be started by the mod's code |
+
+The moderate findings are capabilities honest account tools also have, so together they count only once and on
+their own can make a file Suspicious but not High risk. The browser also reads the mod ID from `fabric.mod.json`,
+`quilt.mod.json`, `neoforge.mods.toml`, `mods.toml`, `mcmod.info`, or a plugin's `plugin.yml`.
+
+Then Modrinth is asked by SHA-1. If it publishes the exact file, the report names the project and version as
+context, and the moderate findings above become context too. If it does not, and the mod ID is a Modrinth project
+with at least 50,000 downloads, the report says the file claims to be that mod but is not one of its releases, a
+moderate warning, since it could also be an official build from another site.
+
+Modpacks: a `.mrpack` index that downloads from anywhere but Modrinth, GitHub, raw GitHub, and GitLab, or that places
+files outside the game folder, is a strong warning. Mods carried inside a pack, in Modrinth or CurseForge format, are
+fingerprinted and read like any mod, and they and the pack's downloads from outside Modrinth's own servers are
+checked against Modrinth in one request.
+
+Checked on 2026-10-07 against 61 real files downloaded from Modrinth: none flagged, and five login-token tools (Auth
+Me, Entity Texture Features, Essential, Not Enough Updates, World Host) would be Suspicious if Modrinth did not have
+the file. CurseForge has a fingerprint API too, but it needs a key that Overwolf approves by hand.

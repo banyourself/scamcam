@@ -305,6 +305,18 @@ engine, so a bot flood cannot turn a scam site into a "no known threat" result.
 | Broken or hostile extension packages | Header lengths are bounds-checked, unknown versions and bad JSON leave the type known but the permissions unread | `test/client/file-inspect.test.ts` |
 | False alarms on ordinary zips | A zip with a `manifest.json` counts as an extension only when the manifest has `manifest_version`; otherwise it stays an archive | `test/client/file-inspect.test.ts` |
 
+## Minecraft mods and modpacks (2026-10-07)
+
+| Threat | Protection | Test |
+|---|---|---|
+| A crafted jar that hangs or exhausts the page | Mods are read only in the browser, from a copy in memory of at most 64 MB: at most 12,000 class files and 160 MB of unpacked code, each class at most 2 MB, jars inside jars one level deep and at most 64 MB, and 20,000 zip entries. Broken class files are skipped and reported as partly read | `test/client/mod-inspect.test.ts` |
+| Running a mod | Nothing is saved, loaded, or run; only bytes are read | `test/client/mod-inspect.test.ts` |
+| The new request fields used against the server | `modId` must match `^[a-z0-9][a-z0-9_.-]{0,63}$` and `packJars` holds at most 50 SHA-1s; each is kept only for the right kind of file, and unknown fields are still refused | `test/worker/files-api.test.ts` |
+| Text from Modrinth in reports | Only the project ID (8 letters and digits), title, version number, download count, and type are read, with a 512 KB cap and strict schemas; titles and versions are cleaned and shortened | `test/engine/modrinth.test.ts` |
+| A malicious mod that Modrinth publishes | A published file is context only. Malware-only findings keep their strength, and the report says real mod pages have been hacked before | `test/engine/modrinth.test.ts` |
+| False alarms on popular mods | Capabilities that honest account tools need count once together and become context for files Modrinth publishes; checked against 61 real files from Modrinth | `test/client/mod-inspect.test.ts`, one run recorded in `docs/STATUS.md` |
+| Modrinth's rate limit | Answers are cached for hours; failures pause the source and show as Not checked | `test/engine/modrinth.test.ts` |
+
 ## ThreatFox, list dates, and abuse.ch links (2026-10-06)
 
 | Issue | Change | Test |

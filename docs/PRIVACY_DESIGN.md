@@ -36,6 +36,7 @@ history, screenshots, cookies other than strictly necessary security cookies fro
 | MalwareBazaar (abuse.ch) | A file's SHA-256 only | Each file check with a fingerprint, when a key is set |
 | CIRCL hashlookup | A file's SHA-256 only | Each file check with a fingerprint |
 | Team Cymru Malware Hash Registry, through Cloudflare DNS | A file's SHA-1 only | Each file check with a fingerprint |
+| Modrinth | A Minecraft mod's SHA-1 and the mod ID it names (such as `sodium`), or the SHA-1s of up to 50 mods a modpack carries or downloads from outside Modrinth | Each check of a Minecraft mod or modpack |
 | Cloudflare 1.1.1.2 security DNS | The hostname only | Up to 3 per scan |
 | Spamhaus DQS (DBL and ZRD), through Cloudflare's DNS over HTTPS resolver | The registrable domain inside a DNS name that also holds ScamCam's access key, sent in a request body to Cloudflare's resolver, which asks Spamhaus | Up to 3 domains per scan (6 lookups), only in the scanner, when the key is set; never logged by ScamCam. Cloudflare says it deletes resolver logs within 25 hours |
 | PhishStats | The registrable domain, or the exact host for tenants of shared hosting | The main link only, only in the scanner, when the key is set; at most 140 a day |

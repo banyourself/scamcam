@@ -185,6 +185,11 @@ export function PrivacyPage() {
           through Cloudflare DNS.
         </li>
         <li>
+          <strong>Modrinth</strong> receives the SHA-1 fingerprint of a Minecraft mod you check and the mod ID written inside
+          it (such as <code>sodium</code>), or the fingerprints of up to 50 mods a modpack carries or downloads from outside
+          Modrinth, never the file, its name, or your IP address.
+        </li>
+        <li>
           <strong>Phishing.Database, MetaMask&apos;s phishing list, ScamSniffer, PhishDestroy, a public-domain Discord and Steam
           scam list, and CERT Polska&apos;s warning list</strong> are public lists of scam sites, and ScamSniffer also lists scam
           wallet addresses. ScamCam keeps a scrambled copy of each and checks links, email senders, and wallet addresses

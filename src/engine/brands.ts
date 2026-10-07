@@ -94,6 +94,13 @@ export const brands: Brand[] = [
     lookalikeLabels: ["nintendo"],
     tokens: ["nintendo"],
   },
+  {
+    id: "faceit",
+    name: "FACEIT",
+    officialDomains: ["faceit.com"],
+    lookalikeLabels: ["faceit"],
+    tokens: ["faceit"],
+  },
 ];
 
 export const commonBrandWords = new Set([
@@ -112,7 +119,13 @@ export const communitySites: Record<string, string> = {
   "curseforge.com": "a well-known mod site",
   "modrinth.com": "a well-known mod site",
   "planetminecraft.com": "a well-known Minecraft community site",
-  "faceit.com": "a well-known gaming platform",
+  "minecraft.wiki": "the community-run Minecraft wiki",
+  "steamgifts.com": "a well-known Steam giveaway community",
+  "steamtradematcher.com": "a well-known Steam trading card site",
+  "fandom.com": "a well-known wiki site",
+  "discord.me": "a well-known Discord server directory",
+  "discord.js.org": "the guide for the discord.js programming library",
+  "discordpy.readthedocs.io": "the guide for the discord.py programming library",
 };
 
 export const urlShorteners = new Set([
@@ -126,8 +139,22 @@ export const freeHostingSuffixes = [
   "pages.dev", "workers.dev", "github.io", "gitlab.io", "vercel.app", "netlify.app", "web.app", "firebaseapp.com",
   "glitch.me", "repl.co", "replit.app", "onrender.com", "herokuapp.com", "wixsite.com", "weebly.com", "webflow.io",
   "framer.website", "carrd.co", "blogspot.com", "ngrok-free.app", "ngrok.io", "trycloudflare.com", "azurewebsites.net",
-  "r2.dev", "000webhostapp.com", "netlify.com", "surge.sh",
+  "r2.dev", "000webhostapp.com", "netlify.com", "surge.sh", "weeblysite.com", "mystrikingly.com", "godaddysites.com",
+  "square.site", "gitbook.io", "wordpress.com",
 ];
+
+const countryBlogspot = /(?:^|\.)(blogspot\.(?:com?\.)?[a-z]{2})$/;
+
+export function freeHostOf(hostname: string): string | null {
+  return freeHostingSuffixes.find((suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`)) ?? countryBlogspot.exec(hostname)?.[1] ?? null;
+}
+
+export const hostLureWords = [
+  "gift", "giveaway", "freebie", "claim", "reward", "bonus", "promo", "redeem", "login", "logon", "signin", "verif", "appeal",
+  "unban", "recover", "support", "security", "moderator",
+];
+
+export const hostLurePrefixes = ["free", "auth", "account"];
 
 export const riskyPathWords = [
   "login", "signin", "sign-in", "logon", "auth", "oauth", "openid", "verify", "verification", "tradeoffer", "trade",
@@ -161,7 +188,10 @@ export const deviceLoginLinks: { domain: string; path: RegExp }[] = [
   { domain: "microsoftonline.com", path: /\/oauth2\/(?:v2\.0\/)?deviceauth\/?$/i },
 ];
 
-export const riskyTlds = new Set(["xin", "bond", "help", "win", "cfd"]);
+export const riskyTlds = new Set([
+  "xin", "bond", "help", "win", "cfd", "finance", "support", "top", "world", "fyi", "lol", "icu", "cyou", "mom", "zone", "monster",
+  "pics", "sbs", "best", "buzz",
+]);
 export const riskyTldSource = "https://interisle.net/PhishingLandscape2025";
 
 const brandNamePatterns = new Map<Brand, RegExp>(

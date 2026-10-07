@@ -2,6 +2,7 @@ import { reviewMessage, type TextModel } from "../engine/ai-review";
 import type { Lookups } from "../engine/cache";
 import { fileReport } from "../engine/file-scan";
 import { lookupFileHashes } from "../engine/hash-lookups";
+import { lookupMod, lookupPackFiles } from "../engine/modrinth";
 import { scanContent, type BudgetedProvider } from "../engine/scan";
 import type { DnsTransport } from "../engine/spamhaus";
 import type { EmailFacts } from "../shared/email";
@@ -111,12 +112,14 @@ export async function runScan(env: AppBindings, content: string, dependencies: S
 
 export async function runFileCheck(env: AppBindings, request: FileCheckRequest, dependencies: ScanDependencies): Promise<ScanOutcome> {
   const takeBudget = budgetTaker(env);
-  const checks = request.sha256
-    ? await lookupFileHashes(
-        { sha256: request.sha256, sha1: request.sha1 },
-        { fetcher: dependencies.fetcher, lookups: dependencies.lookups, abuseChKey: env.URLHAUS_AUTH_KEY, takeAbuseChBudget: () => takeBudget("urlhaus") },
-      )
-    : [];
-  const checked = ScanReportSchema.parse(fileReport(request, checks));
+  const sources = { fetcher: dependencies.fetcher, lookups: dependencies.lookups };
+  const [checks, mod, pack] = await Promise.all([
+    request.sha256
+      ? lookupFileHashes({ sha256: request.sha256, sha1: request.sha1 }, { ...sources, abuseChKey: env.URLHAUS_AUTH_KEY, takeAbuseChBudget: () => takeBudget("urlhaus") })
+      : [],
+    request.kind === "java_archive" && request.sha1 && request.findings.includes("minecraft_mod") ? lookupMod({ sha1: request.sha1, modId: request.modId }, sources) : null,
+    request.kind === "minecraft_modpack" && request.packJars && request.packJars.length > 0 ? lookupPackFiles(request.packJars, sources) : null,
+  ]);
+  const checked = ScanReportSchema.parse(fileReport(request, checks, new Date(), { mod, pack }));
   return { report: checked, signature: await signReport(checked, env.SHARE_SIGNING_KEY) };
 }

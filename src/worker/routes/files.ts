@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { ApiErrorSchema } from "../../shared/api";
-import { fileExtensionPattern, fileFindings, fileKinds, maxFileBytes, type FileCheckRequest } from "../../shared/file-check";
+import { fileExtensionPattern, fileFindings, fileKinds, maxFileBytes, maxPackJars, modIdPattern, sha1Pattern, type FileCheckRequest } from "../../shared/file-check";
 import { ScanReportSchema } from "../../shared/report-schema";
 import { reportSignatureHeader } from "../../shared/share";
 import type { AppEnv } from "../env";
@@ -17,6 +17,8 @@ const FileCheckSchema = z
     kind: z.enum(fileKinds),
     extension: z.string().regex(fileExtensionPattern).optional(),
     findings: z.array(z.enum(fileFindings)).max(fileFindings.length),
+    modId: z.string().regex(modIdPattern).optional(),
+    packJars: z.array(z.string().regex(sha1Pattern)).max(maxPackJars).optional(),
     turnstileToken: z.string().max(2048).optional(),
   })
   .strict()
@@ -29,7 +31,7 @@ const fileRoute = createRoute({
   path: "/files",
   summary: "Check a file by its fingerprint",
   description:
-    "The visitor's browser reads the file and sends only its SHA-256 fingerprint, size, detected type, extension, and fixed finding codes. The file and its name never reach the server, and nothing is stored.",
+    "The visitor's browser reads the file and sends only its SHA-256 and SHA-1 fingerprints, size, detected type, extension, and fixed finding codes, plus the mod ID a Minecraft mod names and the SHA-1 fingerprints of mods a modpack carries or gets from outside Modrinth. The file and its name never reach the server, and nothing is stored.",
   request: { body: { required: true, content: { "application/json": { schema: FileCheckSchema } } } },
   responses: {
     200: { description: "The report", content: { "application/json": { schema: ScanReportSchema } } },
@@ -53,6 +55,8 @@ export const fileRoutes = new OpenAPIHono<AppEnv>().openapi(fileRoute, async (c)
     kind: fields.kind,
     ...(fields.extension ? { extension: fields.extension } : {}),
     findings: [...new Set(fields.findings)],
+    ...(fields.modId && fields.sha1 && fields.kind === "java_archive" && fields.findings.includes("minecraft_mod") ? { modId: fields.modId } : {}),
+    ...(fields.packJars && fields.kind === "minecraft_modpack" ? { packJars: [...new Set(fields.packJars)] } : {}),
   };
   const { report, signature } = await inScannerOrInline(
     c,

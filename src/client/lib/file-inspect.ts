@@ -1,4 +1,5 @@
-import { fileExtensionPattern, maxHashBytes, type FileCheckRequest, type FileFinding, type FileKind } from "../../shared/file-check";
+import { fileExtensionPattern, maxHashBytes, maxPackJars, sha1Pattern, type FileCheckRequest, type FileFinding, type FileKind } from "../../shared/file-check";
+import { addClass, addEntryName, classText, jarFindings, modIdFrom, modInfoFiles, newJarScan, parsedJson, type JarScan } from "./jar-inspect";
 
 export interface ByteSource {
   size: number;
@@ -13,7 +14,7 @@ const headBytes = 64 * 1024;
 const tailBytes = 65_557;
 const maxCentralDirectory = 4 * 1024 * 1024;
 const maxScanBytes = 20 * 1024 * 1024;
-const maxEntries = 5000;
+const maxEntries = 20_000;
 
 const decoyExtensions = new Set([
   "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf", "csv", "jpg", "jpeg", "png", "gif", "bmp", "webp", "heic",
@@ -76,12 +77,34 @@ const downloadPatterns = [
 
 const shortcutCommands = ["powershell", "pwsh", "cmd.exe", "cmd /c", "mshta", "rundll32", "wscript", "cscript", "regsvr32", "certutil", "bitsadmin", "curl ", "conhost", "msiexec"];
 const minecraftFiles = ["fabric.mod.json", "quilt.mod.json", "mcmod.info", "meta-inf/mods.toml", "meta-inf/neoforge.mods.toml", "plugin.yml", "paper-plugin.yml", "bungee.yml"];
+const maxJarBytes = 64 * 1024 * 1024;
+const maxNestedJarBytes = 64 * 1024 * 1024;
+const maxClassBytes = 2 * 1024 * 1024;
+const maxJarClasses = 12_000;
+const maxJarInflated = 160 * 1024 * 1024;
+const maxIndexBytes = 4 * 1024 * 1024;
+const maxIndexFiles = 5000;
+const packHosts = new Set(["cdn.modrinth.com", "github.com", "raw.githubusercontent.com", "gitlab.com"]);
+const packPrograms = new Set(["exe", "scr", "com", "pif", "cpl", "msi", "msix", "appx", "hta", "lnk", "url", "vbs", "vbe", "ps1", "wsf", "jse", "reg"]);
+
+interface JarBudget {
+  classes: number;
+  bytes: number;
+}
 
 export function blobSource(blob: Blob): ByteSource {
   return {
     size: blob.size,
     read: async (offset, length) => new Uint8Array(await blob.slice(offset, offset + length).arrayBuffer()),
   };
+}
+
+function memorySource(bytes: Uint8Array): ByteSource {
+  return { size: bytes.length, read: async (offset, length) => bytes.subarray(offset, offset + length) };
+}
+
+function hex(digest: ArrayBuffer): string {
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function matches(bytes: Uint8Array, signature: number[], offset = 0): boolean {
@@ -236,8 +259,8 @@ async function inflate(data: Uint8Array<ArrayBuffer>, maxBytes: number): Promise
   }
 }
 
-async function readZipText(source: ByteSource, entry: ZipEntry, base: number): Promise<string | null> {
-  if (entry.encrypted || entry.compressedSize > maxManifestBytes || (entry.method !== 0 && entry.method !== 8)) {
+async function readZipBytes(source: ByteSource, entry: ZipEntry, base: number, maxBytes: number): Promise<Uint8Array | null> {
+  if (entry.encrypted || entry.compressedSize > maxBytes || (entry.method !== 0 && entry.method !== 8)) {
     return null;
   }
   const header = await source.read(base + entry.localOffset, 30);
@@ -248,8 +271,162 @@ async function readZipText(source: ByteSource, entry: ZipEntry, base: number): P
   if (data.length < entry.compressedSize) {
     return null;
   }
-  const bytes = entry.method === 0 ? data : await inflate(data.slice(), maxManifestBytes);
+  return entry.method === 0 ? data : inflate(data.slice(), maxBytes);
+}
+
+async function readZipText(source: ByteSource, entry: ZipEntry, base: number): Promise<string | null> {
+  const bytes = await readZipBytes(source, entry, base, maxManifestBytes);
   return bytes ? new TextDecoder("utf-8").decode(bytes) : null;
+}
+
+async function scanJar(source: ByteSource, entries: ZipEntry[], scan: JarScan, budget: JarBudget, nested: boolean): Promise<void> {
+  for (const entry of entries) {
+    addEntryName(scan, extensionOf(entry.name.split("/").pop() ?? ""));
+    if (entry.name.endsWith(".class")) {
+      if (budget.classes >= maxJarClasses || budget.bytes >= maxJarInflated) {
+        scan.partial = true;
+        continue;
+      }
+      const bytes = await readZipBytes(source, entry, 0, maxClassBytes);
+      const text = bytes ? classText(bytes) : null;
+      if (!bytes || !text) {
+        scan.partial = true;
+        continue;
+      }
+      budget.classes += 1;
+      budget.bytes += bytes.length;
+      addClass(scan, text);
+    } else if (nested && entry.name.endsWith(".jar")) {
+      const bytes = budget.bytes < maxJarInflated ? await readZipBytes(source, entry, 0, maxNestedJarBytes) : null;
+      const inner = bytes ? memorySource(bytes) : null;
+      const innerEntries = inner ? await zipEntries(inner) : null;
+      if (!bytes || !inner || !innerEntries) {
+        scan.partial = true;
+        continue;
+      }
+      budget.bytes += bytes.length;
+      await scanJar(inner, innerEntries, scan, budget, false);
+    }
+  }
+}
+
+async function modIdOf(source: ByteSource, entries: ZipEntry[]): Promise<string | undefined> {
+  for (const file of modInfoFiles) {
+    const entry = entries.find((candidate) => candidate.name === file);
+    const text = entry ? await readZipText(source, entry, 0) : null;
+    const id = text ? modIdFrom(file, text) : null;
+    if (id) {
+      return id;
+    }
+  }
+  return undefined;
+}
+
+async function forgeManifest(source: ByteSource, entries: ZipEntry[]): Promise<boolean> {
+  const entry = entries.find((candidate) => candidate.name === "meta-inf/manifest.mf");
+  const text = entry ? await readZipText(source, entry, 0) : null;
+  return text !== null && /^FMLModType:/m.test(text);
+}
+
+async function jarDetails(source: ByteSource, entries: ZipEntry[]): Promise<{ findings: FileFinding[]; modId: string | undefined }> {
+  const scan = newJarScan();
+  const memory = source.size > maxJarBytes ? source : memorySource(await source.read(0, source.size));
+  if (memory === source) {
+    scan.partial = true;
+  } else {
+    await scanJar(memory, entries, scan, { classes: 0, bytes: 0 }, true);
+  }
+  const findings = jarFindings(scan);
+  return { findings: (await forgeManifest(memory, entries)) ? ["minecraft_mod", ...findings] : findings, modId: await modIdOf(memory, entries) };
+}
+
+function indexBreaksRules(text: string, packJars: Set<string>): boolean {
+  const index = parsedJson(text) as { files?: unknown } | null;
+  const files = Array.isArray(index?.files) ? index.files.slice(0, maxIndexFiles) : [];
+  let breaks = false;
+  for (const file of files as { path?: unknown; downloads?: unknown; hashes?: { sha1?: unknown } }[]) {
+    const path = typeof file?.path === "string" ? file.path : "";
+    if (path.includes("..") || path.startsWith("/") || path.includes("\\") || /^[a-z]:/i.test(path)) {
+      breaks = true;
+    }
+    const downloads = Array.isArray(file?.downloads) ? file.downloads.filter((link): link is string => typeof link === "string") : [];
+    let fromModrinth = downloads.length > 0;
+    for (const link of downloads) {
+      let url: URL | null = null;
+      try {
+        url = new URL(link);
+      } catch {
+        url = null;
+      }
+      if (!url || url.protocol !== "https:" || !packHosts.has(url.hostname)) {
+        breaks = true;
+      }
+      if (url?.hostname !== "cdn.modrinth.com") {
+        fromModrinth = false;
+      }
+    }
+    const sha1 = typeof file?.hashes?.sha1 === "string" ? file.hashes.sha1.toLowerCase() : "";
+    if (!fromModrinth && path.toLowerCase().endsWith(".jar") && sha1Pattern.test(sha1)) {
+      packJars.add(sha1);
+    }
+  }
+  return breaks;
+}
+
+async function modpackOf(source: ByteSource, entries: ZipEntry[]): Promise<{ findings: FileFinding[]; inside: string[]; packJars: string[] } | null> {
+  const packJars = new Set<string>();
+  const findings = new Set<FileFinding>();
+  const scan = newJarScan();
+  const index = entries.find((entry) => entry.name === "modrinth.index.json");
+  if (index) {
+    const bytes = await readZipBytes(source, index, 0, maxIndexBytes);
+    if (!bytes) {
+      scan.partial = true;
+    } else if (indexBreaksRules(new TextDecoder("utf-8").decode(bytes), packJars)) {
+      findings.add("modpack_breaks_rules");
+    }
+  } else {
+    const manifest = entries.find((entry) => entry.name === "manifest.json");
+    const text = manifest ? await readZipText(source, manifest, 0) : null;
+    if ((parsedJson(text ?? "") as { manifestType?: unknown } | null)?.manifestType !== "minecraftModpack") {
+      return null;
+    }
+  }
+  const inside: string[] = [];
+  const budget: JarBudget = { classes: 0, bytes: 0 };
+  let carried = 0;
+  for (const entry of entries) {
+    const base = entry.name.split("/").pop() ?? "";
+    const extension = extensionOf(base);
+    if (entry.encrypted) {
+      findings.add("archive_encrypted");
+    }
+    if (nameFindings(base, extension).includes("double_extension")) {
+      findings.add("archive_double_extension");
+    }
+    if (extension === "jar") {
+      findings.add("modpack_carries_mods");
+      inside.push(base);
+      const bytes = carried < maxPackJars && budget.bytes < maxJarInflated ? await readZipBytes(source, entry, 0, maxNestedJarBytes) : null;
+      const jar = bytes ? memorySource(bytes) : null;
+      const jarEntries = jar ? await zipEntries(jar) : null;
+      if (!bytes || !jar || !jarEntries) {
+        scan.partial = true;
+        continue;
+      }
+      carried += 1;
+      budget.bytes += bytes.length;
+      packJars.add(hex(await crypto.subtle.digest("SHA-1", bytes.slice())));
+      await scanJar(jar, jarEntries, scan, budget, true);
+    } else if (extension && packPrograms.has(extension)) {
+      findings.add("archive_has_program");
+      inside.push(base);
+    }
+  }
+  for (const finding of jarFindings(scan)) {
+    findings.add(finding);
+  }
+  return { findings: [...findings], inside: inside.slice(0, 5), packJars: [...packJars].slice(0, maxPackJars) };
 }
 
 function manifestFindings(text: string): FileFinding[] | null {
@@ -418,7 +595,6 @@ const vbaProjectMarker = [..."_VBA_PROJECT"].map((char) => `${char}\0`).join("")
 
 async function fingerprints(source: Blob): Promise<{ sha256: string; sha1: string }> {
   const bytes = await source.arrayBuffer();
-  const hex = (digest: ArrayBuffer) => [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
   const [sha256, sha1] = await Promise.all([crypto.subtle.digest("SHA-256", bytes), crypto.subtle.digest("SHA-1", bytes)]);
   return { sha256: hex(sha256), sha1: hex(sha1) };
 }
@@ -430,6 +606,8 @@ export async function inspectSource(name: string, source: ByteSource): Promise<O
   const scan = async () => (head.length >= source.size ? head : await source.read(0, Math.min(source.size, maxScanBytes)));
   let kind: FileKind = "other";
   let inside: string[] = [];
+  let modId: string | undefined;
+  let packJars: string[] = [];
   const pe = peInfo(head);
   if (pe) {
     kind = pe.library ? "windows_library" : "windows_program";
@@ -469,9 +647,25 @@ export async function inspectSource(name: string, source: ByteSource): Promise<O
     kind = "linux_program";
   } else if ([[0xfe, 0xed, 0xfa, 0xce], [0xfe, 0xed, 0xfa, 0xcf], [0xce, 0xfa, 0xed, 0xfe], [0xcf, 0xfa, 0xed, 0xfe], [0xca, 0xfe, 0xba, 0xbe]].some((signature) => matches(head, signature))) {
     kind = extension === "class" ? "java_archive" : "macos_program";
+    const text = kind === "java_archive" && source.size <= maxClassBytes ? classText(await source.read(0, source.size)) : null;
+    if (text) {
+      const jarScan = newJarScan();
+      addClass(jarScan, text);
+      for (const finding of jarFindings(jarScan)) {
+        findings.add(finding);
+      }
+    }
   } else if (matches(head, [0x50, 0x4b, 0x03, 0x04]) || matches(head, [0x50, 0x4b, 0x05, 0x06])) {
     const entries = await zipEntries(source);
-    if (entries) {
+    const pack = entries ? await modpackOf(source, entries) : null;
+    if (pack) {
+      kind = "minecraft_modpack";
+      inside = pack.inside;
+      packJars = pack.packJars;
+      for (const finding of pack.findings) {
+        findings.add(finding);
+      }
+    } else if (entries) {
       let zip = zipFindings(entries, extension);
       if (zip.kind === "browser_extension") {
         const permissions = await extensionManifest(source, entries, 0);
@@ -485,6 +679,13 @@ export async function inspectSource(name: string, source: ByteSource): Promise<O
       inside = zip.inside;
       for (const finding of zip.findings) {
         findings.add(finding);
+      }
+      if (zip.kind === "java_archive") {
+        const details = await jarDetails(source, entries);
+        for (const finding of details.findings) {
+          findings.add(finding);
+        }
+        modId = findings.has("minecraft_mod") ? details.modId : undefined;
       }
     } else {
       kind = "archive";
@@ -567,6 +768,8 @@ export async function inspectSource(name: string, source: ByteSource): Promise<O
     kind,
     ...(extension && fileExtensionPattern.test(extension) ? { extension } : {}),
     findings: [...findings],
+    ...(modId ? { modId } : {}),
+    ...(packJars.length > 0 ? { packJars } : {}),
     insideArchive: inside,
   };
 }

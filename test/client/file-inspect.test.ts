@@ -111,7 +111,7 @@ describe("file inspection on the visitor's device", () => {
     expect(await inspect("cv.docx", zip([{ name: "[Content_Types].xml" }, { name: "word/document.xml" }]))).toMatchObject({ kind: "office_document", findings: [] });
     expect((await inspect("cv.docm", zip([{ name: "[Content_Types].xml" }, { name: "word/vbaProject.bin" }]))).findings).toEqual(["office_macros"]);
     expect((await inspect("free-robux.apk", zip([{ name: "AndroidManifest.xml" }, { name: "classes.dex" }]))).kind).toBe("android_app");
-    expect(await inspect("cool-mod.jar", zip([{ name: "META-INF/MANIFEST.MF" }, { name: "fabric.mod.json" }, { name: "a/B.class" }]))).toMatchObject({ kind: "java_archive", findings: ["minecraft_mod"] });
+    expect(await inspect("cool-mod.jar", zip([{ name: "META-INF/MANIFEST.MF" }, { name: "fabric.mod.json" }, { name: "a/B.class" }]))).toMatchObject({ kind: "java_archive", findings: ["minecraft_mod", "jar_partly_read"] });
   });
 
   it("finds actions inside PDFs, including names hidden with hex escapes", async () => {

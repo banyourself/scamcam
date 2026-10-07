@@ -84,6 +84,12 @@ const kindTexts: Record<FileKind, SignalText> = {
     title: "This is a Roblox model or place",
     detail: "Models and places can carry scripts that run in your game. ScamCam looked for known backdoor tricks in the scripts it could read. Scripts in binary files are often compressed, and those could not be read.",
   },
+  minecraft_modpack: {
+    strength: "weak",
+    direction: "context",
+    title: "This is a Minecraft modpack",
+    detail: "ScamCam read the pack's list of mods and looked inside the mods it carries, on your device. Launchers download the rest when the pack is installed.",
+  },
   archive: { strength: "weak", direction: "context", title: "This is a compressed archive", detail: "ScamCam read the names of the files inside on your device without unpacking them." },
   office_document: { strength: "weak", direction: "context", title: "This is an Office document", detail: "Office documents are usually safe to view, unless they contain macros or ask you to enable content." },
   pdf: { strength: "weak", direction: "context", title: "This is a PDF document", detail: "ScamCam looked for code and automatic actions inside the PDF." },
@@ -159,6 +165,30 @@ function findingText(finding: FileFinding, request: FileCheckRequest): SignalTex
       return { strength: "strong", title: "Changes what starts with Windows or turns off protection", detail: "Opening this file would change settings that start programs automatically, take over how files open, or switch off Windows Defender. Malware uses these to stay on a computer." };
     case "roblox_backdoor":
       return { strength: "moderate", title: "Has a script that loads outside or hidden code", detail: "A script loads code by asset ID with require(), or runs hidden code with loadstring or getfenv. Some admin systems load this way, but free model backdoors use the same tricks to give someone else control of your game." };
+    case "jar_steals_logins":
+      return { strength: "critical", title: "Has code that goes after saved passwords and Discord logins", detail: "It names the folders where Discord, web browsers, Telegram, or crypto wallets keep their logins. Mods have no reason to look there. This is how account stealers work." };
+    case "jar_sends_to_chat":
+      return { strength: "strong", title: "Sends data to a Discord webhook or Telegram bot", detail: "It has a Discord webhook or Telegram bot address built in, sometimes hidden in encoded text. Stealers use these to deliver stolen logins to whoever made them." };
+    case "jar_runs_downloaded_code":
+      return { strength: "strong", title: "Downloads code and runs it", detail: "It loads more code from a hidden internet address while the game runs, the trick the fractureiser malware used in 2023 after it got into real mods." };
+    case "jar_hides_from_analysis":
+      return { strength: "strong", title: "Checks for security tools before it does anything", detail: "It looks for programs that researchers use to study malware, such as Wireshark or a virtual machine. Honest mods have no reason to hide from them." };
+    case "jar_runs_commands":
+      return { strength: "strong", title: "Can run hidden Windows commands", detail: "It can start hidden PowerShell commands, add itself to what starts with Windows, or turn off Windows Defender checks." };
+    case "jar_reads_accounts":
+      return { strength: "moderate", title: "Reads the accounts saved by Minecraft launchers", detail: "It looks for the files where launchers such as the official launcher, Lunar, or Prism keep signed-in accounts. A few account tools do this, and so do Minecraft account stealers." };
+    case "jar_session_token":
+      return { strength: "moderate", title: "Reads your Minecraft login token and can connect to the internet", detail: "The login token lets anyone play as you and change your account until it expires. A few account and login mods need it, but stealing it is the main goal of Minecraft account stealers." };
+    case "jar_hidden_download":
+      return { strength: "moderate", title: "Hides a web address or downloads from an unusual place", detail: "It has a web address hidden in encoded text or built from numbers, a link to a bare IP address, or a raw paste link. Malware uses these to fetch its next part." };
+    case "jar_has_program":
+      return { strength: "moderate", title: "Has a Windows program or script inside", detail: "Mods sometimes carry helper files, but a program hidden inside a mod can be started by its code." };
+    case "jar_partly_read":
+      return { strength: "weak", direction: "context", title: "Only part of the code could be read", detail: "The file is very large or parts of it are packed in a way ScamCam cannot read in the browser, so not every part was checked." };
+    case "modpack_breaks_rules":
+      return { strength: "strong", title: "Breaks Modrinth's safety rules for modpacks", detail: "It downloads files from sites other than Modrinth, GitHub, and GitLab, or tries to place files outside the game folder. Modrinth's own modpacks cannot do either." };
+    case "modpack_carries_mods":
+      return { strength: "weak", title: "Carries mods inside the pack", detail: "Most packs have the launcher download their mods from Modrinth or CurseForge. ScamCam fingerprinted the mods carried inside and looked at their code on your device." };
   }
 }
 

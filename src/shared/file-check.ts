@@ -11,6 +11,7 @@ export const fileKinds = [
   "disk_image",
   "browser_extension",
   "roblox_model",
+  "minecraft_modpack",
   "archive",
   "office_document",
   "pdf",
@@ -52,6 +53,18 @@ export const fileFindings = [
   "shortcut_remote_file",
   "registry_startup",
   "roblox_backdoor",
+  "jar_steals_logins",
+  "jar_sends_to_chat",
+  "jar_runs_downloaded_code",
+  "jar_hides_from_analysis",
+  "jar_runs_commands",
+  "jar_reads_accounts",
+  "jar_session_token",
+  "jar_hidden_download",
+  "jar_has_program",
+  "jar_partly_read",
+  "modpack_breaks_rules",
+  "modpack_carries_mods",
 ] as const;
 
 export type FileFinding = (typeof fileFindings)[number];
@@ -59,6 +72,9 @@ export type FileFinding = (typeof fileFindings)[number];
 export const maxHashBytes = 100 * 1024 * 1024;
 export const maxFileBytes = 4 * 1024 * 1024 * 1024;
 export const fileExtensionPattern = /^[a-z0-9]{1,12}$/;
+export const modIdPattern = /^[a-z0-9][a-z0-9_.-]{0,63}$/;
+export const sha1Pattern = /^[0-9a-f]{40}$/;
+export const maxPackJars = 50;
 
 export const fileKindNames: Record<FileKind, string> = {
   windows_program: "Windows program",
@@ -73,6 +89,7 @@ export const fileKindNames: Record<FileKind, string> = {
   disk_image: "Disk image",
   browser_extension: "Browser extension",
   roblox_model: "Roblox model or place",
+  minecraft_modpack: "Minecraft modpack",
   archive: "Compressed archive",
   office_document: "Office document",
   pdf: "PDF document",
@@ -89,6 +106,8 @@ export interface FileCheckRequest {
   kind: FileKind;
   extension?: string;
   findings: FileFinding[];
+  modId?: string;
+  packJars?: string[];
 }
 
 export function describeFile(request: FileCheckRequest): string {

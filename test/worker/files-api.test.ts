@@ -68,6 +68,37 @@ describe("POST /api/v1/files", () => {
     expect(share.response.status).toBe(201);
   });
 
+  it.each([
+    ["a mod ID with odd characters", { ...program, kind: "java_archive", extension: "jar", findings: ["minecraft_mod"], modId: "Sodium Mod" }],
+    ["too many modpack fingerprints", { ...program, kind: "minecraft_modpack", extension: "mrpack", findings: [], packJars: Array.from({ length: 51 }, (_, index) => index.toString(16).padStart(40, "0")) }],
+    ["a malformed modpack fingerprint", { ...program, kind: "minecraft_modpack", extension: "mrpack", findings: [], packJars: ["xyz"] }],
+  ])("refuses %s", async (_label, body) => {
+    const { response, fake } = await post("/api/v1/files", body);
+    expect(response.status).toBe(400);
+    expect(fake.requests).toEqual([]);
+  });
+
+  it("compares a Minecraft mod with Modrinth and flags a fake copy of a popular mod", async () => {
+    const mod = { ...program, kind: "java_archive", extension: "jar", findings: ["minecraft_mod"], modId: "sodium" };
+    const { response, fake } = await post("/api/v1/files", mod, { modrinthProjects: [{ id: "AANobbMI", slug: "sodium", title: "Sodium", downloads: 238_449_097 }] });
+    const report = await response.json<ScanReport>();
+    expect(report.level).toBe("suspicious");
+    expect(report.evidence[0]!.title).toBe("Says it is Sodium, but it is not a file Modrinth has");
+    expect(fake.requests.filter((entry) => entry.url.startsWith("https://api.modrinth.com/")).map((entry) => entry.url)).toEqual([
+      `https://api.modrinth.com/v2/version_file/${sha1}?algorithm=sha1`,
+      "https://api.modrinth.com/v2/project/sodium",
+    ]);
+  });
+
+  it("asks Modrinth only about Minecraft mods and modpacks", async () => {
+    const { fake } = await post("/api/v1/files", { ...program, modId: "sodium" });
+    expect(fake.requests.some((entry) => entry.url.includes("modrinth"))).toBe(false);
+    const pack = await post("/api/v1/files", { ...program, kind: "minecraft_modpack", extension: "mrpack", findings: ["modpack_carries_mods"], packJars: [sha1, sha1] }, { modrinthFiles: { [sha1]: { project: "AANobbMI", version: "1" } } });
+    const report = await pack.response.json<ScanReport>();
+    expect(report.evidence.find((item) => item.id === "modrinth-pack-known")?.title).toBe("Modrinth has every mod this pack carries or gets from elsewhere");
+    expect(JSON.parse(pack.fake.requests.find((entry) => entry.url.endsWith("/version_files"))!.body)).toEqual({ hashes: [sha1], algorithm: "sha1" });
+  });
+
   it("runs in the scanner Durable Object", async () => {
     const { sha256: _hash, sha1: _sha1, ...unfingerprinted } = program;
     const { response } = await post("/api/v1/files", { ...unfingerprinted, findings: ["too_large_to_hash"] }, {}, "scanner");

@@ -130,5 +130,43 @@ describe("risky endings", () => {
     const signal = raised("https://account-help.bond/").find((item) => item.id === "risky-tld-account-help.bond");
     expect(signal).toMatchObject({ strength: "weak", sourceUrl: "https://interisle.net/PhishingLandscape2025" });
     expect(raised("https://account-help.com/").some((item) => item.id.startsWith("risky-tld"))).toBe(false);
+    expect(raised("https://cheap-deals.top/").some((item) => item.id === "risky-tld-cheap-deals.top")).toBe(true);
   });
+});
+
+describe("game names in other parts of the address", () => {
+  it("treats an official site name in front of another site as a strong disguise", () => {
+    const signal = raised("https://steampowered.help-appeal.com/").find((item) => item.id.startsWith("subdomain-brand"));
+    expect(signal).toMatchObject({ strength: "strong", lookalike: true, brandId: "steam" });
+    expect(raised("https://faceit.gooseason.com/").find((item) => item.id.startsWith("subdomain-brand"))?.strength).toBe("strong");
+  });
+
+  it("treats a common game name in front of another site as a moderate sign that needs more to be suspicious", () => {
+    expect(raised("https://discord.aixos.cc/").map((item) => [item.id.split("-")[0], item.strength])).toEqual([["subdomain", "moderate"]]);
+    expect(score("https://discord.imms.top/")).toBeGreaterThanOrEqual(3);
+    expect(score("https://discord.fabricmc.net/")).toBe(2);
+  });
+
+  it("catches game names joined with gift, free, login, or verify words", () => {
+    for (const link of ["https://discords-gift.eu/", "https://steam-gift.live/", "https://nitrogiftforfree.xyz/", "https://login.steamfaceit-auth.com/"]) {
+      expect(raised(link).some((item) => item.id.startsWith("brand-lure")), link).toBe(true);
+      expect(score(link), link).toBeGreaterThanOrEqual(3);
+    }
+    expect(raised("https://faceit-userverify.com/").find((item) => item.id.startsWith("brand-lure"))?.title).toBe('Pairs FACEIT\'s name with "verify" in the address');
+    expect(raised("https://steamladder.com/").some((item) => item.id.startsWith("brand-lure"))).toBe(false);
+  });
+
+  it("knows free blog hosting in every country", () => {
+    const signals = raised("https://getrobux-here.blogspot.be/");
+    expect(signals.find((item) => item.id.startsWith("free-host"))?.title).toBe("Hosted on blogspot.be, which anyone can use for free");
+    expect(score("https://getrobux-here.blogspot.be/")).toBeGreaterThanOrEqual(4);
+    expect(score("https://10krobuxus.blogspot.com.br/")).toBeGreaterThanOrEqual(4);
+  });
+
+  it.each(["https://steamgifts.com/", "https://minecraft.wiki/w/Creeper", "https://discord.js.org/docs", "https://discord.me/servers", "https://discordpy.readthedocs.io/en/stable/", "https://roblox.fandom.com/wiki/Robux", "https://www.faceit.com/en/cs2"])(
+    "does not warn about %s",
+    (link) => {
+      expect(raised(link)).toEqual([]);
+    },
+  );
 });

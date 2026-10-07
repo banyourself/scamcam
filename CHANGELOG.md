@@ -3,6 +3,46 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-07: Minecraft mod and modpack checks, and three link rule gaps closed
+
+- **Mods are read on the device.** When a Minecraft mod or plugin is checked, the browser reads the text inside its
+  class files, including text hidden in base64 or built from byte arrays (how fractureiser hid its server address),
+  and the jars bundled inside it. It looks for what account stealers do: the folders where Discord, browsers,
+  Telegram, and crypto wallets keep logins; Discord webhooks and Telegram bots; code downloaded and run from a hidden
+  address; checks for Wireshark and virtual machines; hidden Windows commands; launcher account files; and the
+  Minecraft login token read together with a network call. Nothing is uploaded or run.
+- **Modrinth is asked about the file.** Only the SHA-1 fingerprint and the mod ID the jar names are sent, and
+  Modrinth's API needs no key. A file Modrinth publishes is named as context. A file that names a popular mod (50,000
+  downloads or more) but is not one of its releases is a moderate warning, for example "Says it is Sodium, but it is
+  not a file Modrinth has".
+- **Modpacks.** `.mrpack` files and CurseForge pack zips are recognized. Downloads from hosts Modrinth's format does
+  not allow, or paths that leave the game folder, are a strong warning. Mods carried inside a pack are fingerprinted
+  and read on the device, and they and any mods a pack downloads from outside Modrinth are checked against Modrinth in
+  one request.
+- **Honest mods stay quiet.** Capabilities that account tools also need (the login token, launcher accounts, an
+  encoded address, a program inside) count once together, so on their own they can make a file Suspicious but never
+  High risk, and they become context when Modrinth has the exact file. Tested on 61 files downloaded from Modrinth
+  (the 40 most downloaded mods, the top plugins, two modpacks, and login and Discord related mods such as Essential,
+  Auth Me, In-Game Account Switcher, World Host, Not Enough Updates, SkyHanni, and DiscordSRV): none is flagged. Five
+  that read the login token would be Suspicious if Modrinth did not have them, and the largest (Essential, 51 MB) took
+  3.1 seconds. That run found and fixed false alarms from a folder-lookup library's PowerShell call (in e4mc),
+  FancyMenu's media and Pastebin features, and base64 skin textures (in Not Enough Updates), plus two misses: zips with
+  more than 5,000 entries (SkyHanni) and Essential's container layout.
+- **Link rule gaps.** A game name in front of another site's address (`discord.<site>.cc`) is now a moderate
+  warning, or a strong one for official site names such as `steampowered.<site>.com` and `faceit.<site>.com`. Game
+  names joined with gift, free, login, verify, or support words are a moderate warning. Blogger in every country
+  (`blogspot.be`, `blogspot.com.br`) and six more site builders count as free hosting, the abused-ending list now has
+  the 20 endings with the highest phishing rate for their size in Interisle's 2025 study, and FACEIT is a brand.
+  `steamgifts.com`, `steamtradematcher.com`, `minecraft.wiki`, `fandom.com`, `discord.me`, `discord.js.org`, and
+  `discordpy.readthedocs.io` are now well-known sites; the last three fix older false alarms found in the same review.
+- **Measured on a fresh sample.** The first held-out sample was used to tune these rules, so a second one (seed
+  20261007, excluding every domain in the first) is the new held-out set. Rules alone now flag 94 of 200
+  gaming-impersonation domains (53 before), 0 of 200 random phishing domains (0 before), and 0 of 178 legitimate sites.
+- **Phishing.Database stays in use.** The list has published nothing since October 2. Reports keep using a copy for
+  30 days after its last update instead of 7, and say how old it is; the weekly report warns after 21 days.
+- Verified: 782 Vitest tests in 48 files and 19 Node tests pass, and `npm run test:privacy` passes with a new
+  Minecraft mod step (only fingerprints and the mod ID are sent, never the file name or contents).
+
 ## 2026-10-07: More room under the Free plan's 50 subrequests
 
 - **One DNS lookup per host instead of two.** Cloudflare's 1.1.1.2 security resolver answers normally for every name

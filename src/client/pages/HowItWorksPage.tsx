@@ -26,7 +26,10 @@ export function HowItWorksPage() {
           extensions that can read your login cookies, programs packed from Python scripts (a common way to build Discord
           token grabbers), shortcuts and registry files that reach other computers or change startup settings, and Roblox
           models with backdoor scripts. Only the file&apos;s fingerprints are sent, and ScamCam looks them up in MalwareBazaar,
-          CIRCL hashlookup, and Team Cymru&apos;s Malware Hash Registry. The file itself is never uploaded.
+          CIRCL hashlookup, and Team Cymru&apos;s Malware Hash Registry. The file itself is never uploaded. Minecraft mods
+          are read for what account stealers do, such as looking for Discord and browser logins, sending data to a
+          Discord webhook, or taking your Minecraft login, and are compared with the files Modrinth publishes. Modpacks are
+          checked for downloads from unsafe places and for the mods they carry.
         </li>
         <li>
           <strong>Read email files on your device.</strong> If you add a saved email (.eml), your browser reads its sender,

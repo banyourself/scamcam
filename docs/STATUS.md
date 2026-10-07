@@ -36,6 +36,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | Link and message checks | 2026-10-05 | Look-alike and punycode checks, 48 message rules in 24 scam families (25 rules and 11 families for scams without links added 2026-10-07), Safe Browsing v5, URLhaus, RDAP, DNS, Phishing.Database, and scoring with sources and confidence (`SCAMCAM_ANALYSIS.md`) |
 | AI step | 2026-10-05 | `@cf/qwen/qwen3-30b-a3b-fp8` for messages the rules cannot decide; one label, can add a warning but never lower a result, 2,000 calls a day |
 | File checks | 2026-10-06 | "Check a file", paste, or drop: the browser finds the real type and warning signs and sends only fingerprints; MalwareBazaar, CIRCL hashlookup, and Team Cymru's Malware Hash Registry are checked ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#file-checks-2026-10-06)) |
+| Minecraft mods and modpacks | 2026-10-07 | Mods are read on the device for what account stealers do (login folders, webhooks, hidden downloads, anti-analysis checks, hidden commands, launcher accounts, the login token), then compared with Modrinth by SHA-1 and mod ID; `.mrpack` and CurseForge packs are checked for unsafe downloads and carried mods ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#minecraft-mods-and-modpacks-2026-10-07)) |
 | Screenshot reading | 2026-10-06 | "Read a screenshot", paste, or drop: the browser reads the text (Tesseract.js 7.0.0, English `best_int` model) and any QR code (jsQR 1.4.0), inverts dark-mode screenshots first, and adds the text to the box for review |
 | Share links | 2026-10-06 | Share on a report: 5, 10, or 15 minutes (10 by default), message text only if ticked; the link opens a read-only snapshot with its expiry |
 | Scanner Durable Object | 2026-10-06 | Scans run in the `Scanner` Durable Object with 30 seconds of CPU per request; the Worker keeps the bot check, rate limits, and signing, and falls back to scanning itself |
@@ -92,6 +93,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | MalwareBazaar (abuse.ch) | A file's SHA-256 | Working with the existing abuse.ch Auth-Key (checked locally on 2026-10-06); shares the abuse.ch daily budget |
 | CIRCL hashlookup | A file's SHA-256 | Working, no key (checked locally on 2026-10-06) |
 | Team Cymru Malware Hash Registry | A file's SHA-1, through Cloudflare DNS | Working, no key (checked locally on 2026-10-06) |
+| Modrinth | A Minecraft mod's SHA-1 and the mod ID it names, or the SHA-1s of up to 50 mods a modpack carries or downloads from outside Modrinth | Working, no key (checked live on 2026-10-07: a Sodium release matched and a made-up fingerprint returned 404) |
 | Cloudflare 1.1.1.2 security DNS | The hostname only | Working; verified locally on 2026-10-06 against Cloudflare's own blocked test hosts |
 | Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen, CERT Polska | Nothing from visitors; a GitHub Actions job downloads the public lists | All six synced to production on 2026-10-07; matches are a strong warning, never confirmation |
 | Spamhaus DQS (DBL and ZRD) | The registrable domain inside the query name, through Cloudflare's DNS over HTTPS resolver | Working: a live scan of `dbltest.com` on 2026-10-06 showed Spamhaus's spam listing. Direct TCP to Spamhaus's servers is blocked by Cloudflare in production, which is why lookups use Cloudflare's resolver |
@@ -122,10 +124,10 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Check | Latest recorded result |
 |---|---|
-| Vitest (worker, engine, and client projects) | 675 tests in 44 files pass (2026-10-07, with Discord, Steam, wallets, FCC numbers, email files, and the new file types) |
+| Vitest (worker, engine, and client projects) | 782 tests in 48 files pass (2026-10-07, with Minecraft mods and modpacks, Modrinth, and the link rule gaps) |
 | Node config and script tests (`npm run test:config`) | 19 pass |
 | Accessibility (`npm run test:a11y`) | Passes; 64 axe-core checks, including the open flag form and the email details box in both themes at both widths |
-| Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot, file, email file, flag (scan, flag, confirmation), and share steps |
+| Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot, file, Minecraft mod, email file, flag (scan, flag, confirmation), and share steps |
 | Recovery drill (`npm run test:recovery`) | All 9 tables matched after export and restore, including shared reports, flags, two lists, and eight migrations; export 1.1 s (646 KB), restore 3.3 s (2026-10-07) |
 | `npm audit` | 0 vulnerabilities (2026-10-05) |
 
@@ -145,7 +147,8 @@ How each suite runs is in [TEST_PLAN.md](TEST_PLAN.md).
 | Set | Result |
 |---|---|
 | Tuning benchmark (69 labeled cases, outside sources off) | Precision 1.000, recall 1.000; a tuning set, not an independent evaluation |
-| Held-out domains from Phishing.Database (rules only, one run) | 71 of 200 gaming-impersonation domains and 2 of 200 random domains flagged; 0 of 178 legitimate sites flagged |
+| Held-out domains from Phishing.Database (rules only, one run) | Fresh sample (seed 20261007): 94 of 200 gaming-impersonation domains flagged (53 with the rules before 2026-10-07) and 0 of 200 random domains; 0 of 178 legitimate sites flagged. The first sample (seed 20261005) is now a tuning set: 127 of 200, up from 71 |
+| Real Minecraft files from Modrinth (one run, 2026-10-07) | 61 files: none flagged; 5 login-token tools would be Suspicious, never High risk, if Modrinth did not have the exact file; slowest 3.1 s (Essential, 51 MB) |
 | AI holdout (20 scams, 20 normal messages) | Rules only: 3 of 20 scams caught. Rules and Qwen3: 16 of 20, with 0 false alarms |
 
 Full tables are in [SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md) and [OWASP_LLM_TOP_10.md](OWASP_LLM_TOP_10.md).
@@ -185,11 +188,11 @@ duration about ten times faster than needed. Every lookup now clears its timer w
 1. Watch the first daily and weekly maintenance reports for alerts ([RECOVERY.md](RECOVERY.md#alerts)). The site
    launched after the 2026-10-06 03:17 UTC slot, so the first daily run is 2026-10-07 and the first weekly run is
    2026-10-12.
-2. Close the three rule gaps from the held-out benchmark (below) with a fresh sample from the list.
+2. The three rule gaps from the held-out benchmark were closed on 2026-10-07 and measured on a fresh sample.
 3. Restore points: confirmed on 2026-10-06, when `npx wrangler d1 time-travel info scamcam --env production` returned
    a current bookmark.
-4. Phishing.Database has published nothing since 2026-10-02. If it stays stalled, reports stop using it on
-   2026-10-09; the five lists added on 2026-10-06 keep covering phishing sites in the meantime.
+4. Phishing.Database has published nothing since 2026-10-02. Reports keep using that copy for 30 days after its last
+   update (until 2026-11-01) and say how old it is; the weekly report raises `phishing_list_stale` after 21 days.
 5. Ask abuse.ch (contact form) to confirm that showing per-lookup results with credit is fine, and ask Team Cymru
    (support@cymru.com) the same for the Malware Hash Registry.
 6. Review flags with `npm run flags` whenever the weekly report raises `flags_waiting`.
@@ -201,6 +204,8 @@ duration about ten times faster than needed. Every lookup now clears its timer w
   comes from the local simulator only. The live check saw a 429 within 15 scans.
 - A live Steam ban result and whether `timecreated` comes back for public profiles (Valve's current reference does
   not show it; reports skip the account age when it is missing).
+- Modrinth's rate limit (300 requests a minute per address) from Cloudflare's shared addresses; a refusal shows as
+  Not checked.
 - A live URLhaus match. Only "no results" answers have been seen live; matches are tested with a fake server.
 - Google's `CANARY` and `FRAME_ONLY` attributes. They have not appeared live and are tested with encoded examples.
 - The Cache API was tested in local workerd only; production behavior (per data center, eviction) is untested.
@@ -222,11 +227,13 @@ duration about ten times faster than needed. Every lookup now clears its timer w
 
 ### Known detection gaps
 
-The held-out benchmark showed three gaps in the rules: a brand name used as a subdomain of an unrelated site
-(`discord.<site>.com`), a brand plus gift words on cheap endings (`discords-gift.eu`), and brand words on free blog
-hosting (`getrobux-here.blogspot.be`). With the real list loaded, three of those missed domains came back Suspicious
-through the Phishing.Database match, and steamgifts.com stayed No known threat. Rules alone caught only 15 to 20
-percent of naturally worded scams in the AI sets, although they score 100 percent on their own tuning set.
+The three gaps the first held-out sample showed (a brand name in front of an unrelated site, brand plus gift words,
+and brand words on free blog hosting) were closed on 2026-10-07. On the fresh sample, the rules alone still miss 106
+of 200 gaming-impersonation domains. Most are a common game name in front of an unrelated site on an ordinary ending,
+such as `discord.<site>.cc`, which stays Unknown because communities use the same pattern for their own invite pages,
+and misspellings with several swapped letters, such as `steamcomnniuty`. Rules alone caught only 15 to 20 percent of
+naturally worded scams in the AI sets, although they score 100 percent on their own tuning set. Mod checks read text
+in class files; a stealer that encrypts its strings is only caught by the malware lists or the Modrinth comparison.
 
 ## Cost and quota use
 

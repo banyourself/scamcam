@@ -209,8 +209,17 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
     setBusy(true);
     setError("");
     try {
-      const { sha256, sha1, size, kind, extension, findings } = staged.inspection;
-      const request = { ...(sha256 ? { sha256 } : {}), ...(sha1 ? { sha1 } : {}), size, kind, ...(extension ? { extension } : {}), findings };
+      const { sha256, sha1, size, kind, extension, findings, modId, packJars } = staged.inspection;
+      const request = {
+        ...(sha256 ? { sha256 } : {}),
+        ...(sha1 ? { sha1 } : {}),
+        size,
+        kind,
+        ...(extension ? { extension } : {}),
+        findings,
+        ...(modId ? { modId } : {}),
+        ...(packJars && packJars.length > 0 ? { packJars } : {}),
+      };
       const response = await fetch("/api/v1/files", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -403,12 +412,15 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-ink-faint">File to check</p>
             <p className="mt-1 break-all font-mono text-ink">{staged.name}</p>
             <p className="mt-1 text-ink-soft">{describeFile(staged.inspection)}</p>
+            {staged.inspection.modId && <p className="mt-1 break-all text-ink-soft">Calls itself the mod: {staged.inspection.modId}</p>}
             {staged.inspection.insideArchive.length > 0 && (
               <p className="mt-1 break-all text-ink-soft">Inside: {staged.inspection.insideArchive.join(", ")}</p>
             )}
             <p className="mt-2 text-xs text-ink-faint">
               The file stays on this device. Only its fingerprints (SHA-256 and SHA-1), size, type, and what was found are sent,
               never the file or its name.
+              {staged.inspection.modId ? " The mod ID above is sent too, so it can be compared with Modrinth." : ""}
+              {staged.inspection.packJars && staged.inspection.packJars.length > 0 ? " So are the fingerprints of the mods this pack carries or gets from outside Modrinth." : ""}
             </p>
             <div className="mt-3 flex flex-wrap gap-3">
               <Button size="sm" disabled={!canScan || busy || waitingForCheck} onClick={() => void checkStagedFile()}>

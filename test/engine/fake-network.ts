@@ -2,6 +2,7 @@ import { discordInviteEndpoint } from "../../src/engine/discord-invite";
 import { dohEndpoint, filteredDohEndpoint } from "../../src/engine/dns";
 import type { DomainListLookup, DomainListResults, ListName } from "../../src/engine/domain-list";
 import { hashlookupEndpoint, malwareBazaarEndpoint, mhrZone } from "../../src/engine/hash-lookups";
+import { modrinthApi } from "../../src/engine/modrinth";
 import { phishstatsEndpoint } from "../../src/engine/phishstats";
 import { radarEndpoint } from "../../src/engine/radar";
 import { rdapBootstrapUrl } from "../../src/engine/rdap";
@@ -38,8 +39,19 @@ export interface FakeNetworkOptions {
   steamStatus?: number;
   shortLinks?: Record<string, string>;
   bitlyStatus?: number;
+  modrinthFiles?: Record<string, { project: string; version: string }>;
+  modrinthProjects?: FakeModrinthProject[];
+  modrinthStatus?: number;
   down?: boolean;
   now?: Date;
+}
+
+export interface FakeModrinthProject {
+  id: string;
+  slug: string;
+  title: string;
+  downloads: number;
+  type?: string;
 }
 
 export interface FakeDiscordServer {
@@ -260,6 +272,27 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
             }),
           },
         });
+      }
+    }
+    if (url.startsWith(modrinthApi)) {
+      if (options.modrinthStatus) {
+        return json({ error: "unavailable" }, options.modrinthStatus);
+      }
+      const path = url.slice(modrinthApi.length);
+      const file = /^version_file\/([0-9a-f]{40})\?algorithm=sha1$/.exec(path);
+      if (file) {
+        const found = options.modrinthFiles?.[file[1]!];
+        return found ? json({ id: "VersionA", project_id: found.project, version_number: found.version, changelog: "Fixes", files: [] }) : json({ error: "not_found" }, 404);
+      }
+      const project = /^project\/([^/?]+)$/.exec(path);
+      if (project) {
+        const wanted = decodeURIComponent(project[1]!);
+        const found = options.modrinthProjects?.find((entry) => entry.id === wanted || entry.slug === wanted);
+        return found ? json({ id: found.id, slug: found.slug, title: found.title, downloads: found.downloads, project_type: found.type ?? "mod", body: "A mod." }) : json({ error: "not_found" }, 404);
+      }
+      if (path === "version_files") {
+        const hashes = (JSON.parse(body) as { hashes: string[] }).hashes;
+        return json(Object.fromEntries(hashes.filter((hash) => options.modrinthFiles?.[hash]).map((hash) => [hash, { project_id: options.modrinthFiles![hash]!.project }])));
       }
     }
     if (url.includes("challenges.cloudflare.com")) {

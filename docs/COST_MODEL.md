@@ -55,7 +55,7 @@ Per-visitor limits: 60 API requests, 10 scans, 10 share links, and 3 flags per m
 |---|---|---|
 | Worker requests | 1 (`POST /api/v1/files`) | 100,000 per day |
 | Durable Object requests | 1 | 100,000 per day |
-| Subrequests | At most 4: Turnstile 1, MalwareBazaar 1, CIRCL hashlookup 1, Team Cymru through Cloudflare DNS 1; none for a fingerprint checked in the last day | 50 per request |
+| Subrequests | At most 6: Turnstile 1, MalwareBazaar 1, CIRCL hashlookup 1, Team Cymru through Cloudflare DNS 1, and Modrinth up to 2 for a Minecraft mod (the file, then its project) or 1 for a modpack; none for a repeat while the answers are cached | 50 per request |
 | D1 queries | Up to 2 (the `writes_paused` flag and the abuse.ch count) | 50 per request |
 | MalwareBazaar calls | 1, counted in the same abuse.ch daily budget as URLhaus (`URLHAUS_DAILY_LIMIT`, 5,000) | Fair use |
 | CPU | Hashing and parsing run in the visitor's browser; the server only builds the report | |

@@ -502,6 +502,73 @@ async function checkFileCheck(): Promise<string[]> {
   });
 }
 
+const modScript = `(() => {
+  window.__stageMod = () => {
+    const encoder = new TextEncoder();
+    const le16 = (value) => [value & 255, (value >>> 8) & 255];
+    const le32 = (value) => [value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255];
+    const files = [
+      ["META-INF/MANIFEST.MF", encoder.encode("Manifest-Version: 1.0\\n")],
+      ["fabric.mod.json", encoder.encode(JSON.stringify({ schemaVersion: 1, id: "probemod", version: "1.0.0", description: "jar-probe-content" }))],
+    ];
+    const locals = [];
+    const central = [];
+    let offset = 0;
+    for (const [name, data] of files) {
+      const encoded = encoder.encode(name);
+      const local = [0x50, 0x4b, 3, 4, ...le16(20), ...le16(0x800), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...le32(data.length), ...le32(data.length), ...le16(encoded.length), 0, 0, ...encoded, ...data];
+      central.push(0x50, 0x4b, 1, 2, ...le16(20), ...le16(20), ...le16(0x800), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...le32(data.length), ...le32(data.length), ...le16(encoded.length), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...le32(offset), ...encoded);
+      locals.push(...local);
+      offset += local.length;
+    }
+    const end = [0x50, 0x4b, 5, 6, 0, 0, 0, 0, ...le16(files.length), ...le16(files.length), ...le32(central.length), ...le32(offset), 0, 0];
+    const file = new File([new Uint8Array([...locals, ...central, ...end])], "Secret Plans 2026.jar", { type: "application/java-archive" });
+    const data = new DataTransfer();
+    data.items.add(file);
+    document.querySelector("textarea").dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  };
+})()`;
+
+async function checkModFile(): Promise<string[]> {
+  return withChrome(async (cdp) => {
+    const failures: string[] = [];
+    const requests: SeenRequest[] = [];
+    cdp.on("Network.requestWillBeSent", (params) => {
+      requests.push(params.request as SeenRequest);
+    });
+    await cdp.send("Network.enable");
+    await openPage(cdp, base, "/");
+    await cdp.evaluate(modScript);
+    await cdp.evaluate("window.__stageMod()");
+    const card = `document.querySelector('section[aria-label="File to check"]')?.textContent ?? ""`;
+    try {
+      await waitFor(cdp, `${card}.includes("Calls itself the mod: probemod")`);
+    } catch {
+      failures.push(`the mod was not looked at on the device (${JSON.stringify((await cdp.evaluate<string>(card)).slice(0, 160))})`);
+    }
+    let checked = false;
+    if (!live) {
+      const before = requests.length;
+      await waitFor(cdp, `[...document.querySelectorAll("button")].some((button) => button.textContent === "Check this file" && !button.disabled)`);
+      await cdp.evaluate(`[...document.querySelectorAll("button")].find((button) => button.textContent === "Check this file").click()`);
+      await waitFor(cdp, `document.querySelector("section[aria-label=Report] #report-heading") || document.querySelector("[role=alert]")`);
+      const sent = requests.slice(before).find((request) => request.url === `${base}/api/v1/files`);
+      const body = JSON.parse(sent?.postData ?? "{}") as Record<string, unknown>;
+      if (Object.keys(body).sort().join(",") !== "extension,findings,kind,modId,sha1,sha256,size,turnstileToken" || body.modId !== "probemod") {
+        failures.push(`the mod check sent unexpected fields: ${Object.keys(body).sort().join(", ") || "none"}`);
+      }
+      checked = true;
+    }
+    for (const request of requests) {
+      if (["Secret Plans", "Secret%20Plans", "jar-probe-content"].some((trace) => request.url.includes(trace) || (request.postData ?? "").includes(trace))) {
+        failures.push(`the mod's file name or contents reached ${new URL(request.url).origin}`);
+      }
+    }
+    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  a Minecraft mod looked at on the device${checked ? " and checked by fingerprint and mod ID only" : ""}, with no name or contents sent`);
+    return failures;
+  });
+}
+
 const emailScript = `(() => {
   window.__stageEmail = () => {
     const program = new Uint8Array(1024);
@@ -750,7 +817,7 @@ async function checkLiveApi(): Promise<string[]> {
 
 async function main(): Promise<void> {
   if (live) {
-    const failures = [...(await checkHeaders()), ...(await checkLiveApi()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck()), ...(await checkEmailFile())];
+    const failures = [...(await checkHeaders()), ...(await checkLiveApi()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck()), ...(await checkModFile()), ...(await checkEmailFile())];
     report(failures);
     return;
   }
@@ -758,7 +825,7 @@ async function main(): Promise<void> {
   const failures = checkBundle();
   const server = await preview({ preview: { port, strictPort: true, host: "127.0.0.1", cors: false }, logLevel: "error" });
   try {
-    failures.push(...(await checkHeaders()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck()), ...(await checkEmailFile()));
+    failures.push(...(await checkHeaders()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck()), ...(await checkModFile()), ...(await checkEmailFile()));
   } finally {
     await new Promise<void>((resolve) => server.httpServer.close(() => resolve()));
   }

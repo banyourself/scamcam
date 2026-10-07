@@ -65,7 +65,8 @@ result, so flagging a scam site over and over cannot make it look safe.
    for disguised endings, macros, PDF actions, fake login pages, and programs inside archives. Its SHA-256 and SHA-1
    fingerprints are looked up in MalwareBazaar, CIRCL hashlookup, and Team Cymru's Malware Hash Registry, and the
    report links to VirusTotal, Hybrid Analysis, and Cisco Talos for the visitor to open themselves, because
-   VirusTotal's terms do not allow showing its results to others.
+   VirusTotal's terms do not allow showing its results to others. Minecraft mods are also read for what account
+   stealers do and compared with Modrinth by fingerprint and mod ID, and modpacks are checked for unsafe downloads.
 6. **AI only as a last resort.** If the rules and sources cannot decide, a small open model (Qwen3 on Workers AI)
    labels the message. Its answer counts as one warning sign, never as proof. The message is passed as untrusted
    data, and messages that try to talk to checkers or AI models are flagged instead of being sent to it.

@@ -50,8 +50,8 @@ export const domainListDetails: Record<ListName, DomainListDetails> = {
     url: "https://github.com/Phishing-Database/Phishing.Database",
     title: "Phishing.Database lists {name} as a phishing site",
     about: "Phishing.Database is a free community list of phishing sites.",
-    staleAfterDays: 7,
-    alertAfterDays: 2,
+    staleAfterDays: 30,
+    alertAfterDays: 21,
   },
   metamask: {
     source: "MetaMask phishing list",

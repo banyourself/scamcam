@@ -5,7 +5,9 @@ import {
   commonBrandWords,
   communitySites,
   executableExtensions,
-  freeHostingSuffixes,
+  freeHostOf,
+  hostLurePrefixes,
+  hostLureWords,
   userContentHosts,
   ipLoggers,
   loginQrLinks,
@@ -179,6 +181,34 @@ function startsWithOfficial(hostname: string): { brand: Brand; domain: string } 
   return null;
 }
 
+function subdomainBrand(subdomain: string): { brand: Brand; label: string; official: boolean } | null {
+  const labels = subdomain.split(".").flatMap((label) => [label, ...(label.includes("-") ? label.split("-") : [])]).filter(Boolean);
+  let found: { brand: Brand; label: string; official: boolean } | null = null;
+  for (const brand of brands) {
+    for (const label of labels) {
+      const official = brand.lookalikeLabels.includes(label) && !commonBrandWords.has(label);
+      if (official) {
+        return { brand, label, official };
+      }
+      if (!found && (brand.lookalikeLabels.includes(label) || (label.length >= 5 && brand.tokens.includes(label)))) {
+        found = { brand, label, official };
+      }
+    }
+  }
+  return found;
+}
+
+const lureNames: Record<string, string> = { verif: "verify", recover: "recovery" };
+
+function hostLure(name: string, brand: Brand): string | null {
+  const text = brand.tokens.reduce((rest, token) => rest.split(token).join(" "), name);
+  const parts = text.split(/[^a-z0-9]+/).filter(Boolean);
+  const word =
+    hostLureWords.find((candidate) => text.includes(candidate)) ??
+    hostLurePrefixes.find((candidate) => parts.some((part) => part.startsWith(candidate) || part.endsWith(candidate)));
+  return word ? (lureNames[word] ?? word) : null;
+}
+
 function lastExtension(pathname: string): string | null {
   const last = pathname.split("/").pop() ?? "";
   const dot = last.lastIndexOf(".");
@@ -338,7 +368,7 @@ export function analyzeLink(original: string): AnalyzedLink {
     });
   }
 
-  const freeHost = freeHostingSuffixes.find((suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`));
+  const freeHost = freeHostOf(hostname);
   let brandRelated = false;
 
   if (!result.officialBrand && !result.communitySite && !result.isIp) {
@@ -346,6 +376,7 @@ export function analyzeLink(original: string): AnalyzedLink {
     const unicodeLabel = hostnameToUnicode(label);
     const lookalike = label ? findLookalike(label, unicodeLabel, registrable) : null;
     const prefix = startsWithOfficial(hostname);
+    const inSubdomain = parsed.subdomain ? subdomainBrand(parsed.subdomain) : null;
     if (lookalike) {
       brandRelated = true;
       add(lookalike.signal);
@@ -360,6 +391,27 @@ export function analyzeLink(original: string): AnalyzedLink {
         brandId: prefix.brand.id,
         lookalike: true,
       });
+    } else if (inSubdomain?.official) {
+      brandRelated = true;
+      add({
+        id: `subdomain-brand-${hostname}`,
+        direction: "raises",
+        strength: "strong",
+        title: `Puts "${inSubdomain.label}" in front of a different site's address`,
+        detail: `The address starts with ${inSubdomain.label} to look like ${officialDomainFor(inSubdomain.brand, inSubdomain.label)}, but the site it really belongs to is ${registrable}.`,
+        brandId: inSubdomain.brand.id,
+        lookalike: true,
+      });
+    } else if (inSubdomain) {
+      brandRelated = true;
+      add({
+        id: `subdomain-brand-${hostname}`,
+        direction: "raises",
+        strength: "moderate",
+        title: `Puts ${inSubdomain.brand.name}'s name in front of a different site's address`,
+        detail: `"${inSubdomain.label}" is only a name the owner of ${registrable} picked. Communities sometimes do this for their own pages, and fake login and gift pages do it to look official.`,
+        brandId: inSubdomain.brand.id,
+      });
     } else if (result.brandsMentioned.length > 0) {
       brandRelated = true;
       const names = result.brandsMentioned.map((brand) => brand.name).join(" and ");
@@ -370,6 +422,19 @@ export function analyzeLink(original: string): AnalyzedLink {
         title: `Mentions ${names} but is not an official ${names} site`,
         detail: `${registrable} is not owned by ${names}. Many fan sites are harmless, but scam sites also use game names to look trustworthy.`,
         brandId: result.brandsMentioned[0]!.id,
+      });
+    }
+
+    const lureBrand = lookalike?.brand ?? prefix?.brand ?? inSubdomain?.brand ?? result.brandsMentioned[0];
+    const lure = brandRelated && lureBrand ? hostLure(hostname.slice(0, hostname.length - (parsed.publicSuffix?.length ?? 0)), lureBrand) : null;
+    if (lure && lureBrand) {
+      add({
+        id: `brand-lure-${hostname}`,
+        direction: "raises",
+        strength: "moderate",
+        title: `Pairs ${lureBrand.name}'s name with "${lure}" in the address`,
+        detail: `Addresses that join a game or app name with words like gift, free, login, or verify are a common way to make fake gift, login, and support pages look official. ${registrable} does not belong to ${lureBrand.name}.`,
+        brandId: lureBrand.id,
       });
     }
 

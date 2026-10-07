@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { scanContent } from "../../src/engine/scan";
-import { heldoutGamingPhishing, heldoutLegitimate, heldoutRandomPhishing, heldoutSource } from "../fixtures/heldout-domains";
+import {
+  freshGamingPhishing,
+  freshRandomPhishing,
+  freshSource,
+  heldoutGamingPhishing,
+  heldoutLegitimate,
+  heldoutRandomPhishing,
+  heldoutSource,
+} from "../fixtures/heldout-domains";
 
 const flaggedLevels = new Set(["suspicious", "high_risk", "confirmed_malicious"]);
 
@@ -19,16 +27,17 @@ async function flagged(domains: string[]): Promise<string[]> {
   return hits;
 }
 
-describe("held-out benchmark from real Phishing.Database entries, rules only", () => {
+function recall(caught: string[], of: string[]) {
+  return { caught: caught.length, of: of.length, recall: Number((caught.length / of.length).toFixed(3)) };
+}
+
+describe("benchmark from real Phishing.Database entries, rules only", () => {
   it("never flags the legitimate sites and reports how much the rules catch alone", async () => {
-    const gaming = await flagged(heldoutGamingPhishing);
-    const random = await flagged(heldoutRandomPhishing);
     const falseAlarms = await flagged(heldoutLegitimate);
     console.log(
       JSON.stringify({
-        source: heldoutSource,
-        gamingImpersonation: { caught: gaming.length, of: heldoutGamingPhishing.length, recall: Number((gaming.length / heldoutGamingPhishing.length).toFixed(3)) },
-        randomPhishing: { caught: random.length, of: heldoutRandomPhishing.length, recall: Number((random.length / heldoutRandomPhishing.length).toFixed(3)) },
+        tuning: { source: heldoutSource, gamingImpersonation: recall(await flagged(heldoutGamingPhishing), heldoutGamingPhishing), randomPhishing: recall(await flagged(heldoutRandomPhishing), heldoutRandomPhishing) },
+        heldOut: { source: freshSource, gamingImpersonation: recall(await flagged(freshGamingPhishing), freshGamingPhishing), randomPhishing: recall(await flagged(freshRandomPhishing), freshRandomPhishing) },
         legitimate: { flagged: falseAlarms.length, of: heldoutLegitimate.length, falsePositiveRate: Number((falseAlarms.length / heldoutLegitimate.length).toFixed(3)) },
         falseAlarms,
       }),
