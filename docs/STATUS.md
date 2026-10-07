@@ -155,10 +155,16 @@ duration about ten times faster than needed. Every lookup now clears its timer w
 
 ### To do after launch
 
-1. Watch the first daily and weekly maintenance reports for alerts ([RECOVERY.md](RECOVERY.md#alerts)).
+1. Watch the first daily and weekly maintenance reports for alerts ([RECOVERY.md](RECOVERY.md#alerts)). The site
+   launched after the 2026-10-06 03:17 UTC slot, so the first daily run is 2026-10-07 and the first weekly run is
+   2026-10-12.
 2. Close the three rule gaps from the held-out benchmark (below) with a fresh sample from the list.
-3. Run `npx wrangler d1 time-travel info scamcam` on the live database to confirm that restore points exist; no
-   result is recorded yet.
+3. Restore points: confirmed on 2026-10-06, when `npx wrangler d1 time-travel info scamcam --env production` returned
+   a current bookmark.
+4. Phishing.Database has published nothing since 2026-10-02. If it stays stalled, reports stop using it on
+   2026-10-09; consider adding one of the downloadable lists in [API_LICENSE_MATRIX.md](API_LICENSE_MATRIX.md).
+5. Ask abuse.ch (contact form) to confirm that showing per-lookup results with credit is fine, ask Team Cymru
+   (support@cymru.com) the same for the Malware Hash Registry, and request a free Spamhaus DQS key.
 
 ### Not verified yet
 
