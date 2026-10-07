@@ -5,6 +5,7 @@ import type { DnsAnswer, DnsFailure, DnsTransport } from "../engine/spamhaus";
 
 const maxReplyBytes = 4096;
 const maxNamesPerConnection = 16;
+const maxAttempts = 2;
 const defaultTimeoutMs = 4000;
 
 export interface SocketLike {
@@ -19,7 +20,13 @@ export type Connector = (address: { hostname: string; port: number }) => SocketL
 export interface TcpDnsOptions {
   timeoutMs?: number;
   connector?: Connector;
-  pickServer?: (servers: string[]) => string;
+  pickOrder?: (servers: string[]) => string[];
+  resolveAddress?: (hostname: string) => Promise<string | null>;
+}
+
+interface Exchange {
+  failure: DnsFailure | null;
+  detail?: string;
 }
 
 function join(parts: Uint8Array[]): Uint8Array {
@@ -44,14 +51,94 @@ function uniqueIds(count: number): number[] {
   return [...ids];
 }
 
-function randomServer(servers: string[]): string {
-  return servers[crypto.getRandomValues(new Uint32Array(1))[0]! % servers.length]!;
+function shuffled(servers: string[]): string[] {
+  const order = [...servers];
+  const random = crypto.getRandomValues(new Uint32Array(order.length));
+  for (let index = order.length - 1; index > 0; index -= 1) {
+    const swap = random[index]! % (index + 1);
+    [order[index], order[swap]] = [order[swap]!, order[index]!];
+  }
+  return order;
+}
+
+export function describeError(error: unknown): string | undefined {
+  const text = error instanceof Error ? `${error.name}: ${error.message}` : typeof error === "string" ? error : "";
+  const cleaned = text
+    .replace(/[A-Za-z0-9]{16,}/g, "[hidden]")
+    .replace(/[^A-Za-z0-9 .,:()_[\]/-]/g, "")
+    .trim()
+    .slice(0, 160);
+  return cleaned === "" ? undefined : cleaned;
+}
+
+async function exchange(
+  connector: Connector,
+  address: string,
+  framed: Uint8Array,
+  pending: Map<number, number>,
+  answers: DnsAnswer[],
+  timedOut: Promise<never>,
+  timeoutError: Error,
+): Promise<Exchange> {
+  let failure: DnsFailure = "connect_failed";
+  let socket: SocketLike | null = null;
+  try {
+    socket = connector({ hostname: address, port: 53 });
+    if (socket.opened) {
+      failure = "connect_timeout";
+      const opened = socket.opened.catch((error: unknown) => {
+        failure = "connect_failed";
+        throw error;
+      });
+      await Promise.race([opened, timedOut]);
+    }
+    failure = "write_failed";
+    const writer = socket.writable.getWriter();
+    await Promise.race([writer.write(framed), timedOut]);
+    writer.releaseLock();
+    failure = "reply_timeout";
+    const reader = socket.readable.getReader();
+    let buffer: Uint8Array = new Uint8Array(0);
+    while (pending.size > 0) {
+      const { value, done } = await Promise.race([reader.read(), timedOut]);
+      if (done || !value) {
+        return { failure: "closed_early" };
+      }
+      buffer = join([buffer, value]);
+      while (buffer.length >= 2) {
+        const length = (buffer[0]! << 8) | buffer[1]!;
+        if (length === 0 || length > maxReplyBytes) {
+          return { failure: "malformed" };
+        }
+        if (buffer.length < length + 2) {
+          break;
+        }
+        const reply = decodeDnsReply(buffer.subarray(2, length + 2));
+        buffer = buffer.slice(length + 2);
+        const index = reply ? pending.get(reply.id) : undefined;
+        if (reply && index !== undefined && !reply.truncated) {
+          answers[index] = { status: "answered", rcode: reply.rcode, addresses: reply.addresses };
+          pending.delete(reply.id);
+        }
+      }
+      if (buffer.length > maxReplyBytes + 2) {
+        return { failure: "malformed" };
+      }
+    }
+    return { failure: null };
+  } catch (error) {
+    const detail = error === timeoutError ? undefined : describeError(error);
+    return detail ? { failure, detail } : { failure };
+  } finally {
+    socket?.close().catch(() => undefined);
+  }
 }
 
 export function tcpDnsTransport(servers: string[], options: TcpDnsOptions = {}): DnsTransport {
   const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
   const connector = options.connector ?? ((address) => connect(address));
-  const pickServer = options.pickServer ?? randomServer;
+  const pickOrder = options.pickOrder ?? shuffled;
+  const resolveAddress = options.resolveAddress ?? (async () => null);
   return {
     async resolve(names: string[]): Promise<DnsAnswer[]> {
       const asked = names.slice(0, maxNamesPerConnection);
@@ -68,66 +155,28 @@ export function tcpDnsTransport(servers: string[], options: TcpDnsOptions = {}):
         }),
       );
       const timer = deadline(timeoutMs);
+      const timeoutError = new Error("timeout");
       const timedOut = new Promise<never>((_, reject) => {
-        timer.signal.addEventListener("abort", () => reject(new Error("timeout")), { once: true });
+        timer.signal.addEventListener("abort", () => reject(timeoutError), { once: true });
       });
       timedOut.catch(() => undefined);
-      let failure: DnsFailure = "connect_failed";
-      let socket: SocketLike | null = null;
+      let last: Exchange = { failure: "connect_failed" };
+      let attempts = 0;
       try {
-        socket = connector({ hostname: pickServer(servers), port: 53 });
-        if (socket.opened) {
-          failure = "connect_timeout";
-          const opened = socket.opened.catch((error: unknown) => {
-            failure = "connect_failed";
-            throw error;
-          });
-          await Promise.race([opened, timedOut]);
-        }
-        failure = "write_failed";
-        const writer = socket.writable.getWriter();
-        await Promise.race([writer.write(framed), timedOut]);
-        writer.releaseLock();
-        failure = "reply_timeout";
-        const reader = socket.readable.getReader();
-        let buffer: Uint8Array = new Uint8Array(0);
-        while (pending.size > 0) {
-          const { value, done } = await Promise.race([reader.read(), timedOut]);
-          if (done || !value) {
-            failure = "closed_early";
-            break;
-          }
-          buffer = join([buffer, value]);
-          let malformed = false;
-          while (buffer.length >= 2) {
-            const length = (buffer[0]! << 8) | buffer[1]!;
-            if (length === 0 || length > maxReplyBytes) {
-              malformed = true;
-              break;
-            }
-            if (buffer.length < length + 2) {
-              break;
-            }
-            const reply = decodeDnsReply(buffer.subarray(2, length + 2));
-            buffer = buffer.slice(length + 2);
-            const index = reply ? pending.get(reply.id) : undefined;
-            if (reply && index !== undefined && !reply.truncated) {
-              answers[index] = { status: "answered", rcode: reply.rcode, addresses: reply.addresses };
-              pending.delete(reply.id);
-            }
-          }
-          if (malformed || buffer.length > maxReplyBytes + 2) {
-            failure = "malformed";
+        for (const server of pickOrder(servers).slice(0, maxAttempts)) {
+          attempts += 1;
+          const address = (await Promise.race([resolveAddress(server).catch(() => null), timedOut]).catch(() => null)) ?? server;
+          last = await exchange(connector, address, framed, pending, answers, timedOut, timeoutError);
+          if (last.failure !== "connect_failed") {
             break;
           }
         }
-      } catch {
-        return answers.map((answer) => (answer.status === "failed" ? { status: "failed", reason: failure } : answer));
       } finally {
         timer.clear();
-        socket?.close().catch(() => undefined);
       }
-      return answers.map((answer) => (answer.status === "failed" ? { status: "failed", reason: failure } : answer));
+      return answers.map((answer) =>
+        answer.status === "failed" ? { status: "failed", reason: last.failure ?? "reply_timeout", attempts, ...(last.detail ? { detail: last.detail } : {}) } : answer,
+      );
     },
   };
 }

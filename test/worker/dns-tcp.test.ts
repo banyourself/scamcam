@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { spamhausServers, type DnsAnswer, type DnsTransport } from "../../src/engine/spamhaus";
-import { tcpDnsTransport, type Connector } from "../../src/worker/dns-tcp";
-import { watchedTransport } from "../../src/worker/scanner";
+import { describeError, tcpDnsTransport, type Connector } from "../../src/worker/dns-tcp";
+import { watchedFetcher, watchedTransport } from "../../src/worker/scanner";
 
 interface Query {
   id: number;
@@ -76,7 +76,7 @@ afterEach(() => {
 describe("DNS over TCP to Spamhaus", () => {
   it("sends every question on one connection to port 53 and matches answers by id, in any order and in pieces", async () => {
     const server = fakeServer((queries) => pieces([replyTo(queries[1]!, { rcode: 3 }), replyTo(queries[0]!, { addresses: ["127.0.1.4"] })], 3));
-    const transport = tcpDnsTransport(spamhausServers, { connector: server.connector, pickServer: (servers) => servers[0]! });
+    const transport = tcpDnsTransport(spamhausServers, { connector: server.connector, pickOrder: (servers) => servers });
     expect(await transport.resolve(names)).toEqual([
       { status: "answered", rcode: 0, addresses: ["127.0.1.4"] },
       { status: "answered", rcode: 3, addresses: [] },
@@ -89,8 +89,8 @@ describe("DNS over TCP to Spamhaus", () => {
     const server = fakeServer(() => []);
     const transport = tcpDnsTransport(spamhausServers, { connector: server.connector, timeoutMs: 30 });
     expect(await transport.resolve(names)).toEqual([
-      { status: "failed", reason: "reply_timeout" },
-      { status: "failed", reason: "reply_timeout" },
+      { status: "failed", reason: "reply_timeout", attempts: 1 },
+      { status: "failed", reason: "reply_timeout", attempts: 1 },
     ]);
     expect(server.closed()).toBe(1);
   });
@@ -123,8 +123,8 @@ describe("DNS over TCP to Spamhaus", () => {
     ]);
     const transport = tcpDnsTransport(spamhausServers, { connector: server.connector, timeoutMs: 500 });
     expect(await transport.resolve(names)).toEqual([
-      { status: "failed", reason: "malformed" },
-      { status: "failed", reason: "malformed" },
+      { status: "failed", reason: "malformed", attempts: 1 },
+      { status: "failed", reason: "malformed", attempts: 1 },
     ]);
     expect(server.closed()).toBe(1);
   });
@@ -136,10 +136,37 @@ describe("DNS over TCP to Spamhaus", () => {
       },
     });
     expect(await transport.resolve(names)).toEqual([
-      { status: "failed", reason: "connect_failed" },
-      { status: "failed", reason: "connect_failed" },
+      { status: "failed", reason: "connect_failed", attempts: 2, detail: "Error: connection refused" },
+      { status: "failed", reason: "connect_failed", attempts: 2, detail: "Error: connection refused" },
     ]);
     expect(await transport.resolve([])).toEqual([]);
+  });
+
+  it("tries a second server at its IPv4 address when the first refuses the connection", async () => {
+    const server = fakeServer((queries) => queries.map((query) => replyTo(query, { rcode: 3 })));
+    const tried: string[] = [];
+    const transport = tcpDnsTransport(spamhausServers, {
+      pickOrder: (servers) => servers,
+      resolveAddress: async (hostname) => ({ "a.gns.spamhaus.net": "192.0.2.1", "b.gns.spamhaus.net": "192.0.2.2" })[hostname] ?? null,
+      connector: (address) => {
+        tried.push(address.hostname);
+        if (address.hostname === "192.0.2.1") {
+          throw new Error("proxy request failed, cannot connect to the specified address");
+        }
+        return server.connector(address);
+      },
+    });
+    expect(await transport.resolve(names)).toEqual([
+      { status: "answered", rcode: 3, addresses: [] },
+      { status: "answered", rcode: 3, addresses: [] },
+    ]);
+    expect(tried).toEqual(["192.0.2.1", "192.0.2.2"]);
+  });
+
+  it("keeps anything that looks like a key out of error details", () => {
+    expect(describeError(new Error("lookup phish.example.Kq7xZ0pLmN3vB8wR2tY5.dbl failed"))).toBe("Error: lookup phish.example.[hidden].dbl failed");
+    expect(describeError(new TypeError("Network connection lost."))).toBe("TypeError: Network connection lost.");
+    expect(describeError("")).toBeUndefined();
   });
 
   it("raises one alert every ten minutes at most, without the query names that hold the key", async () => {
@@ -164,5 +191,36 @@ describe("DNS over TCP to Spamhaus", () => {
       ["spamhaus_unavailable", "connect_timeout", 1, 2],
     ]);
     expect(log.mock.calls.join(" ")).not.toContain("testkey");
+  });
+
+  it("logs PhishStats and Radar errors with only the status and their message, at most every ten minutes", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    let now = 0;
+    const answers: Record<string, () => Response> = {
+      "api.phishstats.info": () => new Response(JSON.stringify({ error: "Invalid API key" }), { status: 401 }),
+      "api.cloudflare.com": () => new Response(JSON.stringify({ success: false, errors: [{ code: 404, message: "Not Found" }] }), { status: 404 }),
+      "cloudflare-dns.com": () => new Response("{}", { status: 503 }),
+    };
+    const fetcher = watchedFetcher(async (input) => answers[new URL(String(input)).hostname]!(), () => now);
+    const first = await fetcher("https://api.phishstats.info/api/phishing?_where=(host,eq,private-domain.example)&_sort=-id&_size=30");
+    expect(first.status).toBe(401);
+    expect(await first.json()).toEqual({ error: "Invalid API key" });
+    await fetcher("https://api.phishstats.info/api/phishing?_where=(host,eq,private-domain.example)");
+    await fetcher("https://api.cloudflare.com/client/v4/radar/ranking/domain/private-domain.example?format=json");
+    await fetcher("https://cloudflare-dns.com/dns-query?name=private-domain.example&type=A");
+    now += 10 * 60 * 1000;
+    answers["api.cloudflare.com"] = () => new Response(JSON.stringify({ success: false, errors: [{ code: 10000, message: "Authentication error" }] }), { status: 403 });
+    await fetcher("https://api.cloudflare.com/client/v4/radar/ranking/domain/private-domain.example?format=json");
+    const failing = watchedFetcher(async () => {
+      throw new TypeError("fetch failed");
+    }, () => now);
+    await expect(failing("https://api.phishstats.info/api/phishing")).rejects.toThrow("fetch failed");
+    const alerts = log.mock.calls.map(([line]) => JSON.parse(String(line)) as Record<string, unknown>).filter((entry) => entry.event === "alert");
+    expect(alerts.map(({ alert, status, detail, reason }) => ({ alert, status, detail, reason }))).toEqual([
+      { alert: "phishstats_unavailable", status: 401, detail: "Invalid API key", reason: undefined },
+      { alert: "radar_unavailable", status: 403, detail: "Authentication error", reason: undefined },
+      { alert: "phishstats_unavailable", status: undefined, detail: undefined, reason: "TypeError" },
+    ]);
+    expect(log.mock.calls.join(" ")).not.toContain("private-domain");
   });
 });

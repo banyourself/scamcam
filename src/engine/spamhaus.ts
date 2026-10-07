@@ -13,7 +13,7 @@ const nxdomain = 3;
 
 export type DnsFailure = "connect_failed" | "connect_timeout" | "write_failed" | "reply_timeout" | "closed_early" | "malformed";
 
-export type DnsAnswer = { status: "answered"; rcode: number; addresses: string[] } | { status: "failed"; reason?: DnsFailure };
+export type DnsAnswer = { status: "answered"; rcode: number; addresses: string[] } | { status: "failed"; reason?: DnsFailure; detail?: string; attempts?: number };
 
 export interface DnsTransport {
   resolve(names: string[]): Promise<DnsAnswer[]>;
