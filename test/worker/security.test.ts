@@ -188,7 +188,7 @@ describe("Workers Free plan limits", () => {
       DB: countingDatabase(env.DB, queries),
       SAFE_BROWSING_API_KEY: "k",
       URLHAUS_AUTH_KEY: "k",
-      SPAMHAUS_DQS_KEY: "testkey0123456789abcdefgh",
+      SPAMHAUS_DQS_KEY: "0".repeat(26),
       PHISHSTATS_API_KEY: "psk_test",
       CLOUDFLARE_RADAR_TOKEN: "radar-test-token",
     };

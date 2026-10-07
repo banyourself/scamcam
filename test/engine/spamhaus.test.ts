@@ -3,7 +3,7 @@ import { memoryLookups } from "../../src/engine/cache";
 import { lookupSpamhaus, spamhausKeyIsValid, type DnsTransport } from "../../src/engine/spamhaus";
 import { fakeSpamhaus } from "./fake-network";
 
-const key = "testkey0123456789abcdefgh";
+const key = "0".repeat(26);
 
 describe("Spamhaus DBL and ZRD lookups", () => {
   it("asks the DBL and ZRD zones once per domain, in one batch, with the key inside the name", async () => {

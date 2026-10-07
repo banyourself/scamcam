@@ -4,7 +4,7 @@ import { ScanReportSchema } from "../../src/shared/report-schema";
 import { allowAllBudgets, fakeNetwork, fakeSpamhaus, type FakeDnsEntry, type FakeNetworkOptions } from "./fake-network";
 
 const now = new Date("2026-10-05T12:00:00.000Z");
-const key = "testkey0123456789abcdefgh";
+const key = "0".repeat(26);
 
 function scanner(network: FakeNetworkOptions = {}, dns: Record<string, FakeDnsEntry> = {}, extra: Partial<ScanOptions> = {}, asked: string[][] = []) {
   const fake = fakeNetwork({ now, ...network });
