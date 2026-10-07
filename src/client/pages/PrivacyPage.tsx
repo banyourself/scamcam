@@ -159,7 +159,7 @@ export function PrivacyPage() {
           <strong>Google Safe Browsing</strong> receives only short scrambled fingerprints, never the link itself.
         </li>
         <li>
-          <strong>Domain registries, Cloudflare DNS (1.1.1.1 and its 1.1.1.2 security filter), URLhaus and ThreatFox (abuse.ch), Spamhaus, PhishStats, and Cloudflare Radar</strong>{" "}
+          <strong>Domain registries, Cloudflare DNS (its 1.1.1.2 security filter), URLhaus and ThreatFox (abuse.ch), Spamhaus, PhishStats, and Cloudflare Radar</strong>{" "}
           receive only the website name, for example <em>example.com</em> or <em>login.example.com</em>, never the rest of the
           link or your message. Spamhaus is asked through Cloudflare&apos;s DNS resolver.
         </li>

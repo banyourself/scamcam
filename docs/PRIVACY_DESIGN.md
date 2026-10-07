@@ -31,7 +31,7 @@ history, screenshots, cookies other than strictly necessary security cookies fro
 | Google Safe Browsing | 4-byte SHA-256 prefixes of URL expressions, never the URL | Every scan with links, when a key is set |
 | abuse.ch URLhaus | The hostname only (for example `login.example.com`) | Up to 3 hosts per scan, when a key is set |
 | Domain registries (RDAP) | The registrable domain only (for example `example.com`) | Up to 3 per scan |
-| Cloudflare DNS over HTTPS | The hostname only | Up to 3 per scan |
+| Cloudflare DNS over HTTPS (1.1.1.2) | The hostname only | Up to 3 per scan; one lookup gives both the address and the security filter result |
 | ThreatFox (abuse.ch) | The registrable domain only | Up to 3 per scan, only in the scanner |
 | MalwareBazaar (abuse.ch) | A file's SHA-256 only | Each file check with a fingerprint, when a key is set |
 | CIRCL hashlookup | A file's SHA-256 only | Each file check with a fingerprint |

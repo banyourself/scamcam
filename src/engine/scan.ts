@@ -5,7 +5,7 @@ import { brands, brandsNamedIn, freeHostingSuffixes, officialBrandFor, urlShorte
 import type { AiReviewResult } from "./ai-review";
 import { cacheKey, memoryLookups, recallFromMemory, recordOutcome, rememberInMemory, sourceIsOpen, type Lookups } from "./cache";
 import { discordInviteDocs, lookupDiscordInvite, type DiscordInviteResult } from "./discord-invite";
-import { isPrivateAddress, lookupDns, lookupFilteredDns, type DnsResult, type FilterResult } from "./dns";
+import { isPrivateAddress, lookupHost, type HostResult } from "./dns";
 import { candidateNames, domainListDetails, isDomainList, type DomainListLookup, type DomainListName, type DomainListResult } from "./domain-list";
 import { caseNumber } from "./case-number";
 import { emailSignals, senderLink, senderNameIn } from "./email-signals";
@@ -138,10 +138,10 @@ function rdapSignals(link: AnalyzedLink, result: RdapResult, now: Date): Signal[
   return signals;
 }
 
-function dnsSignals(link: AnalyzedLink, result: DnsResult): Signal[] {
+function dnsSignals(link: AnalyzedLink, result: HostResult): Signal[] {
   const host = link.hostname!;
   const base = { source: sourceNames.dns, link: host };
-  if (result.status !== "ok") {
+  if (result.status !== "ok" || result.blocked) {
     return [];
   }
   if (!result.exists) {
@@ -153,7 +153,7 @@ function dnsSignals(link: AnalyzedLink, result: DnsResult): Signal[] {
   return [];
 }
 
-function filterSignals(link: AnalyzedLink, result: FilterResult): Signal[] {
+function filterSignals(link: AnalyzedLink, result: HostResult): Signal[] {
   if (result.status !== "ok" || !result.blocked) {
     return [];
   }
@@ -995,13 +995,11 @@ export async function scanContent(content: string, options: ScanOptions): Promis
       tasks.push(
         (async () => {
           let reason: UncheckedSource["reason"] | null = null;
-          for (const link of networkLinks) {
-            const result = await lookupUrlhausHost(link.hostname!, {
-              authKey,
-              fetcher: options.fetcher,
-              lookups,
-              takeBudget: () => options.takeBudget("urlhaus"),
-            });
+          const results = await Promise.all(
+            networkLinks.map((link) => lookupUrlhausHost(link.hostname!, { authKey, fetcher: options.fetcher, lookups, takeBudget: () => options.takeBudget("urlhaus") })),
+          );
+          for (const [index, link] of networkLinks.entries()) {
+            const result = results[index]!;
             if (result.status === "over_budget") {
               reason = "over_budget";
             } else if (result.status === "unavailable") {
@@ -1018,15 +1016,16 @@ export async function scanContent(content: string, options: ScanOptions): Promis
         tasks.push(
           (async () => {
             let reason: UncheckedSource["reason"] | null = null;
-            for (const link of networkLinks) {
-              const name = link.registrableDomain ?? link.hostname!;
-              const result = await lookupThreatfoxHost(name, { authKey, fetcher: options.fetcher, lookups, takeBudget: () => options.takeBudget("urlhaus") });
+            const names = networkLinks.map((link) => link.registrableDomain ?? link.hostname!);
+            const results = await Promise.all(names.map((name) => lookupThreatfoxHost(name, { authKey, fetcher: options.fetcher, lookups, takeBudget: () => options.takeBudget("urlhaus") })));
+            for (const [index, link] of networkLinks.entries()) {
+              const result = results[index]!;
               if (result.status === "over_budget") {
                 reason = "over_budget";
               } else if (result.status === "unavailable") {
                 reason ??= "unavailable";
               }
-              attach(link, threatfoxSignals(link, name, result));
+              attach(link, threatfoxSignals(link, names[index]!, result));
             }
             if (reason) {
               notChecked.push({ name: sourceNames.threatfox, reason });
@@ -1117,20 +1116,14 @@ export async function scanContent(content: string, options: ScanOptions): Promis
         const results = await Promise.all(
           networkLinks.map(async (link) => {
             if (link.isIp || link.communitySite) {
-              return [true, true];
+              return true;
             }
-            const [result, filtered] = await Promise.all([
-              lookupDns(link.hostname!, options.fetcher, lookups),
-              lookupFilteredDns(link.hostname!, options.fetcher, lookups),
-            ]);
-            attach(link, [...dnsSignals(link, result), ...filterSignals(link, filtered)]);
-            return [result.status !== "unavailable", filtered.status !== "unavailable"];
+            const result = await lookupHost(link.hostname!, options.fetcher, lookups);
+            attach(link, [...dnsSignals(link, result), ...filterSignals(link, result)]);
+            return result.status !== "unavailable";
           }),
         );
-        if (results.some(([ok]) => !ok)) {
-          notChecked.push({ name: sourceNames.dns, reason: "unavailable" });
-        }
-        if (results.some(([, ok]) => !ok)) {
+        if (results.some((ok) => !ok)) {
           notChecked.push({ name: sourceNames.dnsFilter, reason: "unavailable" });
         }
       })(),

@@ -58,7 +58,7 @@ is a self-review backed by automated tests, not an independent penetration test.
 | API1 Broken object level authorization | Not applicable: no accounts, stored objects, or IDs in requests |
 | API2 Broken authentication | Not applicable: no accounts. Turnstile is verified on the server and fails closed |
 | API3 Broken object property level authorization | Unknown request fields are refused; every report is checked against its schema before it is sent |
-| API4 Unrestricted resource consumption | 16 KB bodies, 4,000 characters, 20 links, 10 scans and 60 API requests a minute per visitor at each Cloudflare location, Turnstile on every scan, daily budgets for Safe Browsing, URLhaus, and Workers AI, response size caps, timeouts, parsing that grows in step with input length, and at most 43 subrequests per scan |
+| API4 Unrestricted resource consumption | 16 KB bodies, 4,000 characters, 20 links, 10 scans and 60 API requests a minute per visitor at each Cloudflare location, Turnstile on every scan, daily budgets for Safe Browsing, URLhaus, and Workers AI, response size caps, timeouts, parsing that grows in step with input length, and at most 38 subrequests per scan |
 | API5 Broken function level authorization | No admin endpoints. Scheduled tasks cannot be called over HTTP |
 | API6 Unrestricted access to sensitive business flows | Scanning is the only flow; it is protected by Turnstile, rate limits, and budgets, and bulk use is banned by the acceptable use policy |
 | API7 Server side request forgery | Submitted links are never fetched; only fixed provider hosts are called |
@@ -237,7 +237,7 @@ engine, so a bot flood cannot turn a scam site into a "no known threat" result.
 | Outside keys leaking | The PhishStats key goes in a header and the Radar token in `Authorization`, never in an address. All three are Worker secrets that never reach the browser | `test/engine/phishstats-radar.test.ts` |
 | A scam site borrowing credit from popularity | Radar only removes two small warnings (an often-abused ending and a brand mismatch), only for domains in the top 100,000 without a security category, and never for shared hosting, community sites, or private suffixes. A listing still decides | `test/engine/scan-extended.test.ts` |
 | Text from these services in reports | Reports show only counts, dates, and fixed wording, never free text from Spamhaus, PhishStats, or Radar | Code review |
-| Running past the Free plan's 50 subrequests | All three run only in the scanner; a 20-link scan there with every source on used 40 (20 fetches, 6 Spamhaus lookups, 14 queries) | `test/worker/security.test.ts` |
+| Running past the Free plan's 50 subrequests | All three run only in the scanner; a 20-link scan there with every source on used 40 on 2026-10-06 and 29 after the DNS and budget changes on 2026-10-07 | `test/worker/security.test.ts` |
 | A failing source going unnoticed | Spamhaus, PhishStats, and Radar failures raise `spamhaus_unavailable`, `phishstats_unavailable`, or `radar_unavailable` with only the reason, HTTP status, and the provider's own message, with anything key-shaped hidden | `test/worker/provider-watch.test.ts` |
 
 ### Phone numbers
@@ -277,7 +277,7 @@ engine, so a bot flood cannot turn a scam site into a "no known threat" result.
 | Visiting a submitted link | Only the shortening service's own lookup API is asked; neither the short link nor its destination is opened | `test/engine/scan-short-links.test.ts` |
 | A destination that is not a web address | Only `http` and `https` answers with a host are used; anything else counts as no answer | `test/engine/scan-short-links.test.ts` |
 | The Bitly token leaking | A Worker secret sent only to `api-ssl.bitly.com`; alerts never log codes or tokens | `test/engine/scan-short-links.test.ts`, `test/worker/provider-watch.test.ts` |
-| Running past 50 subrequests | At most 2 expansions per scan, scanner only; the worst case measured 48 | `test/worker/security.test.ts` |
+| Running past 50 subrequests | At most 2 expansions per scan, scanner only; the worst case measured 48, and 37 after the DNS and budget changes | `test/worker/security.test.ts` |
 
 ### Wallets and FCC numbers
 

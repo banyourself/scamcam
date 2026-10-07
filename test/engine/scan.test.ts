@@ -144,7 +144,7 @@ describe("scanContent", () => {
     const { scan } = options({ down: true }, { safeBrowsingKey: "key", urlhausKey: "key", scamLists: listInState("unavailable") });
     const report = await scanContent("steamcommunlty.example/tradeoffer/new", scan);
     expect(report.level).toBe("high_risk");
-    expect(report.notChecked.map((entry) => entry.reason)).toEqual(["unavailable", "unavailable", "unavailable", "unavailable", "unavailable", "unavailable"]);
+    expect(report.notChecked.map((entry) => entry.reason)).toEqual(["unavailable", "unavailable", "unavailable", "unavailable", "unavailable"]);
     expect(report.notChecked.map((entry) => entry.name)).toContain("Cloudflare security DNS (1.1.1.2)");
   });
 

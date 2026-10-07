@@ -88,7 +88,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | abuse.ch ThreatFox | The registrable domain only, from the scanner | Working with the existing abuse.ch Auth-Key; shares the abuse.ch daily budget |
 | abuse.ch URLhaus | The hostname only | Key set in production; verified live from the local dev server on 2026-10-05 (only "no results" answers seen live); capped at 5,000 calls a day |
 | RDAP | The registrable domain only | Working; cached, with back-off on 429 |
-| Cloudflare DNS over HTTPS | The hostname only | Working |
+| Cloudflare DNS over HTTPS | The hostname only, now through the 1.1.1.2 security resolver, which also gives the block result | Working |
 | MalwareBazaar (abuse.ch) | A file's SHA-256 | Working with the existing abuse.ch Auth-Key (checked locally on 2026-10-06); shares the abuse.ch daily budget |
 | CIRCL hashlookup | A file's SHA-256 | Working, no key (checked locally on 2026-10-06) |
 | Team Cymru Malware Hash Registry | A file's SHA-1, through Cloudflare DNS | Working, no key (checked locally on 2026-10-06) |
@@ -135,7 +135,7 @@ How each suite runs is in [TEST_PLAN.md](TEST_PLAN.md).
 
 | Check | Result |
 |---|---|
-| Subrequests | 6.7 per cold scan on average for the benchmark (most 13), 31 for 20 links in the engine, 44 for 20 links through the whole Worker route, 40 for 20 links in the scanner with every source on (20 fetches, 6 Spamhaus lookups, 14 queries, 2026-10-06), and 48 when two of the links are Discord invites, two Steam profiles, and two Bitly links (28 fetches, 6 Spamhaus lookups, 14 queries, 2026-10-07); 0 for a warm repeat |
+| Subrequests | 6.7 per cold scan on average for the benchmark (most 13), 31 for 20 links in the engine, 38 for 20 links through the whole Worker route (12 fetches, 20 cache calls, 6 queries), 29 for 20 links in the scanner with every source on (17 fetches, 6 Spamhaus lookups, 6 queries), and 37 when two of the links are Discord invites, two Steam profiles, and two Bitly links (25 fetches, 6 Spamhaus lookups, 6 queries), all on 2026-10-07 after merging the DNS lookups and batching budget counts; 0 for a warm repeat |
 | Slow inputs | The slowest crafted input scans in under 1 ms in Node; before the fix the worst took about 23 ms |
 | Concurrency | 16 simultaneous scans from one address: exactly 10 allowed (local simulator) |
 | Cleanup | 10,250 expired rows in one table: 10,000 removed on the first run, 250 on the next. With a backlog in every table: 11,000 rows in 26 batches, fewer than 35 queries |
@@ -196,7 +196,7 @@ duration about ten times faster than needed. Every lookup now clears its timer w
 
 ### Not verified yet
 
-- Subrequest counts are measured locally (44 for a 20-link scan in the Worker, 40 in the scanner) but not yet recorded on Cloudflare.
+- Subrequest counts are measured locally (38 for a 20-link scan in the Worker, 29 in the scanner) but not yet recorded on Cloudflare.
 - The rate limiting binding counts per Cloudflare location and is eventually consistent, so the concurrency result
   comes from the local simulator only. The live check saw a 429 within 15 scans.
 - A live Steam ban result and whether `timecreated` comes back for public profiles (Valve's current reference does

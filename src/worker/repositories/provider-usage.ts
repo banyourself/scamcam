@@ -20,13 +20,13 @@ export function usageDay(now = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
 
-export async function recordProviderCall(db: D1Database, provider: BudgetedProvider, now = new Date()): Promise<number> {
+export async function recordProviderCall(db: D1Database, provider: BudgetedProvider, now = new Date(), count = 1): Promise<number> {
   const row = await db
     .prepare(
-      "INSERT INTO provider_usage (provider, day, calls, expires_at) VALUES (?1, ?2, 1, ?3) " +
-        "ON CONFLICT (provider, day) DO UPDATE SET calls = calls + 1 RETURNING calls",
+      "INSERT INTO provider_usage (provider, day, calls, expires_at) VALUES (?1, ?2, ?4, ?3) " +
+        "ON CONFLICT (provider, day) DO UPDATE SET calls = calls + ?4 RETURNING calls",
     )
-    .bind(provider, usageDay(now), expiresAfter(retentionSeconds.providerUsage, nowInSeconds()))
+    .bind(provider, usageDay(now), expiresAfter(retentionSeconds.providerUsage, nowInSeconds()), count)
     .first<{ calls: number }>();
   return row?.calls ?? 0;
 }

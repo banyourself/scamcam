@@ -34,8 +34,9 @@ the limits below still hold for that fallback:
 - The worst crafted inputs take under 1 ms of analysis, because parsing time grows in step with input length.
 - Outside lookups are capped (one Safe Browsing request, and at most 3 hosts each for DNS, RDAP, and URLhaus), Safe
   Browsing answers are kept per hash prefix in the Worker's memory, other answers are checked in memory before the
-  shared cache, and a request may make at most 20 shared cache calls. A message with 20 links uses 44 subrequests
-  in the Worker fallback (15 fetches, 20 cache calls, 9 queries) and 24 in the scanner, which uses memory only; a
+  shared cache, and a request may make at most 20 shared cache calls. A message with 20 links uses 38 subrequests
+  in the Worker fallback (12 fetches, 20 cache calls, 6 queries) and 29 in the scanner with every source on, which
+  uses memory only; a
   repeated scan in the same instance makes no outside calls.
 - The daily cleanup shares one budget of 25 delete batches across all tables, so a run stays under 35 queries.
 
@@ -75,10 +76,12 @@ the limits below still hold for that fallback:
 | Own Protocol Buffers reader for Safe Browsing answers | Safe Browsing v5 answers only in binary Protocol Buffers. The reader is about 60 lines, rejects malformed input, and was checked against Google's live answers | `protobufjs` (a large dependency for three small messages) |
 | Own punycode decoder and Safe Browsing canonicalizer | Small, tested against RFC 3492 vectors and Google's published examples, no `nodejs_compat` needed | `punycode` package or Node compatibility mode |
 | File checks on the visitor's device, by fingerprint only | The browser reads the file (bounded reads: 64 KB head, the zip directory up to 4 MB, at most 20 MB scanned, 100 MB hashed) and sends the SHA-256 and SHA-1 fingerprints, size, detected type, extension, and fixed finding codes. The server owns every word of the report, so a caller can only choose codes, not text. No file, name, or content reaches the server, and nothing is opened or run | Uploading files to the Worker (privacy, storage, and executing untrusted input near the backend), or to a sandbox service (shares the file with a third party) |
-| ThreatFox only inside the scanner | ThreatFox adds up to 3 lookups per scan. The scanner has room for them; the Worker fallback, which already uses up to 44 of the 50 subrequests, skips them | Calling it everywhere and lowering other caps |
+| ThreatFox only inside the scanner | ThreatFox adds up to 3 lookups per scan. The scanner has room for them; the Worker fallback, which uses up to 38 of the 50 subrequests, skips them | Calling it everywhere and lowering other caps |
 | Discord and Steam only inside the scanner, read from the link's address | The invite code or profile name is in the link itself, so asking Discord's and Steam's own APIs never opens the submitted link. At most 2 of each per scan, Steam batched, answers kept an hour in memory | Opening invite or profile pages (visits submitted links), scraping (against both sites' terms) |
 | Email files read on the device | The browser parses the .eml and sends only the text a visitor could paste plus fixed facts (sender domain, SPF, DKIM, DMARC, reply-to flag, attachment types and findings), so addresses and attachments never reach the server | Uploading the email (addresses, recipients, and attachments would reach the backend) |
 | A SQLite-backed Durable Object for the scan engine | The Free plan gives Durable Objects 30 seconds of CPU per request instead of a Worker's 10 ms, 100,000 requests and 13,000 GB-s a day, and stays on Cloudflare with the same bindings and no new secrets. One named instance keeps its memory cache warm; the Worker falls back to scanning itself | Workers Paid ($5 a month), a second host such as a free VM (another vendor, secrets in two places, one machine to keep alive) |
+| One DNS lookup per host, through 1.1.1.2 | The security resolver answers normally for names it does not block, so one lookup gives both the block and whether the site exists; it saves up to 3 subrequests per scan | A separate 1.1.1.1 lookup per host |
+| Budget counts batched per moment | Calls that arrive together are counted in one D1 query, still exactly, which cut queries per scan from 14 to 6 in the scanner | Reserving budget in blocks (overcounts and shrinks the daily budgets) |
 | Cloudflare's 1.1.1.2 security resolver as a source | Free, DNS over HTTPS like the existing lookup, answers `0.0.0.0` with an extended DNS error for blocked malware and phishing hosts, receives only the hostname | Quad9 (its JSON service was retired in 2025 and its DNS over HTTPS needs HTTP/2) |
 | Decoding redirect wrappers offline | Steam's link filter, Google, Microsoft Safe Links, Proofpoint, Facebook, YouTube, Bing, and generic `?url=` style parameters are read from the link itself, so the real destination is checked without opening anything | Following redirects over the network (forbidden: ScamCam never opens submitted links) |
 | Turnstile | Free, privacy-focused, no cookie banner needed when used for security | reCAPTCHA (tracking concerns), hCaptcha |

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { memoryLookups } from "../../src/engine/cache";
-import { lookupDns } from "../../src/engine/dns";
+import { lookupHost } from "../../src/engine/dns";
 import { readLimitedJson, ResponseTooLargeError } from "../../src/engine/limited-body";
 
 function streamed(text: string, chunk = 1024): Response {
@@ -36,7 +36,7 @@ describe("limited provider responses", () => {
 
   it("treats an oversized DNS answer as no answer", async () => {
     const answers = Array.from({ length: 3000 }, (_, index) => ({ type: 1, data: `203.0.113.${index % 255}`, TTL: 60 }));
-    const result = await lookupDns("big.example", async () => streamed(JSON.stringify({ Status: 0, Answer: answers })), memoryLookups());
+    const result = await lookupHost("big.example", async () => streamed(JSON.stringify({ Status: 0, Answer: answers })), memoryLookups());
     expect(result).toEqual({ status: "unavailable" });
   });
 });

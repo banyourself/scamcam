@@ -142,7 +142,7 @@ describe("POST /api/v1/scans", () => {
     const providerCalls = (requests: { url: string }[]) => requests.filter((request) => !request.url.includes("challenges.cloudflare.com"));
     const first = await scan({ content, turnstileToken: "t" }, network, bindings, undefined, "edge");
     expect(first.response.status).toBe(200);
-    expect(providerCalls(first.fake.requests)).toHaveLength(6);
+    expect(providerCalls(first.fake.requests)).toHaveLength(5);
     const second = await scan({ content, turnstileToken: "t" }, network, bindings, undefined, "edge");
     expect(second.response.status).toBe(200);
     expect(providerCalls(second.fake.requests).map((request) => new URL(request.url).hostname)).toEqual(["safebrowsing.googleapis.com"]);

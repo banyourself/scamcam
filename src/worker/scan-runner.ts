@@ -28,16 +28,31 @@ export interface ScanOutcome {
   signature: string | null;
 }
 
-function budgetTaker(env: AppBindings) {
-  let paused: boolean | null = null;
+export function budgetTaker(env: AppBindings) {
+  let paused: Promise<boolean> | null = null;
+  const waiting = new Map<BudgetedProvider, ((allowed: boolean) => void)[]>();
+  const flush = async (provider: BudgetedProvider) => {
+    const batch = waiting.get(provider) ?? [];
+    waiting.delete(provider);
+    const limit = dailyLimit(env, provider);
+    const calls = await recordProviderCall(env.DB, provider, new Date(), batch.length).catch(() => Number.POSITIVE_INFINITY);
+    const before = calls - batch.length;
+    batch.forEach((resolve, index) => resolve(limit !== null && before + index + 1 <= limit));
+  };
   return async (provider: BudgetedProvider): Promise<boolean> => {
-    paused ??= await writesArePaused(env.DB).catch(() => true);
-    if (paused) {
+    paused ??= writesArePaused(env.DB).catch(() => true);
+    if (await paused) {
       return provider !== "workers_ai" && provider !== "phishstats";
     }
-    const limit = dailyLimit(env, provider);
-    const calls = await recordProviderCall(env.DB, provider).catch(() => Number.POSITIVE_INFINITY);
-    return limit !== null && calls <= limit;
+    return new Promise<boolean>((resolve) => {
+      const batch = waiting.get(provider);
+      if (batch) {
+        batch.push(resolve);
+        return;
+      }
+      waiting.set(provider, [resolve]);
+      setTimeout(() => void flush(provider), 0);
+    });
   };
 }
 

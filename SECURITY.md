@@ -33,7 +33,7 @@ proof, rate limits on purpose-built endpoints, and anything on `kevinle.tech` ou
 | Abuse | Rate limits of 60 API requests and 10 scans per minute per visitor, with IPv6 visitors grouped by /64, through the Workers rate limiting binding (which counts per Cloudflare location and is eventually consistent); Turnstile verification on every scan that fails closed when it is not configured; daily provider budgets counted exactly for the whole service |
 | Errors | Users see a generic message and a request ID made by the Worker; the database records only the error type and route for 7 days |
 | Logging | Only fixed fields are logged (route, status, timing, the AI's label and size, maintenance reports, alerts). Cloudflare's per-request invocation logs are off. No IP addresses, messages, or links |
-| Platform limits | Every request stays within the Workers Free plan: parsing time grows in step with input length (under 1 ms for the worst crafted inputs), and a 20-link scan uses 43 of the 50 subrequests. Both are tested |
+| Platform limits | Every request stays within the Workers Free plan: parsing time grows in step with input length (under 1 ms for the worst crafted inputs), and a 20-link scan uses at most 38 of the 50 subrequests (37 in the scanner even with Discord, Steam, and short links). Both are tested |
 | Provider answers | Read with size caps (64 KB to 1 MB), time limits, and schemas; links to a provider must be that provider's own `https` pages |
 | Monitoring | Daily and weekly reports with alerts for usage near the daily budgets, storage, failed or stuck runs, cleanup backlog, errors, and a stale list |
 | Recovery | Runbook in [docs/RECOVERY.md](docs/RECOVERY.md); a backup and restore drill runs in CI |

@@ -53,7 +53,7 @@ export const sourceNames = {
   email: "ScamCam email check",
   safeBrowsing: "Google Safe Browsing",
   rdap: "RDAP registry data",
-  dns: "DNS lookup (Cloudflare 1.1.1.1)",
+  dns: "DNS lookup (Cloudflare 1.1.1.2)",
   dnsFilter: "Cloudflare security DNS (1.1.1.2)",
   urlhaus: "URLhaus (abuse.ch)",
   threatfox: "ThreatFox (abuse.ch)",

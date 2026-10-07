@@ -3,6 +3,25 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-07: More room under the Free plan's 50 subrequests
+
+- **One DNS lookup per host instead of two.** Cloudflare's 1.1.1.2 security resolver answers normally for every name
+  it does not block, so its answer now also tells whether a site exists and where it points. The separate 1.1.1.1
+  lookup is gone, saving up to 3 subrequests per scan; a blocked site skips the existence check, since the block is
+  the stronger signal.
+- **Budget counts that arrive together share one query.** Each call to a budgeted source (Safe Browsing, URLhaus and
+  ThreatFox, PhishStats, Workers AI) used to record itself with its own D1 query. Requests that arrive in the same
+  moment are now counted together, still exactly, and URLhaus and ThreatFox look up their up to three hosts in
+  parallel so their counts arrive together. D1 queries per scan fell from 14 to 6 in the scanner and from 9 to 6 in
+  the Worker fallback.
+- **Result for a 20-link scan:** 38 subrequests in the Worker fallback (was 44), 29 in the scanner with every source on
+  (was 40), and 37 with two Discord invites, two Steam profiles, and two Bitly links (was 48).
+- Cloudflare documents that Durable Objects have "the same per invocation" limits as Workers, so each call into the
+  scanner gets its own 50. If more live sources are added later, part of a scan can run in a second scanner call
+  instead of moving to a paid plan.
+- Verified: 735 Vitest tests in 46 files and 19 Node tests pass, including new budget tests (three requests at once
+  with a limit of 2 count as 3 in one query and only two are allowed).
+
 ## 2026-10-07: Short link expansion
 
 - **Bitly, is.gd, and v.gd links now show where they lead.** The scanner asks the shortening service itself, through

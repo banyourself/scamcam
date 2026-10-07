@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cacheKey, memoryLookupCache, memoryLookups, readCached, writeCached } from "../../src/engine/cache";
-import { dohEndpoint, lookupDns } from "../../src/engine/dns";
+import { filteredDohEndpoint, lookupHost } from "../../src/engine/dns";
 import { lookupRdap, rdapBootstrapUrl } from "../../src/engine/rdap";
 import { lookupUrlhausHost, urlhausHostEndpoint } from "../../src/engine/urlhaus";
 
@@ -136,26 +136,26 @@ describe("DNS caching", () => {
     let now = 0;
     const lookups = memoryLookups(() => now);
     const network = counter(() => Response.json({ Status: 0, Answer: [{ type: 1, data: "203.0.113.5", TTL: 120 }] }));
-    await lookupDns("www.shop.example", network.fetcher, lookups);
+    await lookupHost("www.shop.example", network.fetcher, lookups);
     now += 119_000;
-    await lookupDns("www.shop.example", network.fetcher, lookups);
+    await lookupHost("www.shop.example", network.fetcher, lookups);
     expect(network.calls).toHaveLength(1);
     now += 2_000;
-    await lookupDns("www.shop.example", network.fetcher, lookups);
+    await lookupHost("www.shop.example", network.fetcher, lookups);
     expect(network.calls).toHaveLength(2);
-    expect(network.calls[0]!.startsWith(dohEndpoint)).toBe(true);
+    expect(network.calls[0]!.startsWith(filteredDohEndpoint)).toBe(true);
   });
 
   it("keeps a missing name for at least a minute and at most fifteen", async () => {
     let now = 0;
     const lookups = memoryLookups(() => now);
     const network = counter(() => Response.json({ Status: 3, Authority: [{ type: 6, data: "soa", TTL: 5 }] }));
-    expect(await lookupDns("nothing.example", network.fetcher, lookups)).toEqual({ status: "ok", exists: false, addresses: [] });
+    expect(await lookupHost("nothing.example", network.fetcher, lookups)).toEqual({ status: "ok", blocked: false, exists: false, addresses: [] });
     now += 59_000;
-    await lookupDns("nothing.example", network.fetcher, lookups);
+    await lookupHost("nothing.example", network.fetcher, lookups);
     expect(network.calls).toHaveLength(1);
     now += 2_000;
-    await lookupDns("nothing.example", network.fetcher, lookups);
+    await lookupHost("nothing.example", network.fetcher, lookups);
     expect(network.calls).toHaveLength(2);
   });
 });
