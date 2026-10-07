@@ -88,8 +88,31 @@ describe("DNS over TCP to Spamhaus", () => {
   it("gives up after its time limit and closes the connection", async () => {
     const server = fakeServer(() => []);
     const transport = tcpDnsTransport(spamhausServers, { connector: server.connector, timeoutMs: 30 });
-    expect(await transport.resolve(names)).toEqual([{ status: "failed" }, { status: "failed" }]);
+    expect(await transport.resolve(names)).toEqual([
+      { status: "failed", reason: "reply_timeout" },
+      { status: "failed", reason: "reply_timeout" },
+    ]);
     expect(server.closed()).toBe(1);
+  });
+
+  it("says which step failed: opening the connection, waiting for it, or a reply cut off", async () => {
+    const socketWith = (opened: Promise<unknown>, readable = new ReadableStream<Uint8Array>()) => ({
+      readable,
+      writable: new WritableStream<Uint8Array>(),
+      opened,
+      close: async () => undefined,
+    });
+    const refused = tcpDnsTransport(spamhausServers, { connector: () => socketWith(Promise.reject(new Error("connection refused"))) });
+    expect((await refused.resolve(names)).map((answer) => answer.status === "failed" && answer.reason)).toEqual(["connect_failed", "connect_failed"]);
+    const hanging = tcpDnsTransport(spamhausServers, { connector: () => socketWith(new Promise(() => undefined)), timeoutMs: 30 });
+    expect((await hanging.resolve(names)).map((answer) => answer.status === "failed" && answer.reason)).toEqual(["connect_timeout", "connect_timeout"]);
+    const ended = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close();
+      },
+    });
+    const closed = tcpDnsTransport(spamhausServers, { connector: () => socketWith(Promise.resolve({}), ended), timeoutMs: 500 });
+    expect((await closed.resolve(names)).map((answer) => answer.status === "failed" && answer.reason)).toEqual(["closed_early", "closed_early"]);
   });
 
   it("ignores answers with the wrong id or cut short, and stops at nonsense", async () => {
@@ -99,7 +122,10 @@ describe("DNS over TCP to Spamhaus", () => {
       Uint8Array.from([0xff, 0xff, 1, 2, 3]),
     ]);
     const transport = tcpDnsTransport(spamhausServers, { connector: server.connector, timeoutMs: 500 });
-    expect(await transport.resolve(names)).toEqual([{ status: "failed" }, { status: "failed" }]);
+    expect(await transport.resolve(names)).toEqual([
+      { status: "failed", reason: "malformed" },
+      { status: "failed", reason: "malformed" },
+    ]);
     expect(server.closed()).toBe(1);
   });
 
@@ -109,7 +135,10 @@ describe("DNS over TCP to Spamhaus", () => {
         throw new Error("connection refused");
       },
     });
-    expect(await transport.resolve(names)).toEqual([{ status: "failed" }, { status: "failed" }]);
+    expect(await transport.resolve(names)).toEqual([
+      { status: "failed", reason: "connect_failed" },
+      { status: "failed", reason: "connect_failed" },
+    ]);
     expect(await transport.resolve([])).toEqual([]);
   });
 
@@ -124,10 +153,15 @@ describe("DNS over TCP to Spamhaus", () => {
     now += 10 * 60 * 1000;
     answers[0] = { status: "answered", rcode: 0, addresses: ["127.255.255.255"] };
     await watched.resolve(names);
+    now += 10 * 60 * 1000;
+    answers[0] = { status: "failed", reason: "connect_timeout" };
+    answers[1] = { status: "answered", rcode: 3, addresses: [] };
+    await watched.resolve(names);
     const alerts = log.mock.calls.map(([line]) => JSON.parse(String(line)) as Record<string, unknown>).filter((entry) => entry.event === "alert");
-    expect(alerts.map((entry) => [entry.alert, entry.reason])).toEqual([
-      ["spamhaus_unavailable", "rcode_2"],
-      ["spamhaus_unavailable", "code_255"],
+    expect(alerts.map((entry) => [entry.alert, entry.reason, entry.answered, entry.asked])).toEqual([
+      ["spamhaus_unavailable", "rcode_2", 1, 1],
+      ["spamhaus_unavailable", "code_255", 1, 1],
+      ["spamhaus_unavailable", "connect_timeout", 1, 2],
     ]);
     expect(log.mock.calls.join(" ")).not.toContain("testkey");
   });

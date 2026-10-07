@@ -11,7 +11,9 @@ const maxDomainLength = 160;
 const memorySeconds = 60;
 const nxdomain = 3;
 
-export type DnsAnswer = { status: "answered"; rcode: number; addresses: string[] } | { status: "failed" };
+export type DnsFailure = "connect_failed" | "connect_timeout" | "write_failed" | "reply_timeout" | "closed_early" | "malformed";
+
+export type DnsAnswer = { status: "answered"; rcode: number; addresses: string[] } | { status: "failed"; reason?: DnsFailure };
 
 export interface DnsTransport {
   resolve(names: string[]): Promise<DnsAnswer[]>;

@@ -1,15 +1,16 @@
 import { connect } from "cloudflare:sockets";
 import { decodeDnsReply, encodeDnsQuery } from "../engine/dns-wire";
 import { deadline } from "../engine/deadline";
-import type { DnsAnswer, DnsTransport } from "../engine/spamhaus";
+import type { DnsAnswer, DnsFailure, DnsTransport } from "../engine/spamhaus";
 
 const maxReplyBytes = 4096;
 const maxNamesPerConnection = 16;
-const defaultTimeoutMs = 2500;
+const defaultTimeoutMs = 4000;
 
 export interface SocketLike {
   readable: ReadableStream<Uint8Array>;
   writable: WritableStream<Uint8Array>;
+  opened?: Promise<unknown>;
   close(): Promise<void>;
 }
 
@@ -54,7 +55,7 @@ export function tcpDnsTransport(servers: string[], options: TcpDnsOptions = {}):
   return {
     async resolve(names: string[]): Promise<DnsAnswer[]> {
       const asked = names.slice(0, maxNamesPerConnection);
-      const answers: DnsAnswer[] = asked.map(() => ({ status: "failed" }));
+      const answers: DnsAnswer[] = asked.map(() => ({ status: "failed", reason: "connect_failed" }));
       if (asked.length === 0 || servers.length === 0) {
         return answers;
       }
@@ -71,17 +72,29 @@ export function tcpDnsTransport(servers: string[], options: TcpDnsOptions = {}):
         timer.signal.addEventListener("abort", () => reject(new Error("timeout")), { once: true });
       });
       timedOut.catch(() => undefined);
+      let failure: DnsFailure = "connect_failed";
       let socket: SocketLike | null = null;
       try {
         socket = connector({ hostname: pickServer(servers), port: 53 });
+        if (socket.opened) {
+          failure = "connect_timeout";
+          const opened = socket.opened.catch((error: unknown) => {
+            failure = "connect_failed";
+            throw error;
+          });
+          await Promise.race([opened, timedOut]);
+        }
+        failure = "write_failed";
         const writer = socket.writable.getWriter();
         await Promise.race([writer.write(framed), timedOut]);
         writer.releaseLock();
+        failure = "reply_timeout";
         const reader = socket.readable.getReader();
         let buffer: Uint8Array = new Uint8Array(0);
         while (pending.size > 0) {
           const { value, done } = await Promise.race([reader.read(), timedOut]);
           if (done || !value) {
+            failure = "closed_early";
             break;
           }
           buffer = join([buffer, value]);
@@ -104,16 +117,17 @@ export function tcpDnsTransport(servers: string[], options: TcpDnsOptions = {}):
             }
           }
           if (malformed || buffer.length > maxReplyBytes + 2) {
+            failure = "malformed";
             break;
           }
         }
       } catch {
-        return answers;
+        return answers.map((answer) => (answer.status === "failed" ? { status: "failed", reason: failure } : answer));
       } finally {
         timer.clear();
         socket?.close().catch(() => undefined);
       }
-      return answers;
+      return answers.map((answer) => (answer.status === "failed" ? { status: "failed", reason: failure } : answer));
     },
   };
 }

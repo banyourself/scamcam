@@ -14,7 +14,7 @@ const alertEveryMs = 10 * 60 * 1000;
 
 function problemWith(answer: DnsAnswer): string | null {
   if (answer.status === "failed") {
-    return "no_answer";
+    return answer.reason ?? "no_answer";
   }
   if (answer.rcode !== 0 && answer.rcode !== 3) {
     return `rcode_${answer.rcode}`;
@@ -27,11 +27,13 @@ export function watchedTransport(transport: DnsTransport, clock: () => number = 
   let lastAlert = Number.NEGATIVE_INFINITY;
   return {
     async resolve(names) {
+      const started = clock();
       const answers = await transport.resolve(names);
       const reason = answers.map(problemWith).find((problem) => problem !== null);
       if (reason && clock() - lastAlert >= alertEveryMs) {
         lastAlert = clock();
-        logEvent("alert", { task: "scan", alert: "spamhaus_unavailable", reason });
+        const answered = answers.filter((answer) => answer.status === "answered").length;
+        logEvent("alert", { task: "scan", alert: "spamhaus_unavailable", reason, answered, asked: answers.length, ms: clock() - started });
       }
       return answers;
     },
