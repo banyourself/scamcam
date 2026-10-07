@@ -38,7 +38,7 @@
 | Config | `node --test` | Node 24+ | `npm run test:config` |
 | Types | `tsc -b` with strict settings | | `npm run typecheck` |
 | Build | Vite with the Cloudflare plugin | | `npm run build` |
-| Supply chain | `npm audit --audit-level=high`, `npm audit signatures`, a CycloneDX SBOM artifact, Gitleaks, and a config test that every GitHub Action is pinned to a commit | CI | |
+| Supply chain | `npm audit --audit-level=high`, `npm audit signatures`, a CycloneDX SBOM artifact, Gitleaks (its default rules, skipping only `test/fixtures/heldout-domains.ts`, whose public phishing domain names can look like keys), and a config test that every GitHub Action is pinned to a commit | CI | |
 
 CI runs all of these on every push and pull request (`.github/workflows/ci.yml`).
 

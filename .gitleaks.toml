@@ -1,0 +1,8 @@
+title = "ScamCam"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Public phishing domain names sampled from Phishing.Database for the benchmark"
+paths = ['''^test/fixtures/heldout-domains\.ts$''']
