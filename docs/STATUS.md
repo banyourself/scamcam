@@ -43,7 +43,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | More scam lists | 2026-10-06 | MetaMask, ScamSniffer, PhishDestroy, DevSpen's Discord and Steam list, and CERT Polska, next to Phishing.Database, checked in two D1 queries |
 | Spamhaus, PhishStats, Cloudflare Radar | 2026-10-06 | In the scanner; each starts once its secret is set |
 | Phone numbers and callback scams | 2026-10-06 | Fake order and voicemail callback rules, and US numbers compared with a hashed copy of the FTC's Do Not Call reports, never sent anywhere |
-| Discord invites and Steam accounts | 2026-10-07 | In the scanner. Steam works live (key set 2026-10-07). Discord answered 429 to the first live lookup because Workers share addresses; it needs the optional `DISCORD_BOT_TOKEN` |
+| Discord invites and Steam accounts | 2026-10-07 | In the scanner. Both work live: Steam with `STEAM_WEB_API_KEY`, and Discord with `DISCORD_BOT_TOKEN`, after the first lookup without a token answered 429 because Workers share addresses |
 | Scam wallets and FCC numbers | 2026-10-07 | ScamSniffer's scam wallets and the FCC's unwanted-call complaint numbers as hashed lists in D1; both caught in live scans on 2026-10-07 |
 | Email files | 2026-10-07 | A saved .eml is read on the device; only its text, the sender's domain, the sender check results, and attachment types and findings are sent |
 | More file types | 2026-10-07 | Browser extensions and their permissions, PyInstaller programs, remote shortcuts, startup .reg files, .appinstaller and MSIX, CHM, and Roblox model backdoors |
@@ -97,7 +97,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | Spamhaus DQS (DBL and ZRD) | The registrable domain inside the query name, through Cloudflare's DNS over HTTPS resolver | Working: a live scan of `dbltest.com` on 2026-10-06 showed Spamhaus's spam listing. Direct TCP to Spamhaus's servers is blocked by Cloudflare in production, which is why lookups use Cloudflare's resolver |
 | PhishStats | The registrable domain, or the exact host for shared hosting | Working: a live scan of a reported `pages.dev` site on 2026-10-06 showed its PhishStats report. Shared hosting lookups use a "starts with" search (0.2 s), since a "contains" search took 5.4 s; capped at 140 calls a day |
 | Cloudflare Radar | The registrable domain only | Token set on 2026-10-06; confirmed live with a scan of `wikipedia.org` |
-| Discord invite endpoint | The invite code only, from the scanner | Works from my computer (a real invite answers with the server and `VERIFIED`, an unknown one with 404), but answered 429 from Cloudflare on 2026-10-07. Waits for `DISCORD_BOT_TOKEN` |
+| Discord invite endpoint | The invite code only, from the scanner, with ScamCam's bot token | Working: a live scan of `discord.gg/minecraft` on 2026-10-07 showed "Discord has verified this server". Without the token, the first live lookup answered 429 |
 | Steam Web API | The profile name or account number only, from the scanner | Key set on 2026-10-07; a live scan of a real profile reached Steam without errors |
 | ScamSniffer scam wallets and FCC consumer complaints | Nothing from visitors; the sync downloads them | Synced to production on 2026-10-07 (4,599 wallets, 28,734 numbers); both matched in live scans |
 | Workers AI (`@cf/qwen/qwen3-30b-a3b-fp8`) | The redacted message with links replaced by `[link]` | On, capped at 2,000 calls a day |
@@ -110,7 +110,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 | Where | Names |
 |---|---|
 | Worker secrets (production) | `TURNSTILE_SECRET_KEY`, `SAFE_BROWSING_API_KEY`, and `URLHAUS_AUTH_KEY`, which I typed in myself at launch, and `SHARE_SIGNING_KEY` for share links and flags ([DEPLOYMENT.md](DEPLOYMENT.md), step 8) |
-| Worker secrets for the extra sources | `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`, which I typed in myself on 2026-10-06 ([DEPLOYMENT.md](DEPLOYMENT.md), step 11), `STEAM_WEB_API_KEY` (2026-10-07, step 12), and `DISCORD_BOT_TOKEN`, not set yet |
+| Worker secrets for the extra sources | `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`, which I typed in myself on 2026-10-06 ([DEPLOYMENT.md](DEPLOYMENT.md), step 11), `STEAM_WEB_API_KEY` and `DISCORD_BOT_TOKEN` (both 2026-10-07, step 12) |
 | GitHub secrets | `CLOUDFLARE_D1_TOKEN` (D1 Edit only) and `CLOUDFLARE_ACCOUNT_ID` |
 | GitHub variable | `PHISHING_DATABASE_SYNC=enabled` |
 | Local | `.dev.vars`, ignored by git; `.dev.vars.example` holds only Cloudflare's public Turnstile test keys, a local-only signing key, and empty placeholders |
@@ -192,15 +192,12 @@ duration about ten times faster than needed. Every lookup now clears its timer w
 5. Ask abuse.ch (contact form) to confirm that showing per-lookup results with credit is fine, and ask Team Cymru
    (support@cymru.com) the same for the Malware Hash Registry.
 6. Review flags with `npm run flags` whenever the weekly report raises `flags_waiting`.
-7. Create a Discord bot token and set `DISCORD_BOT_TOKEN`, then confirm a live scan of `discord.gg/minecraft` shows
-   "Discord has verified this server".
 
 ### Not verified yet
 
 - Subrequest counts are measured locally (44 for a 20-link scan in the Worker, 40 in the scanner) but not yet recorded on Cloudflare.
 - The rate limiting binding counts per Cloudflare location and is eventually consistent, so the concurrency result
   comes from the local simulator only. The live check saw a 429 within 15 scans.
-- Discord lookups with a bot token from Cloudflare's addresses. Without one, the first live lookup answered 429.
 - A live Steam ban result and whether `timecreated` comes back for public profiles (Valve's current reference does
   not show it; reports skip the account age when it is missing).
 - A live URLhaus match. Only "no results" answers have been seen live; matches are tested with a fake server.

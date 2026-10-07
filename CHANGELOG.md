@@ -13,8 +13,8 @@ state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
   this email", and the test email is Suspicious.
 - **Discord answered "You are being rate limited" (429) to the first live lookup.** Cloudflare Workers share outgoing
   addresses, and Discord limits requests without a login per address. The invite lookup can now send an optional bot
-  token (`DISCORD_BOT_TOKEN`), which Discord limits per bot instead. Until one is set, reports keep saying Discord did
-  not respond.
+  token (`DISCORD_BOT_TOKEN`), which Discord limits per bot instead. With the token set, a live scan of
+  `discord.gg/minecraft` showed "Discord has verified this server".
 - **Steam.** A clean account now shows "Steam shows no bans on this account" (with its age when the profile is public),
   so a working check is visible. A live scan of a real profile on 2026-10-07 reached Steam without errors.
 - **abuse.ch.** URLhaus did not respond once in a live scan while ThreatFox, with the same key, did. URLhaus,
