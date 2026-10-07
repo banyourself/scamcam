@@ -4,5 +4,6 @@ title = "ScamCam"
 useDefault = true
 
 [allowlist]
-description = "Public phishing domain names sampled from Phishing.Database for the benchmark"
-paths = ['''^test/fixtures/heldout-domains\.ts$''']
+description = "Public phishing domain names in the benchmark, and a placeholder test key that was in the history briefly"
+regexes = ['''^testkey0123456789abcdefgh$''']
+paths = ['''(?:^|[\\/])test[\\/]fixtures[\\/]heldout-domains\.ts$''']
