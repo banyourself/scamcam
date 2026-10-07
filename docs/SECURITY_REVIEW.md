@@ -196,3 +196,23 @@ The scan engine moved into the `Scanner` Durable Object, and five checks were ad
 | A screenshot of an official-looking link | Links read from a picture never count as official; links decoded from a QR code still do | Same file and the browser check |
 | Lowering a result with the new `fromScreenshot` field | The field is a strict boolean, and setting it can only remove "official" credit, never add any | `test/worker/scan-api.test.ts` |
 | Slow parsing of crafted link text | Both link formats use bounded patterns (shown text up to 300 characters, no nesting) on input that is already capped at 4,000 characters | Existing slow-input tests |
+
+## File checks (2026-10-06)
+
+| Threat | Protection | Test |
+|---|---|---|
+| A malicious file attacking the server | Files never reach the server. The API accepts only two fingerprints in fixed formats, a size, one of 17 types, an extension of letters and digits, and codes from a fixed list; unknown fields such as a name are refused | `test/worker/files-api.test.ts` |
+| A crafted file freezing the page | Bounded reads (64 KB head, 4 MB zip directory, 20 MB scanned, 100 MB hashed), archives never unpacked, and patterns that each character can match in only one way; a crafted comment, name, form, and command test runs well under the 1.5 s limit | `test/client/file-inspect.test.ts` |
+| A file executing on the visitor's computer | ScamCam only reads bytes; nothing is opened, rendered, or run, and the file name is shown as text | Code review |
+| Leaking a file or its name | The browser check drops a fake program named `Invoice 2026.pdf.exe` and confirms that neither its name nor its contents appear in any request, before or after checking | `scripts/privacy-check.ts` |
+| Text from a lookup service in the report | MalwareBazaar family names and CIRCL product names are reduced to letters, digits, and simple punctuation and cut to 60 or 80 characters | Unit tests |
+| Spending the abuse.ch quota | MalwareBazaar calls share the abuse.ch daily budget with URLhaus, file checks share the 10-a-minute scan limit and need Turnstile, and answers are cached | `test/engine/file-scan.test.ts` |
+
+## ThreatFox, list dates, and abuse.ch links (2026-10-06)
+
+| Issue | Change | Test |
+|---|---|---|
+| abuse.ch's website terms (section 11) allow links to home pages only, but URLhaus evidence linked to host pages | URLhaus, ThreatFox, and MalwareBazaar evidence now links to each platform's home page | `test/engine/scan.test.ts` |
+| A stalled upstream list looked fresh, because age was counted from ScamCam's own sync time | The sync records the upstream commit time; reports name the list date after a day, alerts start after 2 days, and the list is not used after 7 | `test/worker/domain-lists.test.ts`, `test/worker/maintenance.test.ts` |
+| Phishing.Database lists `l.instagram.com`, Instagram's own redirect, so any Instagram link looked like phishing | List matches on redirect services and decoded wrappers are context only; the destination is checked instead | `test/engine/scan.test.ts` |
+| Text from ThreatFox in reports | Malware names and threat types are reduced to letters, digits, and simple punctuation and cut short | Unit tests |

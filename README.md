@@ -11,7 +11,8 @@ people not knowing what to look for, so every report explains what ScamCam found
 
 ## What it does
 
-Paste a suspicious link or message, or drop in a screenshot, and ScamCam returns a report with:
+Paste a suspicious link or message, drop in a screenshot, or pick a file someone sent you, and ScamCam returns a
+report with:
 
 - a risk level, from **confirmed malicious** to **no known threat detected**, always written in words,
 - the evidence behind it, with the independent source for each finding,
@@ -20,6 +21,8 @@ Paste a suspicious link or message, or drop in a screenshot, and ScamCam returns
 
 A clean result never means "safe". It means none of the sources knew of a problem when they were checked, and the
 report says so.
+
+Files are checked without being uploaded: the browser looks inside the file and sends only its fingerprints.
 
 Reports can be shared with a link that expires after 5, 10, or 15 minutes. The link holds the decryption key, so
 ScamCam itself cannot read what was shared.
@@ -35,21 +38,28 @@ ScamCam itself cannot read what was shared.
    scanner's safe link, are decoded so the real destination is checked. Link text that shows one address but opens
    another, like Discord's `[rockstargames.com](https://another-site.example)` trick, is flagged, and a link read from
    a screenshot never counts as official, because a picture cannot show where a link really goes.
-3. **Ask independent sources.** Google Safe Browsing, Cloudflare's 1.1.1.2 security filter, abuse.ch URLhaus, the
+3. **Ask independent sources.** Google Safe Browsing, Cloudflare's 1.1.1.2 security filter, abuse.ch URLhaus and ThreatFox, the
    Phishing.Database community list, RDAP registry data for domain age, and DNS. Lookups are passive: ScamCam never
    opens a submitted link.
 4. **Check the message.** Rules for the scripts scammers use, such as login code requests, QR code logins, cookie
    theft, fake "verify you are human" steps that make you paste a command, crypto wallet drainers, fake middlemen,
    fake staff, payment pressure, and vote scams. A message that names Steam or Discord but links somewhere else is
    flagged too.
-5. **AI only as a last resort.** If the rules and sources cannot decide, a small open model (Qwen3 on Workers AI)
+5. **Check files on the device.** A file's real type comes from its contents, not its name, and the browser looks
+   for disguised endings, macros, PDF actions, fake login pages, and programs inside archives. Its SHA-256 and SHA-1
+   fingerprints are looked up in MalwareBazaar, CIRCL hashlookup, and Team Cymru's Malware Hash Registry, and the
+   report offers a VirusTotal link the visitor can open themselves, because VirusTotal's terms do not allow showing
+   its results to others.
+6. **AI only as a last resort.** If the rules and sources cannot decide, a small open model (Qwen3 on Workers AI)
    labels the message. Its answer counts as one warning sign, never as proof. The message is passed as untrusted
    data, and messages that try to talk to checkers or AI models are flagged instead of being sent to it.
-6. **Weigh the evidence.** Independent sources count more than a single rule, contradictions lower the confidence,
+7. **Weigh the evidence.** Independent sources count more than a single rule, contradictions lower the confidence,
    and confirmed listings outrank everything else.
 
 ## Privacy and security
 
+- **Files never leave the device.** The browser reads a file without opening or running it, and only its
+  fingerprints, size, type, and fixed finding codes are sent, never the file or its name.
 - **Nothing is kept.** Submitted messages and links are checked and discarded. A report is stored only if someone
   chooses to share it, and then only encrypted, for at most 15 minutes.
 - **No accounts, trackers, ads, or analytics scripts.** ScamCam's own pages and API set no cookies.

@@ -8,6 +8,7 @@ teenagers. The design goal is to keep nothing that is not needed.
 | Data | Why | Stored? |
 |---|---|---|
 | Submitted message text | To find links and scam patterns | No. Processed in memory and discarded |
+| A file the visitor checks | To find its real type and warning signs, and to look up its fingerprints | Never uploaded. The browser sends only SHA-256 and SHA-1 fingerprints, size, type, extension, and fixed finding codes. Nothing is stored; lookup answers are cached in memory for up to a day under hashed keys |
 | Submitted URL | To check its domain and reputation | Not raw. Only a keyed hash or the registrable domain when an indicator must be cached |
 | IP address | Rate limiting, Turnstile | Not by ScamCam. Passed to the Cloudflare rate limiter and Turnstile, which do not store it for us |
 | Request metadata | Debugging | Worker logs keep method, route, status, duration, and a request ID made by the Worker for 3 days. No IP, no URL, no query. Cloudflare's own per-request invocation logs are turned off |
@@ -27,6 +28,10 @@ history, screenshots, cookies other than strictly necessary security cookies fro
 | abuse.ch URLhaus | The hostname only (for example `login.example.com`) | Up to 3 hosts per scan, when a key is set |
 | Domain registries (RDAP) | The registrable domain only (for example `example.com`) | Up to 3 per scan |
 | Cloudflare DNS over HTTPS | The hostname only | Up to 3 per scan |
+| ThreatFox (abuse.ch) | The registrable domain only | Up to 3 per scan, only in the scanner |
+| MalwareBazaar (abuse.ch) | A file's SHA-256 only | Each file check with a fingerprint, when a key is set |
+| CIRCL hashlookup | A file's SHA-256 only | Each file check with a fingerprint |
+| Team Cymru Malware Hash Registry, through Cloudflare DNS | A file's SHA-1 only | Each file check with a fingerprint |
 | Cloudflare 1.1.1.2 security DNS | The hostname only | Up to 3 per scan |
 | Cloudflare Turnstile | The Turnstile token and the visitor's IP address | Every scan |
 | Workers AI | The message with emails, phone numbers, long codes, and invisible characters removed and links replaced by `[link]`; names and usernames stay | Only when the rules cannot decide and the message does not try to instruct checkers; Cloudflare says it does not store this content or use it to train models |

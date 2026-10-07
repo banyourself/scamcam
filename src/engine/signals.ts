@@ -37,11 +37,13 @@ export const strengthPoints: Record<Strength, number> = { critical: 6, strong: 4
 export const sourceNames = {
   domain: "ScamCam domain check",
   message: "ScamCam message rules",
+  file: "ScamCam file check (on your device)",
   safeBrowsing: "Google Safe Browsing",
   rdap: "RDAP registry data",
   dns: "DNS lookup (Cloudflare 1.1.1.1)",
   dnsFilter: "Cloudflare security DNS (1.1.1.2)",
   urlhaus: "URLhaus (abuse.ch)",
+  threatfox: "ThreatFox (abuse.ch)",
   phishingDatabase: "Phishing.Database (community list)",
   ai: "AI pattern check (Workers AI)",
 } as const;

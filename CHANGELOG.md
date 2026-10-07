@@ -3,6 +3,34 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-06: File checks, ThreatFox, and list fixes
+
+- **Check a file.** A new button (or paste, or drop) reads a file on the visitor's device without opening or running it.
+  It finds the real type from the contents (Windows programs and libraries, installers, shortcuts, scripts, Android
+  and Java apps, Mac and Linux programs, disk images, archives, Office documents, PDFs, web pages, SVG images) and
+  looks for disguised names (`photo.jpg.exe`, padded names, text direction tricks), Office macros, PDF Launch actions
+  and JavaScript, fake login pages and hidden downloads in web pages, code in SVG images, password-protected archives,
+  and programs inside archives, which are listed without unpacking.
+- Only the SHA-256 and SHA-1 fingerprints, size, type, extension, and fixed finding codes are sent (`POST
+  /api/v1/files`), never the file or its name. The scanner looks the fingerprints up in MalwareBazaar (the existing
+  abuse.ch key), CIRCL hashlookup, and Team Cymru's Malware Hash Registry through Cloudflare DNS. File reports show
+  the fingerprint with a VirusTotal link the visitor opens themselves, because VirusTotal's terms forbid showing its
+  results to others.
+- **ThreatFox** (abuse.ch) now checks link domains for malware control servers and download sites, inside the scanner
+  only.
+- **List date.** The upstream Phishing.Database project has published nothing since 2026-10-02, yet the copy looked
+  fresh because its age counted from ScamCam's sync. Age now counts from the upstream commit: reports name the date
+  after a day, an alert fires after 2 days, and the list stops being used after 7.
+- **Redirect services on lists.** Phishing.Database lists `l.instagram.com`, Instagram's own link redirect. Matches on
+  redirect services now count only as context, and the real destination is checked.
+- **abuse.ch links.** abuse.ch's website terms allow links to home pages only, so URLhaus, ThreatFox, and MalwareBazaar
+  evidence now links to each home page.
+- The browser privacy check no longer crashes when Chrome closes while a worker request is pending, and a new step
+  drops a fake `Invoice 2026.pdf.exe` and confirms its name and contents never reach any server.
+- Verified: 559 Vitest tests in 33 files, 14 Node tests, the accessibility audit, and the browser privacy check pass.
+  Against the real services, the EICAR test file's fingerprints came back confirmed by Team Cymru (100% of engines)
+  and CIRCL, and MalwareBazaar answered with no sample on record.
+
 ## 2026-10-06: Hidden link text and screenshot links
 
 - Link text that shows one address but opens another, like Discord's `[rockstargames.com/gift](https://gta2026.net)`

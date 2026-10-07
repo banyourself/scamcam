@@ -75,9 +75,12 @@ setting would change `kevinle.tech` and needs my approval.
 
 ### The list sync fails
 
-The workflow fails visibly in GitHub Actions and can be rerun by hand. Reports stop using a copy older than 3 days,
-the weekly report raises `phishing_list_stale`, and the daily cleanup deletes a copy 7 days after its last sync. A sync
-that stops partway leaves a mix of old and new shards that still answers correctly (tested).
+The workflow fails visibly in GitHub Actions and can be rerun by hand. A copy's age counts from the time its source
+commit was published, not from when ScamCam copied it, so a stalled upstream project shows up the same way as a failed
+sync. Reports say how old a copy is once it is more than a day old, the weekly report raises `phishing_list_stale`
+after 2 days, reports stop using a copy after 7 days, and the daily cleanup deletes it after 10. GitHub runs scheduled
+workflows on a best-effort basis, so a sync can start hours late. A sync that stops partway leaves a mix of old and new
+shards that still answers correctly (tested).
 
 ### Storage is nearly full
 
@@ -98,7 +101,7 @@ them for 90 days.
 | `maintenance_stuck` | A run has said "running" for more than 6 hours |
 | `cleanup_backlog_<table>` | The daily cleanup used its budget of 25 delete batches (500 rows each, shared by all tables) before it finished that table; the rest is deleted on the next runs |
 | `errors_high` | At least 50 errors in the last 7 days |
-| `phishing_list_stale` | The list copy is more than 3 days old |
+| `phishing_list_stale` | The list's source data is more than 2 days old, whether the sync failed or the upstream project stopped publishing |
 | `scanner_unavailable` | A scan could not reach the Scanner Durable Object, so the Worker ran it itself; scans still work, but repeated alerts mean the scanner or its free quota needs a look |
 | `share_cleanup_failed` | The 5-minute cleanup of expired share links failed; reads still refuse expired links |
 | `rows_missing_expiry` | A row has no expiry, so cleanup would never delete it |

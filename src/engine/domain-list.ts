@@ -1,7 +1,8 @@
 export const domainListShardCount = 1024;
 export const domainListKeyBytes = 8;
-export const domainListStaleAfterSeconds = 3 * 24 * 60 * 60;
-export const domainListKeepSeconds = 7 * 24 * 60 * 60;
+export const domainListStaleAfterSeconds = 7 * 24 * 60 * 60;
+export const domainListAlertAfterSeconds = 2 * 24 * 60 * 60;
+export const domainListKeepSeconds = 10 * 24 * 60 * 60;
 
 export type DomainListName = "phishing_database";
 

@@ -14,6 +14,7 @@ export function PrivacyPage() {
         <li>No accounts, ads, analytics, or tracking.</li>
         <li>What you paste is checked and then thrown away. It is not saved unless you choose to share a report.</li>
         <li>Screenshots are read on your own device and are never uploaded.</li>
+        <li>Files you check stay on your device. Only their fingerprints are sent, never the file or its name.</li>
         <li>ScamCam does not save your IP address.</li>
         <li>Nothing is sold or shared for marketing, ever.</li>
       </ul>
@@ -56,6 +57,11 @@ export function PrivacyPage() {
             <td>Never uploaded or stored. The text it reads is shown to you first, then checked like a typed message. Hidden photo details, such as where a photo was taken, never leave your device</td>
           </tr>
           <tr>
+            <td>A file you choose to check</td>
+            <td>Your browser reads it on your device to find its real type and any warning signs, and works out its SHA-256 and SHA-1 fingerprints</td>
+            <td>Never uploaded. Only the fingerprints, the size, the type, the file ending, and fixed codes for what was found are sent, never the file, its contents, or its name. Lookup answers are kept for up to a day under a scrambled key</td>
+          </tr>
+          <tr>
             <td>The message with emails, phone numbers, long codes, links, and invisible characters removed (names and usernames stay)</td>
             <td>Only when ScamCam&apos;s own rules cannot decide, a small AI model on Cloudflare (Workers AI) reads it to look for scam patterns</td>
             <td>Not stored. ScamCam remembers only the model&apos;s one-word answer, in memory, for up to an hour</td>
@@ -67,7 +73,7 @@ export function PrivacyPage() {
           </tr>
           <tr>
             <td>The name of the website in a link, such as example.com</td>
-            <td>To look up how old the domain is (domain registries), whether it exists (Cloudflare DNS), whether Cloudflare&apos;s security filter blocks it (Cloudflare 1.1.1.2), and whether it is known for malware (URLhaus)</td>
+            <td>To look up how old the domain is (domain registries), whether it exists (Cloudflare DNS), whether Cloudflare&apos;s security filter blocks it (Cloudflare 1.1.1.2), and whether it is known for malware (URLhaus and ThreatFox)</td>
             <td>The answers are kept for 1 minute to 1 day under a scrambled key, so the name itself is not stored</td>
           </tr>
           <tr>
@@ -108,7 +114,7 @@ export function PrivacyPage() {
           <strong>Google Safe Browsing</strong> receives only short scrambled fingerprints, never the link itself.
         </li>
         <li>
-          <strong>Domain registries, Cloudflare DNS (1.1.1.1 and its 1.1.1.2 security filter), and URLhaus (abuse.ch)</strong> receive only the website name, for
+          <strong>Domain registries, Cloudflare DNS (1.1.1.1 and its 1.1.1.2 security filter), and URLhaus and ThreatFox (abuse.ch)</strong> receive only the website name, for
           example <em>login.example.com</em>, never the rest of the link or your message.
         </li>
         <li>
@@ -116,6 +122,11 @@ export function PrivacyPage() {
           emails, phone numbers, long codes, links, and invisible characters removed. Names and usernames are not removed.
           Cloudflare says it does not use this content to train AI models, and keeps it only when a site also stores it in
           another Cloudflare service, which ScamCam does not.
+        </li>
+        <li>
+          <strong>MalwareBazaar (abuse.ch), CIRCL hashlookup, and Team Cymru&apos;s Malware Hash Registry</strong> receive only
+          the fingerprints of a file you choose to check, never the file, its name, or your IP address. Team Cymru is asked
+          through Cloudflare DNS.
         </li>
         <li>
           <strong>Phishing.Database</strong> is a public list of phishing sites. ScamCam keeps a scrambled copy and checks

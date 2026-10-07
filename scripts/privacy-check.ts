@@ -409,6 +409,69 @@ const screenshotScript = `(() => {
   };
 })()`;
 
+const fileScript = `(() => {
+  window.__stageFile = () => {
+    const bytes = new Uint8Array(4096);
+    bytes.set([0x4d, 0x5a]);
+    bytes.set([0x80, 0, 0, 0], 0x3c);
+    bytes.set([0x50, 0x45, 0, 0], 0x80);
+    bytes.set([0x02, 0x01], 0x80 + 22);
+    bytes.set(new TextEncoder().encode("fingerprint-probe-content"), 2048);
+    const file = new File([bytes], "Invoice 2026.pdf.exe", { type: "application/octet-stream" });
+    const data = new DataTransfer();
+    data.items.add(file);
+    document.querySelector("textarea").dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  };
+})()`;
+
+async function checkFileCheck(): Promise<string[]> {
+  return withChrome(async (cdp) => {
+    const failures: string[] = [];
+    const requests: SeenRequest[] = [];
+    cdp.on("Network.requestWillBeSent", (params) => {
+      requests.push(params.request as SeenRequest);
+    });
+    await cdp.send("Network.enable");
+    await openPage(cdp, base, "/");
+    await cdp.evaluate(fileScript);
+    await cdp.evaluate("window.__stageFile()");
+    const card = `document.querySelector('section[aria-label="File to check"]')?.textContent ?? ""`;
+    try {
+      await waitFor(cdp, `${card}.includes("Windows program (.exe)")`);
+    } catch {
+      failures.push(`the file was not looked at on the device (${JSON.stringify((await cdp.evaluate<string>(card)).slice(0, 160))})`);
+    }
+    const leaked = (request: SeenRequest) => ["fingerprint-probe-content", "Invoice 2026", "Invoice%202026"].some((trace) => request.url.includes(trace) || (request.postData ?? "").includes(trace));
+    if (requests.some((request) => request.url === `${base}/api/v1/files`)) {
+      failures.push("the file was checked before the button was pressed");
+    }
+    let checked = false;
+    if (!live) {
+      const before = requests.length;
+      await waitFor(cdp, `[...document.querySelectorAll("button")].some((button) => button.textContent === "Check this file" && !button.disabled)`);
+      await cdp.evaluate(`[...document.querySelectorAll("button")].find((button) => button.textContent === "Check this file").click()`);
+      await waitFor(cdp, `document.querySelector("section[aria-label=Report] #report-heading") || document.querySelector("[role=alert]")`);
+      const report = await cdp.evaluate<string>(`document.querySelector("section[aria-label=Report]")?.textContent ?? document.querySelector("[role=alert]")?.textContent ?? ""`);
+      if (!report.includes("Hides its real type behind a fake ending")) {
+        failures.push(`the file report missed the disguised ending (${report.replace(/\s+/g, " ").slice(0, 300)})`);
+      }
+      const sent = requests.slice(before).find((request) => request.url === `${base}/api/v1/files`);
+      const fields = Object.keys(JSON.parse(sent?.postData ?? "{}") as Record<string, unknown>).sort();
+      if (fields.join(",") !== "extension,findings,kind,sha1,sha256,size,turnstileToken") {
+        failures.push(`the file check sent unexpected fields: ${fields.join(", ") || "none"}`);
+      }
+      checked = true;
+    }
+    for (const request of requests) {
+      if (leaked(request)) {
+        failures.push(`the file's name or contents reached ${new URL(request.url).origin}`);
+      }
+    }
+    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  a file looked at on the device${checked ? " and checked by fingerprint only" : ""}, with no name or contents sent`);
+    return failures;
+  });
+}
+
 async function checkScreenshots(): Promise<string[]> {
   return withChrome(async (cdp) => {
     const failures: string[] = [];
@@ -420,7 +483,10 @@ async function checkScreenshots(): Promise<string[]> {
     cdp.on("Target.attachedToTarget", (params) => {
       const sessionId = params.sessionId as string;
       workers.push((params.targetInfo as { url: string }).url);
-      void cdp.send("Network.enable", {}, sessionId).then(() => cdp.send("Runtime.runIfWaitingForDebugger", {}, sessionId));
+      void cdp
+        .send("Network.enable", {}, sessionId)
+        .then(() => cdp.send("Runtime.runIfWaitingForDebugger", {}, sessionId))
+        .catch(() => undefined);
     });
     await cdp.send("Network.enable");
     await cdp.send("Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
@@ -559,7 +625,7 @@ async function checkLiveApi(): Promise<string[]> {
 
 async function main(): Promise<void> {
   if (live) {
-    const failures = [...(await checkHeaders()), ...(await checkLiveApi()), ...(await checkBrowser()), ...(await checkScreenshots())];
+    const failures = [...(await checkHeaders()), ...(await checkLiveApi()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck())];
     report(failures);
     return;
   }
@@ -567,7 +633,7 @@ async function main(): Promise<void> {
   const failures = checkBundle();
   const server = await preview({ preview: { port, strictPort: true, host: "127.0.0.1", cors: false }, logLevel: "error" });
   try {
-    failures.push(...(await checkHeaders()), ...(await checkBrowser()), ...(await checkScreenshots()));
+    failures.push(...(await checkHeaders()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck()));
   } finally {
     await new Promise<void>((resolve) => server.httpServer.close(() => resolve()));
   }

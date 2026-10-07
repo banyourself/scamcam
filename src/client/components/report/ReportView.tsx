@@ -52,6 +52,24 @@ export function ReportView({ report }: { report: ScanReport }) {
             Registered domain: <span className="font-mono text-ink">{report.subject.registrableDomain}</span>
           </p>
         )}
+        {report.subject.fingerprint && (
+          <div className="mt-2 text-sm text-ink-soft">
+            <p>
+              SHA-256: <span className="break-all font-mono text-ink">{report.subject.fingerprint}</span>
+            </p>
+            <p className="mt-1">
+              <a
+                href={`https://www.virustotal.com/gui/file/${report.subject.fingerprint}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4"
+              >
+                Look it up on VirusTotal yourself
+              </a>{" "}
+              (opens VirusTotal, which then learns this fingerprint; ScamCam does not send it there).
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="border-t border-rule px-5 py-4">

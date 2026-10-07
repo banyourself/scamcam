@@ -21,9 +21,10 @@ export const ScanReportSchema = z.object({
   caseNumber: z.string(),
   createdAt: z.iso.datetime(),
   subject: z.object({
-    kind: z.enum(["url", "message"]),
+    kind: z.enum(["url", "message", "file"]),
     display: z.string(),
     registrableDomain: z.string().optional(),
+    fingerprint: z.string().regex(/^[0-9a-f]{64}$/).optional(),
   }),
   level: RiskLevelSchema,
   confidence: z.enum(["low", "medium", "high"]),

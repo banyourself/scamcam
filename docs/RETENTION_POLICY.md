@@ -14,8 +14,10 @@ This is ScamCam's written retention schedule (also required by the 2025 COPPA am
 | Maintenance run records | 90 days | `maintenance_runs.expires_at`, daily cleanup |
 | Provider call counts (no content, one row per provider per day) | 35 days | `provider_usage.expires_at`, daily cleanup |
 | Provider answers (Safe Browsing, URLhaus, RDAP, DNS, security DNS) | The source's rule: Google's `cacheDuration`, 15 minutes, 1 to 24 hours, or the DNS TTL (at least 5 minutes for security DNS) | Scanner or Worker memory and Cache API expiry, with a stored expiry time checked on every read; Safe Browsing answers and everything in the scanner stay in memory only |
+| Files a visitor checks | Never uploaded or stored | The browser sends only fingerprints and finding codes; a test checks that no name or content reaches any server |
+| File lookup answers (MalwareBazaar, CIRCL hashlookup, Team Cymru) | 15 minutes to 1 day, in the scanner's memory only, under hashed keys | Scanner memory |
 | AI answers (one label) | 1 hour, in memory only | Worker memory |
-| Phishing.Database copy (hashed keys) | Replaced daily; deleted 7 days after the last sync; not used after 3 days | `domain_lists.expires_at`, `domain_list_shards.expires_at`, daily cleanup |
+| Phishing.Database copy (hashed keys) | Replaced daily; not used once its source data is 7 days old; deleted after 10 days | `domain_lists.expires_at`, `domain_list_shards.expires_at`, daily cleanup |
 | Unreviewed voluntary reports | 7 days | Planned, not built |
 | Threat intelligence cache | Provider-defined expiry (for example Safe Browsing `cacheDuration`) | Cache API, see provider answers above |
 | Verified first-party indicators | Reviewed at least every 30 days | `review_after` column (planned with the `threat_indicators` table) |

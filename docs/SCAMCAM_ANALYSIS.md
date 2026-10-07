@@ -239,3 +239,41 @@ and a misread `https:/` is repaired.
 Each rule has tests that it fires and tests that ordinary messages stay quiet, such as asking a friend to press
 Windows+R and type `dxdiag`, an event invite that asks for a "yes", a Steam wallet balance, and an email's "paste this
 link into your browser". The AI step knows both new families.
+
+## File checks (2026-10-06)
+
+The browser decides what a file really is from its first bytes and structure, not its name: Windows programs and code
+libraries (PE headers, including whether a signature block is present), installers, shortcuts, scripts, Android
+apps, Java programs, Mac and Linux programs, disk images, archives, Office documents, PDFs, web pages, SVG images, and
+ordinary images. The server turns that into evidence:
+
+| Finding | Strength | Why |
+|---|---|---|
+| A program, script, shortcut, or installer | Strong (moderate for code libraries, Android and Java apps, Mac and Linux programs, disk images, and saved web pages) | Running files from chats is how most gaming accounts are stolen |
+| Program disguised as a document or picture (`invoice.pdf` that is really a program) | Critical | The file lies about what it is |
+| Double endings (`photo.jpg.exe`), endings pushed out of view with spaces, text direction tricks in the name | Strong | Classic ways to hide that a file runs code |
+| Office macros, a PDF Launch action, a login form or hidden download in a web page, code in an SVG | Strong | Common malware and phishing attachments |
+| JavaScript or an embedded file in a PDF, a password-protected archive | Moderate | Used to hide content from scanners |
+| A shortcut that starts PowerShell or the command prompt, a script that downloads and runs code | Critical | The usual first stage of malware |
+| A program, script, or disguised name inside an archive | Strong | Archives are read without unpacking them |
+| A Minecraft mod or plugin, a signed program, an archive that cannot be read | Context only | Advice, never a verdict on its own |
+
+Fingerprints are then looked up:
+
+| Source | Fingerprint | Result |
+|---|---|---|
+| MalwareBazaar (abuse.ch), with the existing abuse.ch Auth-Key | SHA-256 | A match confirms malware and names the family. Evidence links to the MalwareBazaar home page, because abuse.ch's website terms do not allow deep links |
+| CIRCL hashlookup | SHA-256 | A file it tags as known malware is confirmed; a file it trusts (trust score 50 or more) from NIST's NSRL and other software collections counts as found in a library of known software, a moderate point in its favor, never proof (those libraries also hold security tools) |
+| Team Cymru Malware Hash Registry, through Cloudflare DNS | SHA-1 (shorter than a DNS label; Team Cymru also accepts a SHA-256 split into two labels) | 25% or more of antivirus engines confirms malware; fewer is a strong warning |
+
+A file over 100 MB is not fingerprinted, and the report says the lists could not be checked. A file with no
+warning signs that no list knows is "No known threat detected" with medium confidence, because new malware is not in
+any list yet. A file found in CIRCL's library of known software is also medium confidence, since CIRCL warns that a
+match alone does not show a file is harmless.
+
+VirusTotal is deliberately not used: its current terms (Google SecOps Service Specific Terms, section 3) forbid
+making results accessible to anyone else and naming the antivirus engines in public, which rules out showing them to
+visitors. Hybrid Analysis, OPSWAT MetaDefender, Kaspersky OpenTIP, and MalShare were also rejected on their terms.
+
+Checked against real services on 2026-10-06: the EICAR antivirus test file came back as confirmed malware from Team
+Cymru (100% of engines) and CIRCL (tagged by malshare.com), and MalwareBazaar answered that it has no sample on record.

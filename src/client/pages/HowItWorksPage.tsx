@@ -20,6 +20,13 @@ export function HowItWorksPage() {
           can fix any misread words before anything is checked.
         </li>
         <li>
+          <strong>Look inside files on your device.</strong> If you check a file, your browser reads it without opening or
+          running it. It finds what the file really is, whatever its name says, and looks for disguised endings such as{" "}
+          <code>photo.jpg.exe</code>, Office macros, PDF actions, fake login pages, and programs inside archives. Only the
+          file&apos;s fingerprints are sent, and ScamCam looks them up in MalwareBazaar, CIRCL hashlookup, and Team Cymru&apos;s
+          Malware Hash Registry. The file itself is never uploaded.
+        </li>
+        <li>
           <strong>Look at the link itself.</strong> ScamCam finds the real domain (the part someone actually registered),
           decodes look-alike characters, and compares it with the domains Steam, Discord, Roblox, and Minecraft really use.
           If the link only passes through a redirect, such as Steam&apos;s link filter, a Google redirect, or an email
@@ -30,7 +37,8 @@ export function HowItWorksPage() {
         </li>
         <li>
           <strong>Ask independent sources.</strong> Lists of known phishing and malware sites, Google Safe Browsing,
-          Cloudflare&apos;s 1.1.1.2 security filter, how old the domain is, and its DNS records. ScamCam never opens the
+          Cloudflare&apos;s 1.1.1.2 security filter, abuse.ch&apos;s URLhaus and ThreatFox, how old the domain is, and its DNS
+          records. ScamCam never opens the
           link itself. Google works to provide the most
           accurate and up-to-date information about unsafe web resources, but it cannot guarantee that its information is
           complete and error-free: some risky sites may not be identified, and some safe sites may be identified in error.

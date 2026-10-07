@@ -1,6 +1,9 @@
 import { reviewMessage, type TextModel } from "../engine/ai-review";
 import type { Lookups } from "../engine/cache";
+import { fileReport } from "../engine/file-scan";
+import { lookupFileHashes } from "../engine/hash-lookups";
 import { scanContent, type BudgetedProvider } from "../engine/scan";
+import type { FileCheckRequest } from "../shared/file-check";
 import type { ScanReport } from "../shared/report";
 import { ScanReportSchema } from "../shared/report-schema";
 import type { AppBindings } from "./env";
@@ -14,6 +17,7 @@ export interface ScanDependencies {
   fetcher: typeof fetch;
   lookups: Lookups;
   aiModel: TextModel | null;
+  extendedLookups?: boolean;
 }
 
 export interface ScanOutcome {
@@ -74,7 +78,20 @@ export async function runScan(env: AppBindings, content: string, dependencies: S
     lookups: dependencies.lookups,
     phishingList: d1DomainList(env.DB, "phishing_database", dependencies.lookups),
     fromScreenshot,
+    extendedLookups: dependencies.extendedLookups ?? false,
   });
   const checked = ScanReportSchema.parse(report);
+  return { report: checked, signature: await signReport(checked, env.SHARE_SIGNING_KEY) };
+}
+
+export async function runFileCheck(env: AppBindings, request: FileCheckRequest, dependencies: ScanDependencies): Promise<ScanOutcome> {
+  const takeBudget = budgetTaker(env);
+  const checks = request.sha256
+    ? await lookupFileHashes(
+        { sha256: request.sha256, sha1: request.sha1 },
+        { fetcher: dependencies.fetcher, lookups: dependencies.lookups, abuseChKey: env.URLHAUS_AUTH_KEY, takeAbuseChBudget: () => takeBudget("urlhaus") },
+      )
+    : [];
+  const checked = ScanReportSchema.parse(fileReport(request, checks));
   return { report: checked, signature: await signReport(checked, env.SHARE_SIGNING_KEY) };
 }

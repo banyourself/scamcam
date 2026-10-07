@@ -85,6 +85,12 @@ const redirectors: Redirector[] = [
   { name: "href.li", domain: "href.li", read: (url) => safeDecode(url.search.slice(1)) },
 ];
 
+export function isRedirectorHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  const domain = getDomain(host) ?? host;
+  return redirectors.some((redirector) => matchesDomain(redirector.domain, domain) && (!redirector.host || redirector.host.test(host)) && !redirector.path);
+}
+
 function matchesDomain(rule: string | RegExp, domain: string): boolean {
   return typeof rule === "string" ? rule === domain : rule.test(domain);
 }

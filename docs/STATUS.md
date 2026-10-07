@@ -16,7 +16,7 @@ ScamCam has been live at https://scamcam.kevinle.tech since 2026-10-05.
 | Schedules | `17 3 * * *` (daily cleanup), `41 4 * * 1` (weekly review), and `*/5 * * * *` (expired share links) |
 | Database | D1 `scamcam` in Western North America, created at launch with all 4 migrations of that time applied; share links added migration `0005` (`shared_reports`) |
 | Turnstile | A ScamCam widget for `scamcam.kevinle.tech` only; tokens are tied to the `scan` action and the hostname |
-| Phishing.Database | Synced by a GitHub Actions workflow at 07:37 UTC; the first sync loaded 392,063 entries in 1,024 shards |
+| Phishing.Database | Synced by a GitHub Actions workflow scheduled for 07:37 UTC (GitHub started the 2026-10-06 run at 14:25 UTC); the first sync loaded 392,063 entries in 1,024 shards. The upstream project has published nothing since 2026-10-02 15:30 UTC, and its issue tracker reports its site returning 503 errors, so reports now say how old the copy is |
 | Policies | Published without draft labels; the Privacy policy takes effect on October 5, 2026 |
 | Personal site | `kevinle.tech` and `www.kevinle.tech` still answer 200 with their own pages; their DNS answers matched the baseline taken before deployment |
 | Repository | `banyourself/scamcam` on GitHub with a protected `main` branch (no force pushes or deletion, also for admins); CI jobs `check` (with the restore drill), `accessibility`, `privacy`, and `secrets` |
@@ -35,6 +35,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 |---|---|---|
 | Link and message checks | 2026-10-05 | Look-alike and punycode checks, 18 message rules in 10 scam families, Safe Browsing v5, URLhaus, RDAP, DNS, Phishing.Database, and scoring with sources and confidence (`SCAMCAM_ANALYSIS.md`) |
 | AI step | 2026-10-05 | `@cf/qwen/qwen3-30b-a3b-fp8` for messages the rules cannot decide; one label, can add a warning but never lower a result, 2,000 calls a day |
+| File checks | 2026-10-06 | "Check a file", paste, or drop: the browser finds the real type and warning signs and sends only fingerprints; MalwareBazaar, CIRCL hashlookup, and Team Cymru's Malware Hash Registry are checked ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#file-checks-2026-10-06)) |
 | Screenshot reading | 2026-10-06 | "Read a screenshot", paste, or drop: the browser reads the text (Tesseract.js 7.0.0, English `best_int` model) and any QR code (jsQR 1.4.0), inverts dark-mode screenshots first, and adds the text to the box for review |
 | Share links | 2026-10-06 | Share on a report: 5, 10, or 15 minutes (10 by default), message text only if ticked; the link opens a read-only snapshot with its expiry |
 | Scanner Durable Object | 2026-10-06 | Scans run in the `Scanner` Durable Object with 30 seconds of CPU per request; the Worker keeps the bot check, rate limits, and signing, and falls back to scanning itself |
@@ -66,9 +67,13 @@ personal site are unchanged, and the live check confirms that no analytics reque
 |---|---|---|
 | Public Suffix List (`tldts` 7.4.16) | Nothing, bundled | Working |
 | Google Safe Browsing v5 | 4-byte hash prefixes only | Key set in production; verified live from the local dev server on 2026-10-05; capped at 8,000 calls a day |
+| abuse.ch ThreatFox | The registrable domain only, from the scanner | Working with the existing abuse.ch Auth-Key; shares the abuse.ch daily budget |
 | abuse.ch URLhaus | The hostname only | Key set in production; verified live from the local dev server on 2026-10-05 (only "no results" answers seen live); capped at 5,000 calls a day |
 | RDAP | The registrable domain only | Working; cached, with back-off on 429 |
 | Cloudflare DNS over HTTPS | The hostname only | Working |
+| MalwareBazaar (abuse.ch) | A file's SHA-256 | Working with the existing abuse.ch Auth-Key (checked locally on 2026-10-06); shares the abuse.ch daily budget |
+| CIRCL hashlookup | A file's SHA-256 | Working, no key (checked locally on 2026-10-06) |
+| Team Cymru Malware Hash Registry | A file's SHA-1, through Cloudflare DNS | Working, no key (checked locally on 2026-10-06) |
 | Cloudflare 1.1.1.2 security DNS | The hostname only | Working; verified locally on 2026-10-06 against Cloudflare's own blocked test hosts |
 | Phishing.Database | Nothing from visitors; a GitHub Actions job downloads the public list | Synced; matches are a strong warning, never confirmation |
 | Workers AI (`@cf/qwen/qwen3-30b-a3b-fp8`) | The redacted message with links replaced by `[link]` | On, capped at 2,000 calls a day |
@@ -91,7 +96,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Check | Latest recorded result |
 |---|---|
-| Vitest (worker, engine, and client projects) | 517 tests in 30 files pass (2026-10-06, with hidden link text and screenshot links) |
+| Vitest (worker, engine, and client projects) | 559 tests in 33 files pass (2026-10-06, with file checks and ThreatFox) |
 | Node config and script tests (`npm run test:config`) | 14 pass |
 | Accessibility (`npm run test:a11y`) | Passes; 52 axe-core checks were recorded with screenshot reading |
 | Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot step and the share step (scan, share, open) |

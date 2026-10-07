@@ -32,6 +32,16 @@ describe("ReportView", () => {
     expect(html).toMatch(/<time dateTime="2026-10-05T14:02:00.000Z"/);
   });
 
+  it("shows a file's fingerprint with a VirusTotal link the visitor opens themselves", () => {
+    const fingerprint = "e".repeat(64);
+    const file = { ...clean!, subject: { kind: "file" as const, display: "Windows program (.exe), 812 KB", fingerprint } };
+    expect(ScanReportSchema.safeParse(file).success).toBe(true);
+    const html = render(file);
+    expect(html).toContain(`href="https://www.virustotal.com/gui/file/${fingerprint}"`);
+    expect(html).toContain('rel="noopener noreferrer"');
+    expect(html).toContain("ScamCam does not send it there");
+  });
+
   it("lists sources that could not be checked", () => {
     expect(render(highRisk!)).toContain("Google Safe Browsing did not respond");
     expect(render(suspicious!)).toContain("free limit was reached");

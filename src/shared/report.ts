@@ -21,7 +21,7 @@ export interface UncheckedSource {
 export interface ScanReport {
   caseNumber: string;
   createdAt: string;
-  subject: { kind: "url" | "message"; display: string; registrableDomain?: string | undefined };
+  subject: { kind: "url" | "message" | "file"; display: string; registrableDomain?: string | undefined; fingerprint?: string | undefined };
   level: RiskLevel;
   confidence: "low" | "medium" | "high";
   summary: string;

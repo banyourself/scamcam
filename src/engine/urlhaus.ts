@@ -6,11 +6,11 @@ import { readLimitedJson } from "./limited-body";
 export const urlhausHostEndpoint = "https://urlhaus-api.abuse.ch/v1/host/";
 export const urlhausSource = "urlhaus";
 export const urlhausCacheSeconds = 15 * 60;
+export const urlhausHomePage = "https://urlhaus.abuse.ch/";
 const maxResponseBytes = 1024 * 1024;
 
 const HostSchema = z.object({
   query_status: z.string(),
-  urlhaus_reference: z.string().optional(),
   url_count: z.union([z.string(), z.number()]).optional(),
   urls: z
     .array(z.object({ url: z.string(), url_status: z.string().optional(), threat: z.string().nullable().optional() }))
@@ -22,7 +22,6 @@ const AnswerSchema = z.union([
   z.object({
     status: z.literal("ok"),
     listed: z.literal(true),
-    reference: z.string().nullable(),
     total: z.number(),
     onlineUrls: z.array(z.string()),
     threats: z.array(z.string()),
@@ -38,14 +37,6 @@ export interface UrlhausOptions {
   fetcher: typeof fetch;
   lookups: Lookups;
   takeBudget: () => Promise<boolean>;
-}
-
-function referencePage(value: string | undefined): string | null {
-  if (!value || !URL.canParse(value)) {
-    return null;
-  }
-  const url = new URL(value);
-  return url.protocol === "https:" && url.hostname === "urlhaus.abuse.ch" && url.username === "" && url.password === "" ? url.href : null;
 }
 
 function isAnswer(value: unknown): value is UrlhausAnswer {
@@ -78,7 +69,6 @@ async function queryUrlhaus(host: string, authKey: string, fetcher: typeof fetch
     return {
       status: "ok",
       listed: true,
-      reference: referencePage(parsed.data.urlhaus_reference),
       total: Number(parsed.data.url_count ?? urls.length) || urls.length,
       onlineUrls: urls.filter((entry) => entry.url_status === "online").map((entry) => entry.url),
       threats: [...new Set(urls.map((entry) => entry.threat).filter((threat): threat is string => Boolean(threat)))],

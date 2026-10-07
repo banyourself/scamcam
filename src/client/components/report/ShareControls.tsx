@@ -98,7 +98,8 @@ export function ShareControls({ report, signature }: { report: ScanReport; signa
             </label>
           )}
           <p className="text-xs text-ink-soft">
-            The link shows the result, the evidence, and the checked links{isMessage && includeMessage ? ", and the message text" : ""}.
+            The link shows the result and the evidence{report.subject.kind === "file" ? " (the file's type, size, and fingerprint, never its name)" : ", including the checked links"}
+            {isMessage && includeMessage ? ", and the message text" : ""}.
           </p>
           <Button size="sm" variant="outline" disabled={busy} onClick={() => void create()}>
             {busy ? "Making link" : "Make share link"}

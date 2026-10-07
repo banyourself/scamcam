@@ -102,13 +102,11 @@ describe("scanContent", () => {
     expect(report.evidence[0]!.source.name).toBe("URLhaus (abuse.ch)");
   });
 
-  it("links only to URLhaus's own pages, whatever reference URLhaus sends", async () => {
+  it("links only to URLhaus's home page, as abuse.ch's linking policy asks, whatever reference URLhaus sends", async () => {
     const references = {
-      "https://urlhaus.abuse.ch/host/malware.example/": "https://urlhaus.abuse.ch/host/malware.example/",
-      "javascript:alert(1)": undefined,
-      "https://evil.example/urlhaus": undefined,
-      "http://urlhaus.abuse.ch/host/malware.example/": undefined,
-      "https://user@urlhaus.abuse.ch/": undefined,
+      "https://urlhaus.abuse.ch/host/malware.example/": "https://urlhaus.abuse.ch/",
+      "javascript:alert(1)": "https://urlhaus.abuse.ch/",
+      "https://evil.example/urlhaus": "https://urlhaus.abuse.ch/",
     };
     for (const [reference, expected] of Object.entries(references)) {
       const { scan } = options(
@@ -201,6 +199,24 @@ describe("Phishing.Database list in scans", () => {
     const sibling = await scanContent("https://b.shared-host.example/", scan);
     expect(sibling.evidence.some((item) => item.title.includes("Phishing.Database"))).toBe(false);
     expect(asked[0]).toEqual(["login.evil-trade.example", "evil-trade.example"]);
+  });
+
+  it.each([
+    "https://l.instagram.com/?u=https%3A%2F%2Fcheap-skins.example%2F&e=AT0",
+    "https://l.instagram.com/",
+  ])("treats a listed redirect service as context and checks the real destination: %s", async (content) => {
+    const { scan } = options({}, { phishingList: listOf(["l.instagram.com", "cheap-skins.example"]) });
+    const report = await scanContent(content, scan);
+    const redirector = report.evidence.find((item) => item.id === "pdb-shared-l.instagram.com");
+    expect(redirector?.signal).toBe("neutral");
+    expect(report.evidence.some((item) => item.id === "pdb-l.instagram.com")).toBe(false);
+    expect(report.evidence.some((item) => item.id === "pdb-cheap-skins.example")).toBe(content.includes("cheap-skins"));
+  });
+
+  it("says when the list copy is more than a day old", async () => {
+    const dated = { lookup: async (names: string[]) => ({ status: "ok" as const, listed: new Set(names.filter((name) => name === "cheap-skins.example")), syncedAt: Date.parse("2026-10-01T09:00:00Z") / 1000 }) };
+    const report = await scanContent("https://cheap-skins.example/", options({}, { phishingList: dated }).scan);
+    expect(report.evidence[0]!.detail).toContain("The copy ScamCam checked was published on October 1, 2026.");
   });
 
   it("treats a listed shortener as context, not as a warning about this link", async () => {
@@ -480,5 +496,32 @@ describe("disguised and hidden links", () => {
     const report = await scanContent("http://shop-example.example/", scan);
     expect(report.level).toBe("no_known_threat");
     expect(report.summary).toBe("No source lists it, and ScamCam found only a minor warning sign.");
+  });
+});
+
+describe("ThreatFox in scans", () => {
+  const listed = { "cheat-loader.example": { malware: "Lumma Stealer", confidence: 100 }, "maybe-bad.example": { malware: "AsyncRAT", confidence: 75 }, "free-cheats.pages.dev": { malware: "Lumma Stealer", confidence: 100 } };
+
+  it("confirms a domain ThreatFox lists with full confidence, when running in the scanner", async () => {
+    const report = await scanContent("https://www.cheat-loader.example/download", options({ threatfox: listed }, { urlhausKey: "key", extendedLookups: true }).scan);
+    expect(report.level).toBe("confirmed_malicious");
+    expect(report.evidence[0]).toMatchObject({ title: "ThreatFox lists cheat-loader.example as malware infrastructure", source: { name: "ThreatFox (abuse.ch)", url: "https://threatfox.abuse.ch/" } });
+    expect(report.evidence[0]!.detail).toContain("used by Lumma Stealer");
+  });
+
+  it("rates a less certain listing as high risk without confirming it", async () => {
+    const report = await scanContent("https://maybe-bad.example/", options({ threatfox: listed }, { urlhausKey: "key", extendedLookups: true }).scan);
+    expect(report.level).toBe("high_risk");
+  });
+
+  it("treats a listing of a shared hosting name as context", async () => {
+    const report = await scanContent("https://free-cheats.pages.dev/", options({ threatfox: listed }, { urlhausKey: "key", extendedLookups: true }).scan);
+    expect(report.evidence.find((item) => item.id === "threatfox-shared-free-cheats.pages.dev")?.signal).toBe("neutral");
+  });
+
+  it("skips ThreatFox in the Worker fallback to stay inside the request limits", async () => {
+    const { scan, fake } = options({ threatfox: listed }, { urlhausKey: "key" });
+    await scanContent("https://cheat-loader.example/", scan);
+    expect(fake.requests.some((request) => request.url.includes("threatfox"))).toBe(false);
   });
 });

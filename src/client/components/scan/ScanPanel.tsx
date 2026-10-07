@@ -1,11 +1,13 @@
 import { useDeferredValue, useId, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent } from "react";
 import { extractInput, maxInputLength } from "../../../shared/extract";
+import { describeFile, maxFileBytes } from "../../../shared/file-check";
 import type { ScanReport } from "../../../shared/report";
 import { reportSignatureHeader } from "../../../shared/share";
 import { TurnstileWidget } from "@/components/scan/TurnstileWidget";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { ApiHealth } from "@/hooks/useApiHealth";
+import type { FileInspection } from "@/lib/file-inspect";
 import { acceptedImageTypes, ScreenshotError } from "@/lib/image-check";
 import { cleanReadText, combineWithReadText } from "@/lib/screenshot-text";
 
@@ -67,7 +69,10 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
   const [reading, setReading] = useState<number | null>(null);
   const [readNote, setReadNote] = useState("");
   const [fromScreenshot, setFromScreenshot] = useState(false);
+  const [staged, setStaged] = useState<{ name: string; inspection: FileInspection } | null>(null);
+  const [inspecting, setInspecting] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const anyFileInput = useRef<HTMLInputElement>(null);
   const deferred = useDeferredValue(text);
   const extracted = useMemo(() => extractInput(deferred), [deferred]);
   const status = statusLine(health, busy);
@@ -107,23 +112,91 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
     }
   }
 
+  async function stageFile(file: File) {
+    if (inspecting) {
+      return;
+    }
+    setError("");
+    if (file.size > maxFileBytes) {
+      setError("This file is too large to check. Files up to 4 GB can be checked.");
+      return;
+    }
+    setInspecting(true);
+    try {
+      const { inspectFile } = await import("@/lib/file-inspect");
+      setStaged({ name: file.name, inspection: await inspectFile(file) });
+    } catch {
+      setError("This file could not be read on your device. Try saving it again, then check it.");
+    } finally {
+      setInspecting(false);
+      if (anyFileInput.current) {
+        anyFileInput.current.value = "";
+      }
+    }
+  }
+
   function imageFrom(files: FileList | null | undefined): File | undefined {
     return files ? [...files].find((file) => file.type.startsWith("image/")) : undefined;
   }
 
+  function otherFileFrom(files: FileList | null | undefined): File | undefined {
+    return files ? [...files].find((file) => !file.type.startsWith("image/")) : undefined;
+  }
+
   function pasted(event: ClipboardEvent<HTMLTextAreaElement>) {
     const image = imageFrom(event.clipboardData?.files);
+    const other = otherFileFrom(event.clipboardData?.files);
     if (image) {
       event.preventDefault();
       void readImage(image);
+    } else if (other) {
+      event.preventDefault();
+      void stageFile(other);
     }
   }
 
   function dropped(event: DragEvent<HTMLFormElement>) {
     const image = imageFrom(event.dataTransfer?.files);
+    const other = otherFileFrom(event.dataTransfer?.files);
     if (image) {
       event.preventDefault();
       void readImage(image);
+    } else if (other) {
+      event.preventDefault();
+      void stageFile(other);
+    }
+  }
+
+  async function checkStagedFile() {
+    if (!staged || !canScan || busy) {
+      return;
+    }
+    if (waitingForCheck) {
+      setError("Wait for the security check to finish, then try again.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const { sha256, sha1, size, kind, extension, findings } = staged.inspection;
+      const request = { ...(sha256 ? { sha256 } : {}), ...(sha1 ? { sha1 } : {}), size, kind, ...(extension ? { extension } : {}), findings };
+      const response = await fetch("/api/v1/files", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ ...request, ...(token ? { turnstileToken: token } : {}) }),
+      });
+      if (!response.ok) {
+        setError(await readError(response));
+        return;
+      }
+      onReport((await response.json()) as ScanReport, response.headers.get(reportSignatureHeader));
+      setStaged(null);
+    } catch {
+      setError("ScamCam could not be reached. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+      setToken(null);
+      setResetKey((key) => key + 1);
     }
   }
 
@@ -204,8 +277,8 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
         />
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-faint">
           <p id={hintId}>
-            Never paste passwords, login codes, or your real name or address. ScamCam never needs them. Screenshots are read on
-            your device and never uploaded.
+            Never paste passwords, login codes, or your real name or address. ScamCam never needs them. Screenshots and files
+            are read on your device and never uploaded.
           </p>
           <p className="font-mono" aria-hidden="true">
             {text.length}/{maxInputLength}
@@ -230,12 +303,53 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
               }
             }}
           />
+          <Button variant="outline" size="sm" disabled={inspecting || busy} onClick={() => anyFileInput.current?.click()}>
+            {inspecting ? "Looking at the file" : "Check a file"}
+          </Button>
+          <input
+            ref={anyFileInput}
+            type="file"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                void stageFile(file);
+              }
+            }}
+          />
           <p className="text-xs text-ink-soft" aria-live="polite">
             {reading !== null
               ? `Reading the screenshot on this device: ${Math.round(reading * 100)}%`
-              : readNote || "Or paste a screenshot into the box, or drop one here."}
+              : inspecting
+                ? "Looking at the file on this device"
+                : readNote || "Or paste or drop a screenshot or file here."}
           </p>
         </div>
+
+        {staged && (
+          <section aria-label="File to check" className="border border-rule-strong bg-panel-2 px-4 py-3 text-sm">
+            <p className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-ink-faint">File to check</p>
+            <p className="mt-1 break-all font-mono text-ink">{staged.name}</p>
+            <p className="mt-1 text-ink-soft">{describeFile(staged.inspection)}</p>
+            {staged.inspection.insideArchive.length > 0 && (
+              <p className="mt-1 break-all text-ink-soft">Inside: {staged.inspection.insideArchive.join(", ")}</p>
+            )}
+            <p className="mt-2 text-xs text-ink-faint">
+              The file stays on this device. Only its fingerprints (SHA-256 and SHA-1), size, type, and what was found are sent,
+              never the file or its name.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Button size="sm" disabled={!canScan || busy || waitingForCheck} onClick={() => void checkStagedFile()}>
+                {busy ? "Checking" : "Check this file"}
+              </Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => setStaged(null)}>
+                Remove file
+              </Button>
+            </div>
+          </section>
+        )}
 
         <div id={previewId} className="border border-dashed border-rule bg-panel-2 px-4 py-3 text-sm" aria-live="polite">
           {extracted.links.length === 0 && hidden.length === 0 ? (

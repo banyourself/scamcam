@@ -1,4 +1,4 @@
-import { domainListStaleAfterSeconds } from "../../engine/domain-list";
+import { domainListAlertAfterSeconds } from "../../engine/domain-list";
 import type { BudgetedProvider } from "../../engine/scan";
 import { appStateKeys, writeAppState } from "../repositories/app-state";
 import { errorCountsSince } from "../repositories/error-events";
@@ -153,7 +153,7 @@ export async function runWeeklyMaintenance(env: AppBindings): Promise<Maintenanc
     ...usageAlerts(usage),
     ...runAlerts(failedRuns, stuckRuns),
     ...(errorTotal >= alertThresholds.weeklyErrors ? ["errors_high"] : []),
-    ...(listAgeSeconds !== null && listAgeSeconds > domainListStaleAfterSeconds ? ["phishing_list_stale"] : []),
+    ...(listAgeSeconds !== null && listAgeSeconds > domainListAlertAfterSeconds ? ["phishing_list_stale"] : []),
     ...(Object.values(missingExpiry).some((count) => count > 0) ? ["rows_missing_expiry"] : []),
   ];
   return { rows, missingExpiry, storage, usage, errors: { total: errorTotal, byCode: errors }, runs: { failed: failedRuns, stuck: stuckRuns }, lists, alerts };

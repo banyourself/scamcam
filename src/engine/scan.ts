@@ -5,14 +5,16 @@ import type { AiReviewResult } from "./ai-review";
 import { cacheKey, memoryLookups, recallFromMemory, recordOutcome, rememberInMemory, sourceIsOpen, type Lookups } from "./cache";
 import { isPrivateAddress, lookupDns, lookupFilteredDns, type DnsResult, type FilterResult } from "./dns";
 import { candidateNames, type DomainListLookup, type DomainListResult } from "./domain-list";
+import { caseNumber } from "./case-number";
 import { aimsAtCheckers } from "./injection";
 import { analyzeMessage, familyNames, normalizeMessage } from "./message-rules";
 import { lookupRdap, type RdapResult } from "./rdap";
-import { maxUnwrapDepth, unwrapRedirect } from "./redirects";
+import { isRedirectorHost, maxUnwrapDepth, unwrapRedirect } from "./redirects";
 import { searchSafeBrowsing, threatDefinitionUrls, threatDescriptions, type SafeBrowsingResult } from "./safe-browsing";
 import { phishingDatabaseUrl, sourceNames, strengthPoints, type ScamFamily, type Signal } from "./signals";
 import { analyzeLink, type AnalyzedLink } from "./url-analysis";
-import { lookupUrlhausHost, sameUrl, type UrlhausResult } from "./urlhaus";
+import { lookupThreatfoxHost, threatfoxHomePage, type ThreatfoxResult } from "./threatfox";
+import { lookupUrlhausHost, sameUrl, urlhausHomePage, type UrlhausResult } from "./urlhaus";
 import { decideVerdict } from "./verdict";
 
 export type BudgetedProvider = "safe_browsing" | "urlhaus" | "workers_ai";
@@ -27,6 +29,7 @@ export interface ScanOptions {
   aiReview?: (text: string) => Promise<AiReviewResult>;
   now?: Date;
   fromScreenshot?: boolean;
+  extendedLookups?: boolean;
 }
 
 const maxNetworkLinks = 3;
@@ -39,12 +42,6 @@ const aiSource = "workers_ai";
 const maxEvidence = 14;
 const day = 24 * 60 * 60 * 1000;
 const freshHoldDays = 90;
-
-function caseNumber(now: Date): string {
-  const date = now.toISOString().slice(2, 10).replaceAll("-", "");
-  const random = [...crypto.getRandomValues(new Uint8Array(2))].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `SC-${date}-${random.toUpperCase()}`;
-}
 
 function linkScore(link: AnalyzedLink): number {
   return link.signals.filter((signal) => signal.direction === "raises").reduce((total, signal) => total + strengthPoints[signal.strength], 0);
@@ -155,7 +152,7 @@ function filterSignals(link: AnalyzedLink, result: FilterResult): Signal[] {
   ];
 }
 
-function withDestinations(originals: string[]): AnalyzedLink[] {
+function withDestinations(originals: string[], wrappers: Set<AnalyzedLink>): AnalyzedLink[] {
   const links: AnalyzedLink[] = [];
   let unwrapped = 0;
   for (const original of originals) {
@@ -172,6 +169,7 @@ function withDestinations(originals: string[]): AnalyzedLink[] {
       }
       unwrapped += 1;
       const wrapper = current;
+      wrappers.add(wrapper);
       wrapper.signals = [
         ...wrapper.signals.filter((signal) => signal.direction !== "lowers"),
         {
@@ -271,12 +269,34 @@ function brandMismatchSignals(link: AnalyzedLink, named: ReturnType<typeof brand
   ];
 }
 
+function threatfoxSignals(link: AnalyzedLink, name: string, result: ThreatfoxResult): Signal[] {
+  if (result.status !== "ok" || !result.listed) {
+    return [];
+  }
+  const base = { source: sourceNames.threatfox, sourceUrl: threatfoxHomePage, link: link.hostname! };
+  const malware = result.malware ? ` used by ${result.malware}` : "";
+  if (isSharedHost(link)) {
+    return [{ ...base, id: `threatfox-shared-${name}`, direction: "context", strength: "weak", title: "Malware has used this service before", detail: `ThreatFox lists ${name} as malware infrastructure${malware}. Anyone can use this service, so check what this exact link is.` }];
+  }
+  return [
+    {
+      ...base,
+      id: `threatfox-${name}`,
+      direction: "raises",
+      strength: result.confidence >= 50 ? "critical" : "strong",
+      ...(result.confidence >= 90 ? { confirms: true } : {}),
+      title: `ThreatFox lists ${name} as malware infrastructure`,
+      detail: `abuse.ch's ThreatFox tracks servers that malware uses, such as control servers and download sites. This one is listed${malware}, with ${result.confidence}% confidence.`,
+    },
+  ];
+}
+
 function urlhausSignals(link: AnalyzedLink, result: UrlhausResult): Signal[] {
   if (result.status !== "ok" || !result.listed) {
     return [];
   }
   const host = link.hostname!;
-  const base = { source: sourceNames.urlhaus, link: host, ...(result.reference ? { sourceUrl: result.reference } : {}) };
+  const base = { source: sourceNames.urlhaus, sourceUrl: urlhausHomePage, link: host };
   const exact = result.onlineUrls.some((url) => sameUrl(url, link.href ?? link.original) || sameUrl(url, link.original));
   if (exact) {
     return [{ ...base, id: `urlhaus-exact-${host}`, direction: "raises", strength: "critical", confirms: true, title: "URLhaus lists this exact link as spreading malware", detail: "abuse.ch's URLhaus project tracks links that deliver malware. This one is currently marked online." }];
@@ -299,7 +319,15 @@ function isBroadName(name: string): boolean {
   );
 }
 
-function phishingListSignals(link: AnalyzedLink, names: string[], result: DomainListResult): Signal[] {
+function listDateNote(syncedAt: number, now: Date): string {
+  if (now.getTime() / 1000 - syncedAt < 36 * 60 * 60) {
+    return "";
+  }
+  const date = new Date(syncedAt * 1000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+  return ` The copy ScamCam checked was published on ${date}.`;
+}
+
+function phishingListSignals(link: AnalyzedLink, names: string[], result: DomainListResult, isWrapper: boolean, now: Date): Signal[] {
   if (result.status !== "ok") {
     return [];
   }
@@ -309,7 +337,8 @@ function phishingListSignals(link: AnalyzedLink, names: string[], result: Domain
   }
   const shown = matched === link.hostname ? (link.displayHostname ?? matched) : matched;
   const base = { source: sourceNames.phishingDatabase, sourceUrl: phishingDatabaseUrl, link: link.hostname! };
-  if (isBroadName(matched)) {
+  const dated = listDateNote(result.syncedAt, now);
+  if (isBroadName(matched) || isWrapper || isRedirectorHost(link.hostname ?? "")) {
     return [
       {
         ...base,
@@ -317,7 +346,7 @@ function phishingListSignals(link: AnalyzedLink, names: string[], result: Domain
         direction: "context",
         strength: "weak",
         title: `${shown} appears on a community phishing list`,
-        detail: "Phishing.Database lists this service, but anyone can publish there, so it says little about this exact link.",
+        detail: `Phishing.Database lists this service, but it is shared by many people or only passes links on, so it says little about this exact link. ScamCam checks where a redirect leads separately.${dated}`,
       },
     ];
   }
@@ -328,7 +357,7 @@ function phishingListSignals(link: AnalyzedLink, names: string[], result: Domain
       direction: "raises",
       strength: "strong",
       title: `Phishing.Database lists ${shown} as a phishing site`,
-      detail: "Phishing.Database is a free community list of phishing sites. Lists like this can contain mistakes, so ScamCam treats it as a warning sign, not proof.",
+      detail: `Phishing.Database is a free community list of phishing sites. Lists like this can contain mistakes, so ScamCam treats it as a warning sign, not proof.${dated}`,
     },
   ];
 }
@@ -437,7 +466,8 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   const checkedAt = now.toISOString();
   const extracted = extractInput(content);
   const realLinks = linksOutsideLinkText(extracted.redactedText, extracted.links);
-  const links = withDestinations(realLinks);
+  const wrappers = new Set<AnalyzedLink>();
+  const links = withDestinations(realLinks, wrappers);
   addDisguiseSignals(extracted.redactedText, links);
   const pictureLinks = options.fromScreenshot ? markPictureLinks(links, realLinks, qrValues(extracted.redactedText)) : new Set<AnalyzedLink>();
   const readable = links.filter((link) => link.hostname);
@@ -514,6 +544,26 @@ export async function scanContent(content: string, options: ScanOptions): Promis
           }
         })(),
       );
+      if (options.extendedLookups) {
+        tasks.push(
+          (async () => {
+            let reason: UncheckedSource["reason"] | null = null;
+            for (const link of networkLinks) {
+              const name = link.registrableDomain ?? link.hostname!;
+              const result = await lookupThreatfoxHost(name, { authKey, fetcher: options.fetcher, lookups, takeBudget: () => options.takeBudget("urlhaus") });
+              if (result.status === "over_budget") {
+                reason = "over_budget";
+              } else if (result.status === "unavailable") {
+                reason ??= "unavailable";
+              }
+              attach(link, threatfoxSignals(link, name, result));
+            }
+            if (reason) {
+              notChecked.push({ name: sourceNames.threatfox, reason });
+            }
+          })(),
+        );
+      }
     }
     tasks.push(
       (async () => {
@@ -572,7 +622,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
             notChecked.push({ name: sourceNames.phishingDatabase, reason: result.status });
           }
           for (const [link, names] of namesByLink) {
-            attach(link, phishingListSignals(link, names, result));
+            attach(link, phishingListSignals(link, names, result, wrappers.has(link), now));
           }
         })(),
       );

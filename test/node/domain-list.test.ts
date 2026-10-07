@@ -27,7 +27,7 @@ test("the list builder writes one statement per shard plus the list record", () 
     assert.equal(summary.statements, 1025);
     const sql = readFileSync(join(folder, "list.sql"), "utf8").trim().split("\n");
     assert.equal(sql.length, 1025);
-    assert.ok(sql.at(-1)!.includes("'fixture-1', 5001, 1000, 605800"));
+    assert.ok(sql.at(-1)!.includes("'fixture-1', 5001, 1000, 865000"));
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }

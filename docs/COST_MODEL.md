@@ -30,13 +30,24 @@ documentation checked on 2026-10-05; re-check before launch.
 | D1 reads | 3 (the `writes_paused` flag, the list record, and one list shard) | 5 million per day |
 | D1 writes | Up to 5 (Safe Browsing, up to 3 URLhaus, and the AI count), only for calls that are actually made | 100,000 per day, so about 20,000 fully checked scans a day |
 | Cache API | At most 24 shared cache reads and writes per request; repeated lookups in the same Worker instance come from memory | Counts toward the 50 subrequests |
-| All subrequests | 44 for a message with 20 links in the Worker fallback (15 fetches, 20 cache calls, 9 queries); 24 in the scanner, which caches in memory only; none for a repeat in the same instance | 50 per request |
+| All subrequests | 44 for a message with 20 links in the Worker fallback (15 fetches, 20 cache calls, 9 queries); 27 in the scanner, which caches in memory only and adds up to 3 ThreatFox lookups; none for a repeat in the same instance | 50 per request |
 | Workers AI | At most 1 call (about 2.1 neurons), only for messages the rules cannot decide | 10,000 neurons per day; ScamCam stops at 2,000 calls |
 | Safe Browsing calls | 1, capped by `SAFE_BROWSING_DAILY_LIMIT` (8,000) | Google Cloud quota |
-| URLhaus calls | Up to 3, capped by `URLHAUS_DAILY_LIMIT` (5,000) | Fair use |
+| abuse.ch calls | Up to 3 URLhaus and, in the scanner, up to 3 ThreatFox lookups, plus 1 MalwareBazaar lookup per file check, all counted in one abuse.ch budget, `URLHAUS_DAILY_LIMIT` (5,000) | Fair use |
 | CPU | 1.2 ms at the median and 2.9 ms at the 95th percentile for the benchmark in Node (with a fake network), and under 1 ms for each of the worst crafted inputs. Live scans on a fresh Worker used 9 to 26 ms, which is why scans moved to the scanner | 30 seconds per request in the scanner; 10 ms for the Worker's own part |
 
 Per-visitor limits: 60 API requests and 10 scans per minute. Turnstile is required for every scan.
+
+## Cost of one file check
+
+| Resource | Per check | Limit |
+|---|---|---|
+| Worker requests | 1 (`POST /api/v1/files`) | 100,000 per day |
+| Durable Object requests | 1 | 100,000 per day |
+| Subrequests | At most 4: Turnstile 1, MalwareBazaar 1, CIRCL hashlookup 1, Team Cymru through Cloudflare DNS 1; none for a fingerprint checked in the last day | 50 per request |
+| D1 queries | Up to 2 (the `writes_paused` flag and the abuse.ch count) | 50 per request |
+| MalwareBazaar calls | 1, counted in the same abuse.ch daily budget as URLhaus (`URLHAUS_DAILY_LIMIT`, 5,000) | Fair use |
+| CPU | Hashing and parsing run in the visitor's browser; the server only builds the report | |
 
 ## Billing risks and controls
 

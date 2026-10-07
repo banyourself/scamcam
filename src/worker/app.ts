@@ -10,6 +10,7 @@ import { rateLimitApi } from "./middleware/rate-limit";
 import { assignRequestId } from "./middleware/request-id";
 import { requestLogger } from "./middleware/request-logger";
 import { secureApiHeaders } from "./middleware/security-headers";
+import { fileRoutes } from "./routes/files";
 import { healthRoutes } from "./routes/health";
 import { scanRoutes } from "./routes/scan";
 import { shareRoutes } from "./routes/shares";
@@ -57,6 +58,7 @@ export function createApp(options: AppOptions = {}): OpenAPIHono<AppEnv> {
 
   app.route("/api/v1", healthRoutes);
   app.route("/api/v1", scanRoutes);
+  app.route("/api/v1", fileRoutes);
   app.route("/api/v1", shareRoutes);
   app.doc31("/api/v1/openapi.json", {
     openapi: "3.1.0",
