@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, type Dirent } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -133,6 +133,15 @@ function projectFiles(): string[] {
 test("project files contain no em dashes", () => {
   const offenders = projectFiles().filter((path) => readFileSync(path, "utf8").includes(emDash));
   assert.deepEqual(offenders, []);
+});
+
+test("result flags are kept for review only, and nothing that makes a verdict reads them", () => {
+  const relative = (path: string) => path.split(sep).join("/").replace(/^.*?\/src\//, "src/");
+  const sources = projectFiles().filter((path) => relative(path).startsWith("src/"));
+  const touchesTable = sources.filter((path) => readFileSync(path, "utf8").includes("result_flags")).map(relative).sort();
+  assert.deepEqual(touchesTable, ["src/worker/repositories/maintenance.ts", "src/worker/repositories/result-flags.ts"]);
+  const importsFlags = sources.filter((path) => /from "[^"]*result-flags"/.test(readFileSync(path, "utf8"))).map(relative).sort();
+  assert.deepEqual(importsFlags, ["src/worker/maintenance/tasks.ts", "src/worker/routes/flags.ts"]);
 });
 
 const invisibleRanges: [number, number][] = [

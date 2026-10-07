@@ -35,12 +35,13 @@ function loadTurnstile(): Promise<void> {
 
 export interface TurnstileWidgetProps {
   siteKey: string;
+  action?: string;
   resetKey: number;
   onToken: (token: string | null) => void;
   onUnavailable: () => void;
 }
 
-export function TurnstileWidget({ siteKey, resetKey, onToken, onUnavailable }: TurnstileWidgetProps) {
+export function TurnstileWidget({ siteKey, action = turnstileAction, resetKey, onToken, onUnavailable }: TurnstileWidgetProps) {
   const container = useRef<HTMLDivElement>(null);
   const callbacks = useRef({ onToken, onUnavailable });
   callbacks.current = { onToken, onUnavailable };
@@ -55,7 +56,7 @@ export function TurnstileWidget({ siteKey, resetKey, onToken, onUnavailable }: T
         }
         widgetId = window.turnstile.render(container.current, {
           sitekey: siteKey,
-          action: turnstileAction,
+          action,
           theme: document.documentElement.classList.contains("dark") ? "dark" : "light",
           size: "flexible",
           callback: (token: string) => callbacks.current.onToken(token),
@@ -70,7 +71,7 @@ export function TurnstileWidget({ siteKey, resetKey, onToken, onUnavailable }: T
         window.turnstile.remove(widgetId);
       }
     };
-  }, [siteKey, resetKey]);
+  }, [siteKey, action, resetKey]);
 
   return <div ref={container} className="min-h-[65px]" />;
 }

@@ -9,28 +9,40 @@ export type ScanGate =
   | { ok: true }
   | { ok: false; status: 403 | 429 | 503; code: "rate_limited" | "bot_check_failed" | "unavailable"; message: string };
 
-export async function passScanGate(c: Context<AppEnv>, token: string | undefined): Promise<ScanGate> {
-  const { success } = await c.env.SCAN_RATE_LIMITER.limit({ key: rateLimitKey(c.req.raw) });
-  if (!success) {
-    c.header("Retry-After", "60");
-    return { ok: false, status: 429, code: "rate_limited", message: "You have checked a lot of things in the last minute. Wait a minute and try again." };
+export async function passRateLimit(c: Context<AppEnv>, limiter: RateLimit, message: string): Promise<ScanGate> {
+  const { success } = await limiter.limit({ key: rateLimitKey(c.req.raw) });
+  if (success) {
+    return { ok: true };
   }
+  c.header("Retry-After", "60");
+  return { ok: false, status: 429, code: "rate_limited", message };
+}
+
+export async function passTurnstile(c: Context<AppEnv>, token: string | undefined, action: string, unavailable: string): Promise<ScanGate> {
   const production = c.env.APP_ENV === "production";
   const turnstile = await verifyTurnstileToken({
     token,
     secret: c.env.TURNSTILE_SECRET_KEY,
     remoteIp: clientAddress(c.req.raw),
     expectedHostname: production ? new URL(c.req.url).hostname : null,
-    expectedAction: production ? turnstileAction : null,
+    expectedAction: production ? action : null,
     fetcher: c.get("fetcher"),
   });
   if (turnstile.ok) {
     return { ok: true };
   }
   if (turnstile.reason === "not_configured" || turnstile.reason === "unreachable") {
-    return { ok: false, status: 503, code: "unavailable", message: "Checking is temporarily unavailable. Try again in a minute." };
+    return { ok: false, status: 503, code: "unavailable", message: unavailable };
   }
   return { ok: false, status: 403, code: "bot_check_failed", message: "The security check did not pass. Complete it again and resubmit." };
+}
+
+export async function passScanGate(c: Context<AppEnv>, token: string | undefined): Promise<ScanGate> {
+  const limited = await passRateLimit(c, c.env.SCAN_RATE_LIMITER, "You have checked a lot of things in the last minute. Wait a minute and try again.");
+  if (!limited.ok) {
+    return limited;
+  }
+  return passTurnstile(c, token, turnstileAction, "Checking is temporarily unavailable. Try again in a minute.");
 }
 
 export async function inScannerOrInline<T>(c: Context<AppEnv>, remote: (namespace: Env["SCANNER"]) => Promise<T>, inline: () => Promise<T>): Promise<T> {

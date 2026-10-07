@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { FlagControls } from "@/components/report/FlagControls";
 import { ReportView } from "@/components/report/ReportView";
 import { previewReports } from "@/preview-reports";
 import { ScanReportSchema } from "../../src/shared/report-schema";
@@ -32,14 +33,21 @@ describe("ReportView", () => {
     expect(html).toMatch(/<time dateTime="2026-10-05T14:02:00.000Z"/);
   });
 
-  it("shows a file's fingerprint with a VirusTotal link the visitor opens themselves", () => {
+  it("offers outside checkers the visitor opens themselves, for files and domains", () => {
     const fingerprint = "e".repeat(64);
     const file = { ...clean!, subject: { kind: "file" as const, display: "Windows program (.exe), 812 KB", fingerprint } };
     expect(ScanReportSchema.safeParse(file).success).toBe(true);
-    const html = render(file);
-    expect(html).toContain(`href="https://www.virustotal.com/gui/file/${fingerprint}"`);
-    expect(html).toContain('rel="noopener noreferrer"');
-    expect(html).toContain("ScamCam does not send it there");
+    const fileHtml = render(file);
+    expect(fileHtml).toContain(`href="https://www.virustotal.com/gui/file/${fingerprint}"`);
+    expect(fileHtml).toContain(`href="https://hybrid-analysis.com/search?query=${fingerprint}"`);
+    expect(fileHtml).toContain('rel="noopener noreferrer"');
+    const site = { ...clean!, subject: { kind: "url" as const, display: "https://cheap-skins.example/", registrableDomain: "cheap-skins.example" } };
+    const siteHtml = render(site);
+    expect(siteHtml).toContain('href="https://www.virustotal.com/gui/domain/cheap-skins.example"');
+    expect(siteHtml).toContain('href="https://transparencyreport.google.com/safe-browsing/search?url=cheap-skins.example"');
+    expect(siteHtml).toContain("ScamCam does not send it");
+    const odd = { ...clean!, subject: { kind: "url" as const, display: "x", registrableDomain: "bad domain\"><script>" } };
+    expect(render(odd)).not.toContain("Check it yourself elsewhere");
   });
 
   it("lists sources that could not be checked", () => {
@@ -62,5 +70,14 @@ describe("ReportView", () => {
     const html = render({ ...highRisk!, subject: { kind: "message", display: "<img src=x onerror=alert(1)>" } });
     expect(html).not.toContain("<img src=x");
     expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+  });
+});
+
+describe("FlagControls", () => {
+  it("offers a review-only flag and says it never changes the result", () => {
+    const html = renderToStaticMarkup(<FlagControls report={highRisk!} signature={"A".repeat(43)} siteKey={null} />);
+    expect(html).toContain("Think this result is wrong?");
+    expect(html).toContain("Flag result as incorrect");
+    expect(html).toContain("never changes any result by itself");
   });
 });

@@ -1,6 +1,7 @@
 import { googleAdvisoryUrl, riskExplanations, riskLabels, uncheckedReasons, type Evidence, type ScanReport } from "../../../shared/report";
 import { Link } from "@/router";
 import { cn } from "@/lib/cn";
+import { ExternalChecks } from "./ExternalChecks";
 import { levelTextClass } from "./levels";
 import { RiskMeter } from "./RiskMeter";
 
@@ -53,22 +54,9 @@ export function ReportView({ report }: { report: ScanReport }) {
           </p>
         )}
         {report.subject.fingerprint && (
-          <div className="mt-2 text-sm text-ink-soft">
-            <p>
-              SHA-256: <span className="break-all font-mono text-ink">{report.subject.fingerprint}</span>
-            </p>
-            <p className="mt-1">
-              <a
-                href={`https://www.virustotal.com/gui/file/${report.subject.fingerprint}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent underline underline-offset-4"
-              >
-                Look it up on VirusTotal yourself
-              </a>{" "}
-              (opens VirusTotal, which then learns this fingerprint; ScamCam does not send it there).
-            </p>
-          </div>
+          <p className="mt-1 text-sm text-ink-soft">
+            SHA-256: <span className="break-all font-mono text-ink">{report.subject.fingerprint}</span>
+          </p>
         )}
       </div>
 
@@ -125,6 +113,8 @@ export function ReportView({ report }: { report: ScanReport }) {
           </ul>
         </div>
       )}
+
+      <ExternalChecks report={report} />
 
       <footer className="space-y-2 border-t border-rule bg-panel-2 px-5 py-4 text-xs text-ink-soft">
         <p>

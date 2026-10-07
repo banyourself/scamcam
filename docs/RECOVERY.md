@@ -59,6 +59,9 @@ Replace the secret first, then remove the old one, so checking keeps working.
 | `SAFE_BROWSING_API_KEY` | Create a new key restricted to the Safe Browsing API, then `npx wrangler secret put SAFE_BROWSING_API_KEY` | Delete the old key in Google Cloud |
 | `URLHAUS_AUTH_KEY` | Create a new Auth-Key at abuse.ch, then `npx wrangler secret put URLHAUS_AUTH_KEY` | Revoke the old key |
 | `CLOUDFLARE_D1_TOKEN` (GitHub) | Roll the token in the Cloudflare dashboard and update the GitHub secret | Rerun the sync workflow |
+| `SPAMHAUS_DQS_KEY` | Ask Spamhaus for a new DQS key in its customer portal, then `npx wrangler secret put SPAMHAUS_DQS_KEY --env production` | Ask Spamhaus to retire the old key |
+| `PHISHSTATS_API_KEY` | Create a new key at phishstats.info (Settings, API keys), then `npx wrangler secret put PHISHSTATS_API_KEY --env production` | Delete the old key there |
+| `CLOUDFLARE_RADAR_TOKEN` | Roll the token in the Cloudflare dashboard, then `npx wrangler secret put CLOUDFLARE_RADAR_TOKEN --env production` | The old value stops working when rolled |
 
 Then read the usage section of the next weekly report for calls that do not match normal traffic.
 
@@ -75,10 +78,15 @@ setting would change `kevinle.tech` and needs my approval.
 
 ### The list sync fails
 
-The workflow fails visibly in GitHub Actions and can be rerun by hand. A copy's age counts from the time its source
+The "Scam list sync" workflow runs `scripts/sync-lists.sh`, which syncs each of the six lists on its own and fails
+the run if any of them failed, naming them at the end. It can be rerun by hand, and lists that did sync are not
+harmed by a rerun. A copy's age counts from the time its source
 commit was published, not from when ScamCam copied it, so a stalled upstream project shows up the same way as a failed
 sync. Reports say how old a copy is once it is more than a day old, the weekly report raises `phishing_list_stale`
-after 2 days, reports stop using a copy after 7 days, and the daily cleanup deletes it after 10. GitHub runs scheduled
+(or `<list>_list_stale` for the other lists) after 2 days, reports stop using a copy after 7 days, and the daily
+cleanup deletes it 10 days after its last sync. CERT Polska's list stops being used after 3 days, and DevSpen's
+Discord and Steam list, which changes rarely, after a year, with its alert at 180 days. A sync that has not run for 2
+days raises `scam_list_sync_late`, and a list with no copy at all raises `scam_list_missing`. GitHub runs scheduled
 workflows on a best-effort basis, so a sync can start hours late. A sync that stops partway leaves a mix of old and new
 shards that still answers correctly (tested).
 
@@ -95,13 +103,18 @@ them for 90 days.
 
 | Alert | Meaning |
 |---|---|
-| `safe_browsing_near_daily_limit`, `urlhaus_near_daily_limit`, `workers_ai_near_daily_limit` | A day used at least 80 percent of that source's daily budget (daily report: today and yesterday; weekly report: the last 7 days) |
+| `safe_browsing_near_daily_limit`, `urlhaus_near_daily_limit`, `workers_ai_near_daily_limit`, `phishstats_near_daily_limit` | A day used at least 80 percent of that source's daily budget (daily report: today and yesterday; weekly report: the last 7 days) |
 | `storage_near_soft_limit`, `storage_over_soft_limit` | The database is at 80 percent of the soft limit, or past it with optional writes paused |
 | `maintenance_failed` | A maintenance run failed in the last day (daily) or week (weekly), or the current run failed |
 | `maintenance_stuck` | A run has said "running" for more than 6 hours |
-| `cleanup_backlog_<table>` | The daily cleanup used its budget of 25 delete batches (500 rows each, shared by all tables) before it finished that table; the rest is deleted on the next runs |
+| `cleanup_backlog_<table>` | The daily cleanup used its budget of 26 delete batches (500 rows each, shared by all tables) before it finished that table; the rest is deleted on the next runs |
 | `errors_high` | At least 50 errors in the last 7 days |
-| `phishing_list_stale` | The list's source data is more than 2 days old, whether the sync failed or the upstream project stopped publishing |
+| `phishing_list_stale`, `metamask_list_stale`, `scamsniffer_list_stale`, `phishdestroy_list_stale`, `scam_links_list_stale`, `cert_polska_list_stale` | That list's source data is older than its alert age (2 days, or 180 for `scam_links`), whether the sync failed or the upstream project stopped publishing |
+| `scam_list_sync_late` | At least one list has not been refreshed by the sync for more than 2 days |
+| `scam_list_missing` | At least one of the six lists has no copy in D1, so reports check fewer lists |
+| `spamhaus_unavailable` | Spamhaus did not answer, refused, or returned an error code (logged at most every 10 minutes with only the code, never the query). Check the key and the free DQS usage limit |
+| `flags_waiting` | At least one flagged result is waiting for review. Run `npm run flags` |
+| `flags_daily_limit` | The daily cap on flags was reached, so new flags are refused until midnight UTC |
 | `scanner_unavailable` | A scan could not reach the Scanner Durable Object, so the Worker ran it itself; scans still work, but repeated alerts mean the scanner or its free quota needs a look |
 | `share_cleanup_failed` | The 5-minute cleanup of expired share links failed; reads still refuse expired links |
 | `rows_missing_expiry` | A row has no expiry, so cleanup would never delete it |
@@ -117,6 +130,7 @@ export into the second, and compares every table and the migration history. CI r
 
 | Where | Export | Restore | Result |
 |---|---|---|---|
+| Windows PC, 2026-10-06 | 1,124 ms, 645 KB | 3,317 ms | All 9 tables matched, including shared reports, flags, and two lists; no migrations pending |
 | Windows PC, 2026-10-05 | 991 ms, 469 KB | 2,041 ms | All 7 tables matched; no migrations pending |
 | GitHub Actions (Ubuntu), 2026-10-05 | 1,453 ms, 469 KB | 2,860 ms | All 7 tables matched; no migrations pending |
 

@@ -3,6 +3,39 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-06: Result flags, five more scam lists, Spamhaus, PhishStats, Radar, and a license
+
+- **Flag result as incorrect.** Every report now has a button to flag it for review, with four reasons and an optional
+  note. Flags are for review only. The scan engine never reads them, and a config test fails if anything but the flag
+  route and maintenance touches the table, so flagging a scam site over and over cannot make it look safe. A flag
+  needs its own Turnstile check (the `flag` action), a report ScamCam signed in the last 24 hours, and fits within 3 a
+  minute per visitor and 200 a day in total. One flag is kept per report. Notes lose emails, phone numbers, codes, and
+  control characters. A flag keeps only the verdict, the finding IDs, the domain or file fingerprint, the reason, and
+  the note, for 30 days. `npm run flags` lists them, and weekly maintenance raises `flags_waiting`.
+- **Five more scam lists**, checked like Phishing.Database against hashed copies in D1: MetaMask's phishing list,
+  ScamSniffer, PhishDestroy, DevSpen's public-domain Discord and Steam scam links, and CERT Polska's warning list. All
+  six are looked up in two D1 queries. Each list has its own freshness rule (7 days, 3 for CERT Polska, and a year for
+  DevSpen's rarely updated list). The daily workflow, now "Scam list sync", downloads each list at its latest commit
+  and fails if any list fails.
+- **Spamhaus DBL and ZRD** through the free Data Query Service, in the scanner only. Queries go over DNS on TCP
+  straight to Spamhaus's own nameservers, so the key never passes through a public resolver, and query names are never
+  logged. Phishing, malware, and botnet listings confirm a result; spam domains and abused real sites raise warnings;
+  a domain first seen in the last 24 hours is a moderate warning unless the registry already shows it is new.
+- **PhishStats** for the main link, in the scanner only, cached for 6 hours and capped at 140 calls a day.
+- **Cloudflare Radar.** A domain in the top 100,000 that is not shared hosting loses only the often-abused-ending and
+  brand-mismatch warnings, and the report credits Cloudflare Radar (CC BY-NC 4.0). A real listing still decides.
+- **Check it yourself elsewhere.** Reports link to VirusTotal, Google's Safe Browsing site status, urlscan.io, Cisco
+  Talos, ScamAdviser, and URLVoid for domains, and VirusTotal, Hybrid Analysis, and Cisco Talos for files. ScamCam
+  sends them nothing.
+- **License.** The code is now released under AGPL-3.0-or-later.
+- Weekly maintenance also alerts when a list is missing (`scam_list_missing`) or has not been refreshed for 2 days
+  (`scam_list_sync_late`), and the recovery drill now covers shared reports and flags.
+- The list builder crashed on Windows while exiting with an error; it now sets the exit code instead.
+- Verified: 609 Vitest tests in 39 files, 17 Node tests, the accessibility audit (60 checks, including the open flag
+  form), the browser privacy check (now also scanning, flagging, and seeing the confirmation), and the recovery drill
+  (9 tables). Local workerd reached Spamhaus's real servers over TCP with a placeholder key, and PhishStats' query
+  syntax was checked live without a key.
+
 ## 2026-10-06: File checks, ThreatFox, and list fixes
 
 - **Check a file.** A new button (or paste, or drop) reads a file on the visitor's device without opening or running it.

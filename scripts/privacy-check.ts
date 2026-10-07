@@ -200,6 +200,24 @@ async function checkBrowser(): Promise<string[]> {
       notes.push("the scan step was skipped because Turnstile did not finish in a headless browser; run one scan by hand");
     }
     await sleep(1500);
+    let flagged = false;
+    if (scanned && !live) {
+      try {
+        const button = (label: string) => `[...document.querySelectorAll("button")].find((button) => button.textContent.trim() === ${JSON.stringify(label)})`;
+        await cdp.evaluate(`${button("Flag result as incorrect")}.click()`);
+        await waitFor(cdp, `[...document.querySelectorAll("legend")].some((legend) => legend.textContent === "What is wrong?")`);
+        await cdp.evaluate(`document.querySelector('input[type="radio"][value="detail_wrong"]').click()`);
+        await cdp.evaluate(
+          `(() => { const note = document.querySelector('textarea[aria-describedby$="note-help"]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(note, "privacy probe note, reach me at probe@example.com"); note.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+        );
+        await waitFor(cdp, `${button("Send for review")} && !${button("Send for review")}.disabled`);
+        await cdp.evaluate(`${button("Send for review")}.click()`);
+        await waitFor(cdp, `document.body.textContent.includes("A person will review this report.")`);
+        flagged = true;
+      } catch (error) {
+        failures.push(`flagging the report failed (${error instanceof Error ? error.message.slice(0, 120) : "unknown"})`);
+      }
+    }
     let shareKey = "";
     if (scanned) {
       try {
@@ -299,8 +317,17 @@ async function checkBrowser(): Promise<string[]> {
         failures.push(`the scan request sent unexpected fields: ${fields.join(", ")}`);
       }
     }
+    const flags = requests.filter((request) => request.url === `${base}/api/v1/flags`);
+    if (flagged && (flags.length !== 1 || flags[0]?.method !== "POST")) {
+      failures.push(`expected one POST to /api/v1/flags, saw ${flags.length}`);
+    } else if (flagged) {
+      const fields = Object.keys(JSON.parse(flags[0]?.postData ?? "{}") as Record<string, unknown>).sort();
+      if (fields.join(",") !== "note,reason,report,signature,turnstileToken") {
+        failures.push(`the flag request sent unexpected fields: ${fields.join(", ")}`);
+      }
+    }
 
-    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  browser visit of ${publicRoutes.length} pages, a theme change${scanned ? ", a scan, and a share link opened like a friend would" : ""}`);
+    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  browser visit of ${publicRoutes.length} pages, a theme change${scanned ? `, a scan,${flagged ? " a flag sent for review," : ""} and a share link opened like a friend would` : ""}`);
     console.log(`      origins contacted: ${[...origins].sort().join(", ")}`);
     console.log(`      local storage keys: ${storage.local.map(([key]) => key).join(", ") || "none"}`);
     console.log(

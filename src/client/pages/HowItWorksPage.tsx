@@ -8,7 +8,7 @@ export function HowItWorksPage() {
     <DocumentPage
       title="How it works"
       reference="SC-DOC-01"
-      updated="2026-10-05"
+      updated="2026-10-06"
       lead="ScamCam treats every check like a case: collect evidence from independent sources, compare it, and only then reach a verdict you can inspect."
     >
       <h2>Evidence before AI</h2>
@@ -36,10 +36,14 @@ export function HowItWorksPage() {
           as official, because a picture only shows the text of a link, not where it goes.
         </li>
         <li>
-          <strong>Ask independent sources.</strong> Lists of known phishing and malware sites, Google Safe Browsing,
-          Cloudflare&apos;s 1.1.1.2 security filter, abuse.ch&apos;s URLhaus and ThreatFox, how old the domain is, and its DNS
-          records. ScamCam never opens the
-          link itself. Google works to provide the most
+          <strong>Ask independent sources.</strong> Google Safe Browsing, Spamhaus&apos;s Domain Blocklist and its list of
+          domains first seen in the last day, PhishStats, Cloudflare&apos;s 1.1.1.2 security filter, abuse.ch&apos;s URLhaus and
+          ThreatFox, how old the domain is, and its DNS records. Six scam lists are checked against a scrambled copy kept by
+          ScamCam: Phishing.Database, MetaMask&apos;s phishing list, ScamSniffer, PhishDestroy, a public-domain list of Discord
+          and Steam scam links, and CERT Polska&apos;s warning list. Very popular sites in{" "}
+          <a href="https://radar.cloudflare.com/domains">Cloudflare Radar</a>&apos;s ranking (
+          <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>) only soften small warnings, such as an
+          often-abused ending, and never outweigh a real listing. ScamCam never opens the link itself. Google works to provide the most
           accurate and up-to-date information about unsafe web resources, but it cannot guarantee that its information is
           complete and error-free: some risky sites may not be identified, and some safe sites may be identified in error.
         </li>
@@ -80,19 +84,31 @@ export function HowItWorksPage() {
         </tbody>
       </table>
 
+      <h2>If a result looks wrong</h2>
+      <p>
+        Each report has a <strong>Flag result as incorrect</strong> button. A flag goes to a queue for a person to review by hand. It
+        never changes the result, for that report or any other, so flagging a scam site again and again cannot make it look
+        safe. Flags need the security check, are limited per visitor and per day, and only work on a report ScamCam made in
+        the last day.
+      </p>
+      <p>
+        Each report also links to other well-known checkers, such as VirusTotal and Google&apos;s Safe Browsing site status, so
+        you can compare answers. ScamCam sends them nothing. They see the domain or fingerprint only if you click.
+      </p>
+
       <h2>What ScamCam will not do</h2>
       <ul>
         <li>Visit the link, download files, or run anything you submit.</li>
         <li>Accuse a person. Reports describe warning signs, not who someone is.</li>
         <li>Call something safe just because no list has it yet. New scam sites appear every day.</li>
         <li>Keep your message. It is checked and then discarded.</li>
+        <li>Let a flag change a result. Flags are only read by a person.</li>
       </ul>
 
       <h2>Status</h2>
       <p>
-        ScamCam launched on October 5, 2026. The link and message checks, Google Safe Browsing, URLhaus, domain age, DNS,
-        Cloudflare&apos;s security filter, the Phishing.Database list, and the AI step are all running. If a source is down or has reached its free limit
-        for the day, the report says so.
+        ScamCam launched on October 5, 2026. Every report lists any source that was not connected, did not answer, or had
+        reached its free limit for the day, so you can see exactly what was checked.
       </p>
     </DocumentPage>
   );

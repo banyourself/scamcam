@@ -46,7 +46,7 @@ is a self-review backed by automated tests, not an independent penetration test.
 | Errors | Generic messages with a request ID; only the error type and route are stored, for 7 days |
 | Dependencies | `npm audit`: 0 vulnerabilities. Registry signatures verified, an SBOM from every CI run, every GitHub Action pinned to a commit |
 | Concurrency | 16 scans sent at once from one address: exactly 10 get through (local simulator) |
-| Cleanup | 10,250 expired rows in one table are removed in two daily runs, with a backlog alert after the first. With a backlog in every table, one run deletes 11,000 rows in 25 batches and stays under 50 queries |
+| Cleanup | 10,250 expired rows in one table are removed in two daily runs, with a backlog alert after the first. With a backlog in every table, one run deletes 11,000 rows in 26 batches and stays under 50 queries |
 | Partial list sync | A sync that stops partway leaves a mix of old and new shards that still answers correctly |
 | Recovery | Export and restore of a throwaway database matches on every table (`RECOVERY.md`) |
 | Disclosure contact | `kevinle.tech` has MX records, SPF, a DKIM key (selector `titan1`), and a DMARC reject policy (DNS lookups on 2026-10-05), so the security contact address can receive reports and its replies should pass DMARC. On 2026-10-05 a test report from an outside Gmail address arrived, and the reply from the security contact address reached the Gmail inbox |
@@ -90,8 +90,9 @@ who spreads requests over many Cloudflare locations can therefore send more than
 
 Protection for the whole service comes from two other layers. Every scan needs a fresh Turnstile token, which is
 checked on the server, and Cloudflare accepts each token only once. The daily budgets in D1 are counted exactly for
-the whole service: 8,000 Safe Browsing calls, 5,000 URLhaus calls, and 2,000 Workers AI calls. Past a budget, that
-source is reported as not checked instead of going over its free quota.
+the whole service: 8,000 Safe Browsing calls, 5,000 URLhaus calls, 2,000 Workers AI calls, and 140 PhishStats calls.
+Past a budget, that source is reported as not checked instead of going over its free quota. Flags have their own
+limit of 3 a minute per visitor and a daily cap of 200 counted in D1.
 
 ## Still open
 
@@ -207,6 +208,44 @@ The scan engine moved into the `Scanner` Durable Object, and five checks were ad
 | Leaking a file or its name | The browser check drops a fake program named `Invoice 2026.pdf.exe` and confirms that neither its name nor its contents appear in any request, before or after checking | `scripts/privacy-check.ts` |
 | Text from a lookup service in the report | MalwareBazaar family names and CIRCL product names are reduced to letters, digits, and simple punctuation and cut to 60 or 80 characters | Unit tests |
 | Spending the abuse.ch quota | MalwareBazaar calls share the abuse.ch daily budget with URLhaus, file checks share the 10-a-minute scan limit and need Turnstile, and answers are cached | `test/engine/file-scan.test.ts` |
+
+## Result flags, more lists, Spamhaus, PhishStats, and Radar (2026-10-06)
+
+### Result flags
+
+A visitor can flag a result as incorrect. The design goal was that flags can only ever reach me, never the scan
+engine, so a bot flood cannot turn a scam site into a "no known threat" result.
+
+| Threat | Protection | Test |
+|---|---|---|
+| Bots flagging a scam site until it looks safe | Flags never change results. Only the flag route writes `result_flags` and only maintenance counts it; a source check fails if any other file mentions the table or imports its repository. A test flags a scam link three times and gets the same level, confidence, summary, and evidence | `test/worker/flags.test.ts`, `test/node/config.test.ts` |
+| Made-up reports flagged to fill the queue | Only reports ScamCam signed in the last 24 hours, unchanged; edited, forged, missing, old, and future-dated reports are refused. One flag per report, keyed by a hash of its signature | `test/worker/flags.test.ts` |
+| Automated flagging | Its own Turnstile check with the `flag` action (a `scan` token is refused in production), 3 flags a minute per visitor, 200 a day in total, and none while storage writes are paused or without a configured limit | Same file |
+| Personal details in notes | At most 300 characters; emails, phone numbers, and codes are hidden as in scans; invisible, direction, and control characters are removed | Same file |
+| Escape codes in a note reaching my terminal | Control characters are removed when a flag is stored, and `npm run flags` replaces any that remain before printing | Same file and the script |
+| Injection through the review script | `--done` accepts only a 22-character id of letters, digits, `-`, and `_`; the only other values in its SQL are numbers it computes | Script code |
+| Content leaking into storage or logs | A flag keeps the verdict, finding IDs, the domain or file fingerprint, the reason, and the note. Not the message, the full link, the signature, or the IP address. Logs get only the reason, level, and kind | Same file dumps the table and the logs |
+
+### Spamhaus, PhishStats, and Cloudflare Radar
+
+| Threat | Protection | Test |
+|---|---|---|
+| The Spamhaus key showing up in a public resolver's logs | Queries go over DNS on TCP straight to Spamhaus's own nameservers, all of a scan's questions on one connection that is closed at once. Query names are never logged; the alert records only an error code, at most once every 10 minutes | `test/worker/dns-tcp.test.ts` |
+| A malformed key or domain changing which DNS zone is asked | The key must be 16 to 64 letters and digits, domains must be valid DNS names of at most 160 characters, and the DNS encoder refuses anything else | `test/engine/spamhaus.test.ts`, `test/engine/dns-wire.test.ts` |
+| A forged or garbled DNS answer | TCP only, a random id per question, answers matched by id, truncated replies ignored, and bounded lengths and name parsing | Same files |
+| An error read as "not listed" | Spamhaus error codes, server failures, and timeouts show as "did not respond", never as clean | `test/engine/spamhaus.test.ts` |
+| Outside keys leaking | The PhishStats key goes in a header and the Radar token in `Authorization`, never in an address. All three are Worker secrets that never reach the browser | `test/engine/phishstats-radar.test.ts` |
+| A scam site borrowing credit from popularity | Radar only removes two small warnings (an often-abused ending and a brand mismatch), only for domains in the top 100,000 without a security category, and never for shared hosting, community sites, or private suffixes. A listing still decides | `test/engine/scan-extended.test.ts` |
+| Text from these services in reports | Reports show only counts, dates, and fixed wording, never free text from Spamhaus, PhishStats, or Radar | Code review |
+| Running past the Free plan's 50 subrequests | All three run only in the scanner; a 20-link scan there with every source on used 35 (20 fetches, 1 DNS connection, 14 queries) | `test/worker/security.test.ts` |
+
+### More scam lists
+
+| Threat | Protection | Test |
+|---|---|---|
+| A list download replaced by something unexpected | Each GitHub list is downloaded at the commit the GitHub API reports, checked to be a 40-character id; every list must fall between its own minimum and maximum entry counts, or nothing is written | `test/node/domain-list.test.ts` |
+| A list name injected into SQL | Names are checked against the six known lists and a pattern before any SQL is written, and D1 has a `CHECK` on the same six names | `test/node/domain-list.test.ts`, `test/worker/domain-lists.test.ts` |
+| A broken or stalled sync going unnoticed | Weekly alerts for a missing list, a list not refreshed in 2 days, and a list whose upstream data is too old | `test/worker/maintenance.test.ts` |
 
 ## ThreatFox, list dates, and abuse.ch links (2026-10-06)
 

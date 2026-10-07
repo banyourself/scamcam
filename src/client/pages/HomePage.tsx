@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ScanReport } from "../../shared/report";
+import { FlagControls } from "@/components/report/FlagControls";
 import { ReportView } from "@/components/report/ReportView";
 import { ShareControls } from "@/components/report/ShareControls";
 import { ScanPanel } from "@/components/scan/ScanPanel";
@@ -100,6 +101,14 @@ export function HomePage() {
         <section ref={reportSection} tabIndex={-1} aria-label="Report" className="mx-auto mt-12 max-w-4xl scroll-mt-6 px-4 focus:outline-none">
           <ReportView report={report} />
           {result?.signature && <ShareControls key={report.caseNumber} report={report} signature={result.signature} />}
+          {result?.signature && (
+            <FlagControls
+              key={`flag-${report.caseNumber}`}
+              report={report}
+              signature={result.signature}
+              siteKey={health.state === "online" ? health.health.turnstileSiteKey : null}
+            />
+          )}
         </section>
       )}
 

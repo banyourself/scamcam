@@ -4,20 +4,23 @@ import { brandsNamedIn, freeHostingSuffixes, officialBrandFor, urlShorteners, us
 import type { AiReviewResult } from "./ai-review";
 import { cacheKey, memoryLookups, recallFromMemory, recordOutcome, rememberInMemory, sourceIsOpen, type Lookups } from "./cache";
 import { isPrivateAddress, lookupDns, lookupFilteredDns, type DnsResult, type FilterResult } from "./dns";
-import { candidateNames, type DomainListLookup, type DomainListResult } from "./domain-list";
+import { candidateNames, domainListDetails, type DomainListLookup, type DomainListName, type DomainListResult } from "./domain-list";
 import { caseNumber } from "./case-number";
 import { aimsAtCheckers } from "./injection";
 import { analyzeMessage, familyNames, normalizeMessage } from "./message-rules";
+import { lookupPhishstats, phishstatsHomePage, type PhishstatsResult } from "./phishstats";
+import { isPopular, lookupRadar, radarHomePage, type RadarResult } from "./radar";
 import { lookupRdap, type RdapResult } from "./rdap";
 import { isRedirectorHost, maxUnwrapDepth, unwrapRedirect } from "./redirects";
 import { searchSafeBrowsing, threatDefinitionUrls, threatDescriptions, type SafeBrowsingResult } from "./safe-browsing";
-import { phishingDatabaseUrl, sourceNames, strengthPoints, type ScamFamily, type Signal } from "./signals";
+import { sourceNames, strengthPoints, type ScamFamily, type Signal } from "./signals";
+import { lookupSpamhaus, spamhausDblUrl, spamhausZrdUrl, type DblListing, type DnsTransport, type SpamhausResult } from "./spamhaus";
 import { analyzeLink, type AnalyzedLink } from "./url-analysis";
 import { lookupThreatfoxHost, threatfoxHomePage, type ThreatfoxResult } from "./threatfox";
 import { lookupUrlhausHost, sameUrl, urlhausHomePage, type UrlhausResult } from "./urlhaus";
 import { decideVerdict } from "./verdict";
 
-export type BudgetedProvider = "safe_browsing" | "urlhaus" | "workers_ai";
+export type BudgetedProvider = "safe_browsing" | "urlhaus" | "workers_ai" | "phishstats";
 
 export interface ScanOptions {
   fetcher: typeof fetch;
@@ -25,14 +28,19 @@ export interface ScanOptions {
   urlhausKey?: string | undefined;
   takeBudget: (provider: BudgetedProvider) => Promise<boolean>;
   lookups?: Lookups;
-  phishingList?: DomainListLookup;
+  scamLists?: DomainListLookup;
   aiReview?: (text: string) => Promise<AiReviewResult>;
   now?: Date;
   fromScreenshot?: boolean;
   extendedLookups?: boolean;
+  spamhaus?: { key: string; transport: DnsTransport } | undefined;
+  phishstatsKey?: string | undefined;
+  radarToken?: string | undefined;
 }
 
 const maxNetworkLinks = 3;
+const maxRadarLinks = 2;
+const recentReportDays = 90;
 const maxUnwrappedLinks = 5;
 const cloudflareFilterUrl = "https://developers.cloudflare.com/1.1.1.1/setup/#1111-for-families";
 const maxListedLinks = 10;
@@ -310,6 +318,137 @@ function urlhausSignals(link: AnalyzedLink, result: UrlhausResult): Signal[] {
   return [{ ...base, id: `urlhaus-past-${host}`, direction: "raises", strength: "moderate", title: `${link.displayHostname} has spread malware before`, detail: `URLhaus has ${result.total} past malware reports for this site. None are online now.` }];
 }
 
+const dblKindNames: Record<DblListing["kind"], string> = {
+  spam: "spam",
+  phishing: "phishing",
+  malware: "malware",
+  botnet: "botnet control",
+  redirector: "redirecting people to spam",
+};
+
+function spamhausSignals(link: AnalyzedLink, domain: string, result: SpamhausResult): Signal[] {
+  if (result.status !== "ok") {
+    return [];
+  }
+  const signals: Signal[] = [];
+  const base = { source: sourceNames.spamhaus, link: link.hostname! };
+  const listing = result.dbl;
+  if (listing) {
+    const kind = dblKindNames[listing.kind];
+    if (listing.abused) {
+      signals.push({
+        ...base,
+        sourceUrl: spamhausDblUrl,
+        id: `spamhaus-abused-${domain}`,
+        direction: "raises",
+        strength: listing.kind === "spam" || listing.kind === "redirector" ? "moderate" : "strong",
+        title: `Spamhaus says ${domain} is a real site being abused for ${kind}`,
+        detail: `Spamhaus's Domain Blocklist marks ${domain} as a legitimate site that is being misused, for example after a break-in. Be careful with links to it until it is cleaned up.`,
+      });
+    } else if (isBroadName(domain)) {
+      signals.push({
+        ...base,
+        sourceUrl: spamhausDblUrl,
+        id: `spamhaus-shared-${domain}`,
+        direction: "context",
+        strength: "weak",
+        title: `Spamhaus lists ${domain} for ${kind}`,
+        detail: "Anyone can use this service, so the listing may come from other people's links. Check what this exact link is.",
+      });
+    } else {
+      const serious = listing.kind !== "spam";
+      signals.push({
+        ...base,
+        sourceUrl: spamhausDblUrl,
+        id: `spamhaus-${domain}`,
+        direction: "raises",
+        strength: serious ? "critical" : "strong",
+        ...(serious ? { confirms: true } : {}),
+        title: `Spamhaus lists ${domain} as a ${kind} domain`,
+        detail: `Spamhaus, a nonprofit that has tracked spam and cybercrime since 1998, lists this domain in its Domain Blocklist for ${kind}.`,
+      });
+    }
+  }
+  if (result.zrd) {
+    const hours = result.zrd.hoursAgo;
+    signals.push({
+      ...base,
+      sourceUrl: spamhausZrdUrl,
+      id: `spamhaus-new-${domain}`,
+      direction: "raises",
+      strength: "moderate",
+      title: hours ? `Spamhaus first saw ${domain} about ${hours} hours ago` : `Spamhaus first saw ${domain} in the last day`,
+      detail: "Spamhaus noticed this domain for the first time in the last 24 hours. Brand-new domains are often made for scams and dropped soon after.",
+    });
+  }
+  return signals;
+}
+
+function longDate(day: string): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+function phishstatsSignals(link: AnalyzedLink, result: PhishstatsResult, now: Date): Signal[] {
+  if (result.status !== "ok") {
+    return [];
+  }
+  const host = link.hostname!;
+  const domain = link.registrableDomain ?? host;
+  const base = { source: sourceNames.phishstats, sourceUrl: phishstatsHomePage, link: host };
+  const recent = (reportDay: string | null) => reportDay !== null && now.getTime() - Date.parse(`${reportDay}T00:00:00Z`) <= recentReportDays * day;
+  const shared = isBroadName(host) || isBroadName(domain) || (result.popular && !link.isPrivateSuffix);
+  const count = (reports: number) => `${reports}${reports >= 30 ? " or more" : ""} report${reports === 1 ? "" : "s"}`;
+  if (result.exactHost.reports > 0) {
+    const latest = result.exactHost.latest;
+    if (shared) {
+      return [{ ...base, id: `phishstats-shared-${host}`, direction: "context", strength: "weak", title: `Phishing pages have been reported on ${link.displayHostname}`, detail: "PhishStats has reports of phishing pages on this popular service. Anyone can post there, so check what this exact link is." }];
+    }
+    return [
+      {
+        ...base,
+        id: `phishstats-${host}`,
+        direction: "raises",
+        strength: recent(latest) ? "strong" : "moderate",
+        title: recent(latest) ? `PhishStats has phishing reports for ${link.displayHostname}` : `${link.displayHostname} was reported for phishing in the past`,
+        detail: `PhishStats collects phishing links reported by researchers and the public. It has ${count(result.exactHost.reports)} for this address${latest ? `, the latest on ${longDate(latest)}` : ""}.`,
+      },
+    ];
+  }
+  if (result.sameSite.reports > 0 && !shared) {
+    const latest = result.sameSite.latest;
+    return [
+      {
+        ...base,
+        id: `phishstats-site-${domain}`,
+        direction: "raises",
+        strength: recent(latest) ? "moderate" : "weak",
+        title: `PhishStats has phishing reports for other addresses on ${domain}`,
+        detail: `PhishStats has ${count(result.sameSite.reports)} for other pages on ${domain}${latest ? `, the latest on ${longDate(latest)}` : ""}. This exact address is not among them.`,
+      },
+    ];
+  }
+  return [];
+}
+
+function radarSignals(link: AnalyzedLink, domain: string, result: RadarResult): Signal[] {
+  if (result.status !== "ok" || !isPopular(result) || result.top === null) {
+    return [];
+  }
+  const place = result.top <= 100 ? `number ${result.top}` : `in the top ${result.top.toLocaleString("en-US")}`;
+  return [
+    {
+      id: `radar-popular-${domain}`,
+      source: sourceNames.radar,
+      sourceUrl: radarHomePage,
+      link: link.hostname!,
+      direction: "lowers",
+      strength: "moderate",
+      title: `${domain} is one of the most visited sites (${place} on Cloudflare Radar)`,
+      detail: "Cloudflare Radar ranks domains by real traffic. Very popular sites are rarely made for scams, but they can still be hacked or misused, so this does not prove a link is safe. Ranking data from Cloudflare Radar, CC BY-NC 4.0.",
+    },
+  ];
+}
+
 function isBroadName(name: string): boolean {
   return (
     urlShorteners.has(name) ||
@@ -327,7 +466,7 @@ function listDateNote(syncedAt: number, now: Date): string {
   return ` The copy ScamCam checked was published on ${date}.`;
 }
 
-function phishingListSignals(link: AnalyzedLink, names: string[], result: DomainListResult, isWrapper: boolean, now: Date): Signal[] {
+function listSignals(list: DomainListName, link: AnalyzedLink, names: string[], result: DomainListResult, isWrapper: boolean, now: Date): Signal[] {
   if (result.status !== "ok") {
     return [];
   }
@@ -335,29 +474,31 @@ function phishingListSignals(link: AnalyzedLink, names: string[], result: Domain
   if (!matched) {
     return [];
   }
+  const details = domainListDetails[list];
+  const prefix = list === "phishing_database" ? "pdb" : `list-${list}`;
   const shown = matched === link.hostname ? (link.displayHostname ?? matched) : matched;
-  const base = { source: sourceNames.phishingDatabase, sourceUrl: phishingDatabaseUrl, link: link.hostname! };
+  const base = { source: details.source, sourceUrl: details.url, link: link.hostname! };
   const dated = listDateNote(result.syncedAt, now);
   if (isBroadName(matched) || isWrapper || isRedirectorHost(link.hostname ?? "")) {
     return [
       {
         ...base,
-        id: `pdb-shared-${matched}`,
+        id: `${prefix}-shared-${matched}`,
         direction: "context",
         strength: "weak",
-        title: `${shown} appears on a community phishing list`,
-        detail: `Phishing.Database lists this service, but it is shared by many people or only passes links on, so it says little about this exact link. ScamCam checks where a redirect leads separately.${dated}`,
+        title: `${shown} appears on a community scam list`,
+        detail: `${details.source} lists this service, but it is shared by many people or only passes links on, so it says little about this exact link. ScamCam checks where a redirect leads separately.${dated}`,
       },
     ];
   }
   return [
     {
       ...base,
-      id: `pdb-${matched}`,
+      id: `${prefix}-${matched}`,
       direction: "raises",
       strength: "strong",
-      title: `Phishing.Database lists ${shown} as a phishing site`,
-      detail: `Phishing.Database is a free community list of phishing sites. Lists like this can contain mistakes, so ScamCam treats it as a warning sign, not proof.${dated}`,
+      title: details.title.replace("{name}", shown),
+      detail: `${details.about} Lists like this can contain mistakes, so ScamCam treats one listing as a warning sign, not proof.${dated}`,
     },
   ];
 }
@@ -499,6 +640,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   const extraSignals = new Map<AnalyzedLink, Signal[]>();
   const attach = (link: AnalyzedLink, signals: Signal[]) => extraSignals.set(link, [...(extraSignals.get(link) ?? []), ...signals]);
   const generalSignals: Signal[] = [];
+  const popularLinks = new Set<AnalyzedLink>();
 
   let safeBrowsing: SafeBrowsingResult | null = null;
   const tasks: Promise<void>[] = [];
@@ -565,6 +707,66 @@ export async function scanContent(content: string, options: ScanOptions): Promis
         );
       }
     }
+    if (options.extendedLookups) {
+      const domainLinks = networkLinks.filter((link) => !link.isIp && link.registrableDomain);
+      if (domainLinks.length > 0 && !options.spamhaus) {
+        notChecked.push({ name: sourceNames.spamhaus, reason: "not_configured" });
+      } else if (domainLinks.length > 0 && options.spamhaus) {
+        const spamhaus = options.spamhaus;
+        tasks.push(
+          (async () => {
+            const results = await lookupSpamhaus(
+              domainLinks.map((link) => link.registrableDomain!),
+              { key: spamhaus.key, transport: spamhaus.transport, lookups },
+            );
+            let missing = false;
+            for (const link of domainLinks) {
+              const result = results.get(link.registrableDomain!) ?? { status: "unavailable" };
+              missing ||= result.status !== "ok";
+              attach(link, spamhausSignals(link, link.registrableDomain!, result));
+            }
+            if (missing) {
+              notChecked.push({ name: sourceNames.spamhaus, reason: "unavailable" });
+            }
+          })(),
+        );
+      }
+      const topLink = domainLinks[0];
+      if (topLink && !options.phishstatsKey) {
+        notChecked.push({ name: sourceNames.phishstats, reason: "not_configured" });
+      } else if (topLink && options.phishstatsKey) {
+        const apiKey = options.phishstatsKey;
+        tasks.push(
+          (async () => {
+            const result = await lookupPhishstats(
+              { hostname: topLink.hostname!, registrableDomain: topLink.registrableDomain!, privateSuffix: topLink.isPrivateSuffix },
+              { apiKey, fetcher: options.fetcher, lookups, takeBudget: () => options.takeBudget("phishstats") },
+            );
+            if (result.status === "over_budget" || result.status === "unavailable") {
+              notChecked.push({ name: sourceNames.phishstats, reason: result.status });
+            }
+            attach(topLink, phishstatsSignals(topLink, result, now));
+          })(),
+        );
+      }
+      if (options.radarToken) {
+        const token = options.radarToken;
+        const rankable = domainLinks.filter((link) => !link.isPrivateSuffix && !link.communitySite && !isSharedHost(link)).slice(0, maxRadarLinks);
+        tasks.push(
+          (async () => {
+            await Promise.all(
+              rankable.map(async (link) => {
+                const result = await lookupRadar(link.registrableDomain!, { token, fetcher: options.fetcher, lookups });
+                if (isPopular(result)) {
+                  popularLinks.add(link);
+                  attach(link, radarSignals(link, link.registrableDomain!, result));
+                }
+              }),
+            );
+          })(),
+        );
+      }
+    }
     tasks.push(
       (async () => {
         const results = await Promise.all(
@@ -608,27 +810,44 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   }
   const listedLinks = readable.filter((link) => !link.officialBrand).slice(0, maxListedLinks);
   if (listedLinks.length > 0) {
-    if (!options.phishingList) {
-      notChecked.push({ name: sourceNames.phishingDatabase, reason: "not_configured" });
+    if (!options.scamLists) {
+      notChecked.push({ name: sourceNames.scamLists, reason: "not_configured" });
     } else {
-      const list = options.phishingList;
+      const lists = options.scamLists;
       tasks.push(
         (async () => {
           const namesByLink = new Map(listedLinks.map((link) => [link, candidateNames(link.hostname!, link.registrableDomain)]));
-          const result = await list.lookup([...new Set([...namesByLink.values()].flat())]);
-          if (result.status === "stale") {
-            notChecked.push({ name: sourceNames.phishingDatabase, reason: "out_of_date" });
-          } else if (result.status !== "ok") {
-            notChecked.push({ name: sourceNames.phishingDatabase, reason: result.status });
+          const results = await lists.lookup([...new Set([...namesByLink.values()].flat())]);
+          const answers = [...results.values()];
+          if (answers.length === 0 || answers.every((answer) => answer.status === "not_configured")) {
+            notChecked.push({ name: sourceNames.scamLists, reason: "not_configured" });
+          } else if (answers.every((answer) => answer.status === "unavailable")) {
+            notChecked.push({ name: sourceNames.scamLists, reason: "unavailable" });
           }
-          for (const [link, names] of namesByLink) {
-            attach(link, phishingListSignals(link, names, result, wrappers.has(link), now));
+          for (const [list, result] of results) {
+            if (result.status === "stale") {
+              notChecked.push({ name: domainListDetails[list].source, reason: "out_of_date" });
+            }
+            for (const [link, names] of namesByLink) {
+              attach(link, listSignals(list, link, names, result, wrappers.has(link), now));
+            }
           }
         })(),
       );
     }
   }
   await Promise.all(tasks);
+  for (const [link, signals] of extraSignals) {
+    if (signals.some((signal) => signal.id.startsWith("rdap-new-"))) {
+      extraSignals.set(
+        link,
+        signals.filter((signal) => !signal.id.startsWith("spamhaus-new-")),
+      );
+    }
+  }
+  for (const link of popularLinks) {
+    link.signals = link.signals.filter((signal) => !signal.id.startsWith("risky-tld-"));
+  }
 
   const safeBrowsingResult = safeBrowsing as SafeBrowsingResult | null;
   if (safeBrowsingResult?.status === "unavailable" || safeBrowsingResult?.status === "over_budget") {
@@ -668,7 +887,9 @@ export async function scanContent(content: string, options: ScanOptions): Promis
 
   const namedBrands = brandsNamedIn(normalizeMessage(messageText));
   for (const link of readable) {
-    attach(link, brandMismatchSignals(link, namedBrands, message.families.length > 0));
+    if (!popularLinks.has(link)) {
+      attach(link, brandMismatchSignals(link, namedBrands, message.families.length > 0));
+    }
   }
   const linkSignals = links.map((link) => [...link.signals, ...(extraSignals.get(link) ?? [])]);
   const nonOfficial = readable.filter((link) => !link.officialBrand || pictureLinks.has(link));

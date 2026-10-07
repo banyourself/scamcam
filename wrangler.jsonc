@@ -32,6 +32,11 @@
       "name": "SHARE_RATE_LIMITER",
       "namespace_id": "1003",
       "simple": { "limit": 10, "period": 60 }
+    },
+    {
+      "name": "FLAG_RATE_LIMITER",
+      "namespace_id": "1004",
+      "simple": { "limit": 3, "period": 60 }
     }
   ],
   "ai": {
@@ -54,7 +59,9 @@
     "URLHAUS_DAILY_LIMIT": "5000",
     "AI_MODE": "inconclusive",
     "AI_MODEL": "@cf/qwen/qwen3-30b-a3b-fp8",
-    "AI_DAILY_LIMIT": "2000"
+    "AI_DAILY_LIMIT": "2000",
+    "PHISHSTATS_DAILY_LIMIT": "140",
+    "FLAG_DAILY_LIMIT": "200"
   },
   "observability": {
     "enabled": true,
@@ -93,6 +100,11 @@
           "name": "SHARE_RATE_LIMITER",
           "namespace_id": "1003",
           "simple": { "limit": 10, "period": 60 }
+        },
+        {
+          "name": "FLAG_RATE_LIMITER",
+          "namespace_id": "1004",
+          "simple": { "limit": 3, "period": 60 }
         }
       ],
       "ai": {
@@ -114,7 +126,9 @@
         "URLHAUS_DAILY_LIMIT": "5000",
         "AI_MODE": "inconclusive",
         "AI_MODEL": "@cf/qwen/qwen3-30b-a3b-fp8",
-        "AI_DAILY_LIMIT": "2000"
+        "AI_DAILY_LIMIT": "2000",
+        "PHISHSTATS_DAILY_LIMIT": "140",
+        "FLAG_DAILY_LIMIT": "200"
       },
       "observability": {
         "enabled": true,

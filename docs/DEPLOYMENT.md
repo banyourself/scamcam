@@ -29,7 +29,9 @@ development and tests. `test/node/config.test.ts` checks that production deploys
 | 6. Secrets | Me, typing each value | `npx wrangler secret put TURNSTILE_SECRET_KEY --env production`, then the same for `SAFE_BROWSING_API_KEY` and `URLHAUS_AUTH_KEY`. Until the Turnstile secret is set, scans answer "temporarily unavailable" | Three secrets |
 | 7. Verify | Me | `npm run check:live`, then the checks below | None |
 | 9. Scanner Durable Object | Me | Deployed with `npm run deploy`, which applies the `v1` migration that creates the SQLite-backed `Scanner` class | One Durable Object namespace |
-| 8. Share signing key | Me, piped without displaying it | A random 32-byte key piped straight into `npx wrangler secret put SHARE_SIGNING_KEY --env production`; rotating it only stops sharing of reports made before the change | One secret |
+| 8. Share signing key | Me, piped without displaying it | A random 32-byte key piped straight into `npx wrangler secret put SHARE_SIGNING_KEY --env production`; rotating it only stops sharing and flagging of reports made before the change | One secret |
+| 10. More lists and flags | Me | `npx wrangler d1 migrations apply scamcam --remote --env production` applies `0006`, which rebuilds the list and usage tables with the new names (keeping their rows) and adds `result_flags`; then `npm run deploy` and a run of the "Scam list sync" workflow | Three rebuilt tables and one new table |
+| 11. Extra sources | Me, typing each value | `npx wrangler secret put SPAMHAUS_DQS_KEY --env production`, `npx wrangler secret put PHISHSTATS_API_KEY --env production`, and `npx wrangler secret put CLOUDFLARE_RADAR_TOKEN --env production`. The Radar token is a custom API token with Account, Radar, Read. Each source starts on the next scan after its secret is set; until then, reports list Spamhaus and PhishStats as not connected | Three secrets and one API token |
 
 ## Live checks after the first deployment
 
@@ -47,16 +49,18 @@ Local checks cannot see Cloudflare's own behavior, so these run once the site is
 | CPU and subrequests | Workers metrics and Workers Logs in the dashboard after a few scans, including one with many links | CPU time per request under 10 ms; no subrequest or query limit errors |
 | Restore points | `npx wrangler d1 time-travel info scamcam` | A current bookmark is shown |
 
-## Phishing.Database sync (after the first deployment)
+## Scam list sync (after the first deployment)
 
 1. In the Cloudflare dashboard, create an API token with only **Account, D1, Edit** for this account.
 2. In GitHub, add the repository secrets `CLOUDFLARE_D1_TOKEN` (the token) and `CLOUDFLARE_ACCOUNT_ID`.
-3. Set the repository variable `PHISHING_DATABASE_SYNC` to `enabled`.
-4. Run the "Phishing.Database sync" workflow once by hand and check that reports stop saying the list is not connected.
+3. Set the repository variable `PHISHING_DATABASE_SYNC` to `enabled` (the name dates from when there was one list).
+4. Run the "Scam list sync" workflow once by hand and check that reports stop saying the lists are not connected.
 
-The job downloads the list at a pinned commit, refuses a list with fewer than 100,000 entries, and writes about
-1,025 rows. D1 can be briefly unavailable while an import runs, so the job is scheduled for 07:37 UTC (around
-midnight in California).
+The job runs `scripts/sync-lists.sh`. It downloads each GitHub list at the latest commit that changed it and CERT
+Polska's list with its `Last-Modified` date, refuses any list outside its expected size, and writes 1,025 rows per
+list, about 6,150 in all. `npm run lists:sync` builds the same files locally without writing anything; add
+`WRITE_TO_D1=1` to write them. D1 can be briefly unavailable while an import runs, so the job is scheduled for 07:37
+UTC (around midnight in California).
 
 ## Local development without a Cloudflare login
 

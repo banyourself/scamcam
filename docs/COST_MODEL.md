@@ -10,15 +10,15 @@ documentation checked on 2026-10-05; re-check before launch.
 | Workers requests | 100,000 per day | Error 1027 (route can fail closed); no charge | Only `/api/*` counts. Static pages are free and unlimited |
 | Workers CPU | 10 ms per request | Request fails | The Worker only checks the rate limit and Turnstile and calls the scanner; the scan itself runs in a Durable Object |
 | Durable Objects (SQLite-backed only on Free) | 100,000 requests and 13,000 GB-s of duration a day; 30 seconds of CPU per request | That operation fails, and the Worker scans by itself instead | One request per scan, about 0.13 GB-s for a 1-second scan, so roughly 100,000 scans a day. Nothing is stored |
-| Subrequests | 50 per request (and per cron run); outside fetches, D1 queries, and Cache API calls all count | That call fails | At most 43 per scan (measured with 20 links and every source on), 6.7 on average for the benchmark; daily cleanup under 35 |
-| Cron triggers | 5 per account | Cannot add more | ScamCam uses 2 |
+| Subrequests | 50 per request (and per cron run); outside fetches, D1 queries, and Cache API calls all count | That call fails | At most 44 per scan in the Worker fallback and 35 in the scanner (measured with 20 links and every source on), 6.7 on average for the benchmark; daily cleanup under 35 |
+| Cron triggers | 5 per account | Cannot add more | ScamCam uses 3 |
 | Workers Logs | 200,000 events per day, kept 3 days | Logging stops | One log line per API request |
-| D1 | 5 million rows read and 100,000 written per day; 500 MB per database; 50 queries per Worker invocation | Queries error until 00:00 UTC; inserts blocked when full | Writes only for errors, maintenance, provider counts, and the list; at most 9 queries per scan |
+| D1 | 5 million rows read and 100,000 written per day; 500 MB per database; 50 queries per Worker invocation | Queries error until 00:00 UTC; inserts blocked when full | Writes only for errors, maintenance, provider counts, flags (at most 200 a day), and the six scam lists (1,025 rows each, about 6,150 rows a day, roughly 10 MB stored in all); at most 9 queries per scan in the Worker and 14 in the scanner |
 | KV | 100,000 reads and 1,000 writes per day | That operation fails | Not used yet |
 | Workers AI | 10,000 neurons per day on Free and Paid | Calls fail on Free; billed at $0.011 per 1,000 neurons on Paid | Unclear messages only, capped at 2,000 calls a day (about 4,300 neurons at 2.14 per call, under 6,400 even with the longest messages) |
 | Turnstile | Unlimited challenges, 20 widgets | n/a | One widget |
-| Rate limiting binding | No plan restriction or price found | | 60 API requests and 10 scans per minute per client |
-| GitHub Actions | 2,000 minutes per month for private repos on Free (3,000 on Pro) | Blocked if no payment method | About 3 minutes per push, plus about 2 minutes a day for the Phishing.Database sync once enabled |
+| Rate limiting binding | No plan restriction or price found | | 60 API requests, 10 scans, 10 share links, and 3 flags per minute per client |
+| GitHub Actions | 2,000 minutes per month for private repos on Free (3,000 on Pro) | Blocked if no payment method | About 3 minutes per push, plus the daily scam list sync for six lists |
 | GitHub Codespaces | 120 core hours and 15 GB-month (180 and 20 on Pro) | Blocked if no payment method | Optional |
 
 ## Cost of one scan (measured in October 2026)
@@ -27,16 +27,27 @@ documentation checked on 2026-10-05; re-check before launch.
 |---|---|---|
 | Worker requests | 1 (`POST /api/v1/scans`), plus 1 health check per page load | 100,000 per day |
 | Subrequests | At most 15: Turnstile 1, Safe Browsing 1 (all links in one call), URLhaus up to 3, RDAP up to 3 (plus the IANA bootstrap once per 12 hours per instance), DNS up to 3, and Cloudflare's security DNS up to 3 | 50 per request |
-| D1 reads | 3 (the `writes_paused` flag, the list record, and one list shard) | 5 million per day |
-| D1 writes | Up to 5 (Safe Browsing, up to 3 URLhaus, and the AI count), only for calls that are actually made | 100,000 per day, so about 20,000 fully checked scans a day |
+| D1 reads | About 20 rows in 2 list queries (six list records and one or two shards per list), plus the `writes_paused` flag | 5 million per day |
+| D1 writes | Up to 5 in the Worker (Safe Browsing, up to 3 URLhaus, and the AI count) and up to 9 in the scanner (adding up to 3 ThreatFox and 1 PhishStats count), only for calls that are actually made | 100,000 per day, so about 10,000 fully checked scans a day after the list sync |
 | Cache API | At most 24 shared cache reads and writes per request; repeated lookups in the same Worker instance come from memory | Counts toward the 50 subrequests |
-| All subrequests | 44 for a message with 20 links in the Worker fallback (15 fetches, 20 cache calls, 9 queries); 27 in the scanner, which caches in memory only and adds up to 3 ThreatFox lookups; none for a repeat in the same instance | 50 per request |
+| All subrequests | 44 for a message with 20 links in the Worker fallback (15 fetches, 20 cache calls, 9 queries); 35 in the scanner with every source on (20 fetches, 1 DNS connection, 14 queries), which caches in memory only and adds up to 3 ThreatFox lookups, 1 PhishStats lookup, up to 2 Radar lookups, and one Spamhaus connection; none for a repeat in the same instance | 50 per request |
 | Workers AI | At most 1 call (about 2.1 neurons), only for messages the rules cannot decide | 10,000 neurons per day; ScamCam stops at 2,000 calls |
 | Safe Browsing calls | 1, capped by `SAFE_BROWSING_DAILY_LIMIT` (8,000) | Google Cloud quota |
 | abuse.ch calls | Up to 3 URLhaus and, in the scanner, up to 3 ThreatFox lookups, plus 1 MalwareBazaar lookup per file check, all counted in one abuse.ch budget, `URLHAUS_DAILY_LIMIT` (5,000) | Fair use |
+| Spamhaus queries | In the scanner, one TCP connection with up to 6 questions (DBL and ZRD for up to 3 domains), answers kept for a minute | The free DQS allows under 100,000 queries a day, about 16,000 scans |
+| PhishStats calls | In the scanner, at most 1 (the main link), cached for 6 hours, capped by `PHISHSTATS_DAILY_LIMIT` (140) and not made while D1 writes are paused | 150 a day on the free key |
+| Cloudflare Radar calls | In the scanner, up to 2, cached for a day | Cloudflare's API allows 1,200 requests every 5 minutes per user |
 | CPU | 1.2 ms at the median and 2.9 ms at the 95th percentile for the benchmark in Node (with a fake network), and under 1 ms for each of the worst crafted inputs. Live scans on a fresh Worker used 9 to 26 ms, which is why scans moved to the scanner | 30 seconds per request in the scanner; 10 ms for the Worker's own part |
 
-Per-visitor limits: 60 API requests and 10 scans per minute. Turnstile is required for every scan.
+Per-visitor limits: 60 API requests, 10 scans, 10 share links, and 3 flags per minute. Turnstile is required for every scan, file check, and flag.
+
+## Cost of one flag
+
+| Resource | Per flag | Limit |
+|---|---|---|
+| Worker requests | 1 (`POST /api/v1/flags`) | 100,000 per day |
+| Subrequests | Turnstile 1, plus up to 3 D1 queries (the `writes_paused` flag, the insert with its daily cap, and a duplicate check when nothing was inserted) | 50 per request |
+| D1 writes | 1 row | At most 200 a day (`FLAG_DAILY_LIMIT`) |
 
 ## Cost of one file check
 

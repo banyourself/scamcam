@@ -3,13 +3,14 @@ import type { Lookups } from "../engine/cache";
 import { fileReport } from "../engine/file-scan";
 import { lookupFileHashes } from "../engine/hash-lookups";
 import { scanContent, type BudgetedProvider } from "../engine/scan";
+import type { DnsTransport } from "../engine/spamhaus";
 import type { FileCheckRequest } from "../shared/file-check";
 import type { ScanReport } from "../shared/report";
 import { ScanReportSchema } from "../shared/report-schema";
 import type { AppBindings } from "./env";
 import { logEvent } from "./logging";
 import { writesArePaused } from "./repositories/app-state";
-import { d1DomainList } from "./repositories/domain-lists";
+import { d1DomainLists } from "./repositories/domain-lists";
 import { dailyLimit, recordProviderCall } from "./repositories/provider-usage";
 import { signReport } from "./security/report-signature";
 
@@ -18,6 +19,7 @@ export interface ScanDependencies {
   lookups: Lookups;
   aiModel: TextModel | null;
   extendedLookups?: boolean;
+  dnsTransport?: DnsTransport;
 }
 
 export interface ScanOutcome {
@@ -30,7 +32,7 @@ function budgetTaker(env: AppBindings) {
   return async (provider: BudgetedProvider): Promise<boolean> => {
     paused ??= await writesArePaused(env.DB).catch(() => true);
     if (paused) {
-      return provider !== "workers_ai";
+      return provider !== "workers_ai" && provider !== "phishstats";
     }
     const limit = dailyLimit(env, provider);
     const calls = await recordProviderCall(env.DB, provider).catch(() => Number.POSITIVE_INFINITY);
@@ -76,9 +78,12 @@ export async function runScan(env: AppBindings, content: string, dependencies: S
         }
       : undefined,
     lookups: dependencies.lookups,
-    phishingList: d1DomainList(env.DB, "phishing_database", dependencies.lookups),
+    scamLists: d1DomainLists(env.DB, dependencies.lookups),
     fromScreenshot,
     extendedLookups: dependencies.extendedLookups ?? false,
+    spamhaus: env.SPAMHAUS_DQS_KEY && dependencies.dnsTransport ? { key: env.SPAMHAUS_DQS_KEY, transport: dependencies.dnsTransport } : undefined,
+    phishstatsKey: env.PHISHSTATS_API_KEY || undefined,
+    radarToken: env.CLOUDFLARE_RADAR_TOKEN || undefined,
   });
   const checked = ScanReportSchema.parse(report);
   return { report: checked, signature: await signReport(checked, env.SHARE_SIGNING_KEY) };

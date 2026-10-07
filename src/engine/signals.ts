@@ -45,6 +45,10 @@ export const sourceNames = {
   urlhaus: "URLhaus (abuse.ch)",
   threatfox: "ThreatFox (abuse.ch)",
   phishingDatabase: "Phishing.Database (community list)",
+  scamLists: "Community scam lists",
+  spamhaus: "Spamhaus DBL and ZRD",
+  phishstats: "PhishStats",
+  radar: "Cloudflare Radar domain ranking",
   ai: "AI pattern check (Workers AI)",
 } as const;
 

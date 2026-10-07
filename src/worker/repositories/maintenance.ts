@@ -1,6 +1,6 @@
 import { cleanupBatchSize, expiresAfter, nowInSeconds, retentionSeconds } from "../retention";
 
-export const retentionTables = ["error_events", "maintenance_runs", "provider_usage", "domain_lists", "domain_list_shards", "shared_reports"] as const;
+export const retentionTables = ["error_events", "maintenance_runs", "provider_usage", "domain_lists", "domain_list_shards", "shared_reports", "result_flags"] as const;
 export type RetentionTable = (typeof retentionTables)[number];
 export type MaintenanceTask = "daily" | "weekly";
 

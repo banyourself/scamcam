@@ -13,6 +13,7 @@ teenagers. The design goal is to keep nothing that is not needed.
 | IP address | Rate limiting, Turnstile | Not by ScamCam. Passed to the Cloudflare rate limiter and Turnstile, which do not store it for us |
 | Request metadata | Debugging | Worker logs keep method, route, status, duration, and a request ID made by the Worker for 3 days. No IP, no URL, no query. Cloudflare's own per-request invocation logs are turned off |
 | Error type and route | Reliability | `error_events` for 7 days |
+| A flag the visitor sends on a result | So I can review the result by hand | `result_flags` for 30 days, or until I mark it reviewed: the case number, verdict, finding IDs, the link's registrable domain (or its host when it has none) or the file's SHA-256, the reason, and the note after redaction. Never the message, the full link, the file, the signature, or the IP address. Flags are never read by the scan engine |
 
 ## What is never collected
 
@@ -33,9 +34,13 @@ history, screenshots, cookies other than strictly necessary security cookies fro
 | CIRCL hashlookup | A file's SHA-256 only | Each file check with a fingerprint |
 | Team Cymru Malware Hash Registry, through Cloudflare DNS | A file's SHA-1 only | Each file check with a fingerprint |
 | Cloudflare 1.1.1.2 security DNS | The hostname only | Up to 3 per scan |
+| Spamhaus DQS (DBL and ZRD) | The registrable domain inside a DNS name that also holds the access key, sent over TCP straight to Spamhaus's nameservers | Up to 3 domains per scan on one connection, only in the scanner, when the key is set; never logged |
+| PhishStats | The registrable domain, or the exact host for tenants of shared hosting | The main link only, only in the scanner, when the key is set; at most 140 a day |
+| Cloudflare Radar | The registrable domain only | Up to 2 per scan, only in the scanner, when the token is set; never for shared hosting |
+| VirusTotal, Google Safe Browsing site status, urlscan.io, Cisco Talos, ScamAdviser, URLVoid, Hybrid Analysis | Nothing from ScamCam. The report links to their public pages; they see the domain or fingerprint in the address only if the visitor clicks | Only when the visitor clicks |
 | Cloudflare Turnstile | The Turnstile token and the visitor's IP address | Every scan |
 | Workers AI | The message with emails, phone numbers, long codes, and invisible characters removed and links replaced by `[link]`; names and usernames stay | Only when the rules cannot decide and the message does not try to instruct checkers; Cloudflare says it does not store this content or use it to train models |
-| Phishing.Database (GitHub) | Nothing from users. A daily GitHub Actions job downloads the public list | After deployment |
+| Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen (GitHub), and CERT Polska | Nothing from users. A daily GitHub Actions job downloads the public lists | Daily |
 
 ## Children
 

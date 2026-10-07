@@ -25,9 +25,12 @@ is only a last resort for inconclusive context.
 ## Security and privacy
 
 - Never hardcode or commit secrets. Secrets go in `wrangler secret` in production or in `.dev.vars` locally, which git
-  ignores. The secret names are `TURNSTILE_SECRET_KEY`, `SAFE_BROWSING_API_KEY`, `URLHAUS_AUTH_KEY`, and
-  `SHARE_SIGNING_KEY`. `.dev.vars.example` holds only Cloudflare's public Turnstile test keys and a local-only share
-  signing key, and must never hold a real key.
+  ignores. The secret names are `TURNSTILE_SECRET_KEY`, `SAFE_BROWSING_API_KEY`, `URLHAUS_AUTH_KEY`,
+  `SHARE_SIGNING_KEY`, `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`. `.dev.vars.example`
+  holds only Cloudflare's public Turnstile test keys, a local-only share signing key, and empty placeholders, and must
+  never hold a real key.
+- Flags are for review only. Nothing that makes a verdict may read `result_flags`; `test/node/config.test.ts` fails
+  if anything outside the flag route and maintenance touches it.
 - Never trust input. Validate it with Zod at the API edge.
 - Never fetch a submitted URL from the Worker. Lookups are passive: hash prefixes, domain names, and cached lists.
 - Never store raw submitted messages or raw URLs. Follow [docs/RETENTION_POLICY.md](docs/RETENTION_POLICY.md).
@@ -80,7 +83,9 @@ results. A later phase in [docs/ROADMAP.md](docs/ROADMAP.md) does not start befo
 | Backup and restore drill | `npm run test:recovery` (throwaway local databases only) |
 | Everything | `npm run check` |
 | Regenerate binding types | `npm run cf-typegen` |
-| Build the Phishing.Database SQL | `npm run lists:build -- --input list.txt --out list.sql` |
+| Build one list's SQL | `npm run lists:build -- --input list.txt --out list.sql --list phishing_database` (`--format json-array` or `metamask` for JSON lists) |
+| Download and build all six lists | `npm run lists:sync` (writes to D1 only with `WRITE_TO_D1=1`) |
+| Review flagged results | `npm run flags`, then `npm run flags -- --done <id>` after reviewing one (production D1; add `--local` for the local database) |
 | Live AI evaluation | `node scripts/ai-eval.ts --set dev` against `npm run dev` (needs `npx wrangler login`) |
 | Develop without a Cloudflare login | `SCAMCAM_LOCAL_ONLY=1 npm run dev` (the AI step reports that it did not respond) |
 | Check the live site | `npm run check:live` |

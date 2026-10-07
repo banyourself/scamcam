@@ -14,10 +14,10 @@ ScamCam has been live at https://scamcam.kevinle.tech since 2026-10-05.
 | Worker | `scamcam`, deployed with `npm run deploy` (production environment), custom domain `scamcam.kevinle.tech`; no workers.dev or preview URLs |
 | Plan | Cloudflare Workers Free and GitHub Free; operating cost $0 |
 | Schedules | `17 3 * * *` (daily cleanup), `41 4 * * 1` (weekly review), and `*/5 * * * *` (expired share links) |
-| Database | D1 `scamcam` in Western North America, created at launch with all 4 migrations of that time applied; share links added migration `0005` (`shared_reports`) |
-| Turnstile | A ScamCam widget for `scamcam.kevinle.tech` only; tokens are tied to the `scan` action and the hostname |
-| Phishing.Database | Synced by a GitHub Actions workflow scheduled for 07:37 UTC (GitHub started the 2026-10-06 run at 14:25 UTC); the first sync loaded 392,063 entries in 1,024 shards. The upstream project has published nothing since 2026-10-02 15:30 UTC, and its issue tracker reports its site returning 503 errors, so reports now say how old the copy is |
-| Policies | Published without draft labels; the Privacy policy takes effect on October 5, 2026 |
+| Database | D1 `scamcam` in Western North America, created at launch with all 4 migrations of that time applied; share links added migration `0005` (`shared_reports`), and migration `0006` adds five more lists, the `phishstats` budget, and `result_flags` |
+| Turnstile | A ScamCam widget for `scamcam.kevinle.tech` only; tokens are tied to the hostname and to the `scan` or `flag` action |
+| Scam lists | Six lists synced by the "Scam list sync" workflow, scheduled for 07:37 UTC: Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen's Discord and Steam list, and CERT Polska. A local build on 2026-10-06 took 27 s for all six (392,063, 102,886, 356,136, 216,406, 10,075, and 127,505 entries). Phishing.Database has published nothing since 2026-10-02 15:30 UTC, and its issue tracker reports its site returning 503 errors, so reports say how old that copy is |
+| Policies | Published without draft labels; the current Privacy policy takes effect on October 6, 2026 (flags, the new lookups, and links to other checkers) |
 | Personal site | `kevinle.tech` and `www.kevinle.tech` still answer 200 with their own pages; their DNS answers matched the baseline taken before deployment |
 | Repository | `banyourself/scamcam` on GitHub with a protected `main` branch (no force pushes or deletion, also for admins); CI jobs `check` (with the restore drill), `accessibility`, `privacy`, and `secrets` |
 
@@ -39,6 +39,10 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | Screenshot reading | 2026-10-06 | "Read a screenshot", paste, or drop: the browser reads the text (Tesseract.js 7.0.0, English `best_int` model) and any QR code (jsQR 1.4.0), inverts dark-mode screenshots first, and adds the text to the box for review |
 | Share links | 2026-10-06 | Share on a report: 5, 10, or 15 minutes (10 by default), message text only if ticked; the link opens a read-only snapshot with its expiry |
 | Scanner Durable Object | 2026-10-06 | Scans run in the `Scanner` Durable Object with 30 seconds of CPU per request; the Worker keeps the bot check, rate limits, and signing, and falls back to scanning itself |
+| Result flags | 2026-10-06 | "Flag result as incorrect" on every report: four reasons and a short note, kept 30 days for my review with `npm run flags`; never read by the scan engine |
+| More scam lists | 2026-10-06 | MetaMask, ScamSniffer, PhishDestroy, DevSpen's Discord and Steam list, and CERT Polska, next to Phishing.Database, checked in two D1 queries |
+| Spamhaus, PhishStats, Cloudflare Radar | 2026-10-06 | In the scanner; each starts once its secret is set |
+| Outside checkers | 2026-10-06 | Reports link to VirusTotal, Google, urlscan.io, Cisco Talos, ScamAdviser, URLVoid, and Hybrid Analysis for the visitor to open |
 | Newer checks | 2026-10-06 | Redirect wrappers decoded, Cloudflare's 1.1.1.2 security filter, copy-paste command, command, wallet, and reply-to-activate rules, brand mismatch between a message and its links, and abused endings ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#checks-added-on-2026-10-06)) |
 
 ### Screenshot reading
@@ -48,6 +52,15 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | Files | Self-hosted under `/ocr/7.0.0-2/` with a one-year immutable cache: the worker (111 KB), three WebAssembly builds (about 3.9 MB each; a browser loads one), the model (2.95 MB), and license texts. A first screenshot downloads about 7 MB once |
 | Privacy | No upload, no storage, no outside requests; the browser check proves it for the page and the OCR worker |
 | Security | See [SECURITY_REVIEW.md](SECURITY_REVIEW.md#screenshot-reading-2026-10-06) |
+
+### Result flags
+
+| Item | State |
+|---|---|
+| Storage | `result_flags` (migration `0006`): verdict, finding IDs, domain or file fingerprint, reason, and redacted note; one per report; 30 days |
+| Abuse limits | Turnstile with the `flag` action, a report signed in the last 24 hours, 3 a minute per visitor, 200 a day (`FLAG_DAILY_LIMIT`), and nothing while writes are paused |
+| Review | `npm run flags` lists waiting flags from production D1, and `npm run flags -- --done <id>` removes one; weekly maintenance raises `flags_waiting` |
+| Security | See [SECURITY_REVIEW.md](SECURITY_REVIEW.md#result-flags) |
 
 ### Share links
 
@@ -75,7 +88,10 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | CIRCL hashlookup | A file's SHA-256 | Working, no key (checked locally on 2026-10-06) |
 | Team Cymru Malware Hash Registry | A file's SHA-1, through Cloudflare DNS | Working, no key (checked locally on 2026-10-06) |
 | Cloudflare 1.1.1.2 security DNS | The hostname only | Working; verified locally on 2026-10-06 against Cloudflare's own blocked test hosts |
-| Phishing.Database | Nothing from visitors; a GitHub Actions job downloads the public list | Synced; matches are a strong warning, never confirmation |
+| Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen, CERT Polska | Nothing from visitors; a GitHub Actions job downloads the public lists | Phishing.Database synced since launch; the other five load with the first "Scam list sync" run. Matches are a strong warning, never confirmation |
+| Spamhaus DQS (DBL and ZRD) | The registrable domain inside the query name, over TCP straight to Spamhaus | Code in production after this release; starts when `SPAMHAUS_DQS_KEY` is set. Reached from local workerd with a placeholder key on 2026-10-06 |
+| PhishStats | The registrable domain, or the exact host for shared hosting | Starts when `PHISHSTATS_API_KEY` is set; capped at 140 calls a day. Its query syntax was checked live without a key on 2026-10-06 |
+| Cloudflare Radar | The registrable domain only | Starts when `CLOUDFLARE_RADAR_TOKEN` is set; not yet called with a real token |
 | Workers AI (`@cf/qwen/qwen3-30b-a3b-fp8`) | The redacted message with links replaced by `[link]` | On, capped at 2,000 calls a day |
 | Cloudflare Turnstile | The token and the visitor's IP address | Production widget |
 
@@ -85,10 +101,11 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Where | Names |
 |---|---|
-| Worker secrets (production) | `TURNSTILE_SECRET_KEY`, `SAFE_BROWSING_API_KEY`, and `URLHAUS_AUTH_KEY`, which I typed in myself at launch, and `SHARE_SIGNING_KEY` for share links ([DEPLOYMENT.md](DEPLOYMENT.md), step 8) |
+| Worker secrets (production) | `TURNSTILE_SECRET_KEY`, `SAFE_BROWSING_API_KEY`, and `URLHAUS_AUTH_KEY`, which I typed in myself at launch, and `SHARE_SIGNING_KEY` for share links and flags ([DEPLOYMENT.md](DEPLOYMENT.md), step 8) |
+| Worker secrets still to set | `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN` ([DEPLOYMENT.md](DEPLOYMENT.md), step 11) |
 | GitHub secrets | `CLOUDFLARE_D1_TOKEN` (D1 Edit only) and `CLOUDFLARE_ACCOUNT_ID` |
 | GitHub variable | `PHISHING_DATABASE_SYNC=enabled` |
-| Local | `.dev.vars`, ignored by git; `.dev.vars.example` holds only Cloudflare's public Turnstile test keys |
+| Local | `.dev.vars`, ignored by git; `.dev.vars.example` holds only Cloudflare's public Turnstile test keys, a local-only signing key, and empty placeholders |
 
 ## Tests
 
@@ -96,11 +113,11 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Check | Latest recorded result |
 |---|---|
-| Vitest (worker, engine, and client projects) | 559 tests in 33 files pass (2026-10-06, with file checks and ThreatFox) |
-| Node config and script tests (`npm run test:config`) | 14 pass |
-| Accessibility (`npm run test:a11y`) | Passes; 52 axe-core checks were recorded with screenshot reading |
-| Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot step and the share step (scan, share, open) |
-| Recovery drill (`npm run test:recovery`) | All 7 tables matched after export and restore; export about 1 to 1.5 s (469 KB), restore about 2 to 3 s (2026-10-05) |
+| Vitest (worker, engine, and client projects) | 609 tests in 39 files pass (2026-10-06, with flags, the new lists, Spamhaus, PhishStats, and Radar) |
+| Node config and script tests (`npm run test:config`) | 17 pass |
+| Accessibility (`npm run test:a11y`) | Passes; 60 axe-core checks, including the open flag form in both themes at both widths |
+| Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot, file, flag (scan, flag, confirmation), and share steps |
+| Recovery drill (`npm run test:recovery`) | All 9 tables matched after export and restore, including shared reports, flags, and two lists; export 1.1 s (645 KB), restore 3.3 s (2026-10-06) |
 | `npm audit` | 0 vulnerabilities (2026-10-05) |
 
 How each suite runs is in [TEST_PLAN.md](TEST_PLAN.md).
@@ -109,10 +126,10 @@ How each suite runs is in [TEST_PLAN.md](TEST_PLAN.md).
 
 | Check | Result |
 |---|---|
-| Subrequests | 6.7 per cold scan on average for the benchmark (most 13), 31 for 20 links in the engine, 43 for 20 links through the whole route; 0 for a warm repeat |
+| Subrequests | 6.7 per cold scan on average for the benchmark (most 13), 31 for 20 links in the engine, 44 for 20 links through the whole Worker route, and 35 for 20 links in the scanner with every source on (20 fetches, 1 DNS connection, 14 queries, 2026-10-06); 0 for a warm repeat |
 | Slow inputs | The slowest crafted input scans in under 1 ms in Node; before the fix the worst took about 23 ms |
 | Concurrency | 16 simultaneous scans from one address: exactly 10 allowed (local simulator) |
-| Cleanup | 10,250 expired rows in one table: 10,000 removed on the first run, 250 on the next. With a backlog in every table: 11,000 rows in 25 batches, fewer than 35 queries |
+| Cleanup | 10,250 expired rows in one table: 10,000 removed on the first run, 250 on the next. With a backlog in every table: 11,000 rows in 26 batches, fewer than 35 queries |
 
 ### Benchmarks
 
@@ -162,13 +179,20 @@ duration about ten times faster than needed. Every lookup now clears its timer w
 3. Restore points: confirmed on 2026-10-06, when `npx wrangler d1 time-travel info scamcam --env production` returned
    a current bookmark.
 4. Phishing.Database has published nothing since 2026-10-02. If it stays stalled, reports stop using it on
-   2026-10-09; consider adding one of the downloadable lists in [API_LICENSE_MATRIX.md](API_LICENSE_MATRIX.md).
-5. Ask abuse.ch (contact form) to confirm that showing per-lookup results with credit is fine, ask Team Cymru
-   (support@cymru.com) the same for the Malware Hash Registry, and request a free Spamhaus DQS key.
+   2026-10-09; the five lists added on 2026-10-06 keep covering phishing sites in the meantime.
+5. Ask abuse.ch (contact form) to confirm that showing per-lookup results with credit is fine, and ask Team Cymru
+   (support@cymru.com) the same for the Malware Hash Registry.
+6. Set `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`, then confirm each live: a scan of
+   `dbltest.com` should show the Spamhaus spam listing, and a scan of a popular site should show the Cloudflare Radar
+   note.
+7. Review flags with `npm run flags` whenever the weekly report raises `flags_waiting`.
 
 ### Not verified yet
 
-- Subrequest counts are measured locally (43 for a 20-link scan) but not yet recorded on Cloudflare.
+- Subrequest counts are measured locally (44 for a 20-link scan in the Worker, 35 in the scanner) but not yet recorded on Cloudflare.
+- Spamhaus over TCP from Cloudflare's network. Local workerd reached all of Spamhaus's servers, but outbound TCP from
+  production has not been seen yet, and no answer with a real key has been seen.
+- PhishStats and Cloudflare Radar answers with real keys.
 - The rate limiting binding counts per Cloudflare location and is eventually consistent, so the concurrency result
   comes from the local simulator only. The live check saw a 429 within 15 scans.
 - A live URLhaus match. Only "no results" answers have been seen live; matches are tested with a fake server.

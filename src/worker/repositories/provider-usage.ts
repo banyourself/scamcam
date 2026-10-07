@@ -2,12 +2,13 @@ import type { BudgetedProvider } from "../../engine/scan";
 import type { AppBindings } from "../env";
 import { expiresAfter, nowInSeconds, retentionSeconds } from "../retention";
 
-export const budgetedProviders: readonly BudgetedProvider[] = ["safe_browsing", "urlhaus", "workers_ai"];
+export const budgetedProviders: readonly BudgetedProvider[] = ["safe_browsing", "urlhaus", "workers_ai", "phishstats"];
 
 const dailyLimitVariable = {
   safe_browsing: "SAFE_BROWSING_DAILY_LIMIT",
   urlhaus: "URLHAUS_DAILY_LIMIT",
   workers_ai: "AI_DAILY_LIMIT",
+  phishstats: "PHISHSTATS_DAILY_LIMIT",
 } as const satisfies Record<BudgetedProvider, keyof AppBindings>;
 
 export function dailyLimit(env: AppBindings, provider: BudgetedProvider): number | null {

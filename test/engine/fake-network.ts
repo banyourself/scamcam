@@ -1,8 +1,11 @@
 import { dohEndpoint, filteredDohEndpoint } from "../../src/engine/dns";
-import type { DomainListLookup, DomainListResult } from "../../src/engine/domain-list";
+import type { DomainListLookup, DomainListName, DomainListResults } from "../../src/engine/domain-list";
 import { hashlookupEndpoint, malwareBazaarEndpoint, mhrZone } from "../../src/engine/hash-lookups";
+import { phishstatsEndpoint } from "../../src/engine/phishstats";
+import { radarEndpoint } from "../../src/engine/radar";
 import { rdapBootstrapUrl } from "../../src/engine/rdap";
 import { safeBrowsingEndpoint } from "../../src/engine/safe-browsing";
+import type { DnsAnswer, DnsTransport } from "../../src/engine/spamhaus";
 import { threatfoxEndpoint } from "../../src/engine/threatfox";
 import { urlhausHostEndpoint } from "../../src/engine/urlhaus";
 import { protobufResponse, type SearchResponseFixture } from "./safe-browsing-wire";
@@ -22,13 +25,16 @@ export interface FakeNetworkOptions {
   threatfox?: Record<string, { malware: string; confidence: number }>;
   lowTrustFiles?: string[];
   antivirus?: Record<string, number>;
+  phishstats?: { url: string; host: string; date: string; rank_host?: number | null }[];
+  phishstatsStatus?: number;
+  radar?: Record<string, { rank?: number; bucket?: string; categories?: string[] }>;
   down?: boolean;
   now?: Date;
 }
 
 export interface FakeNetwork {
   fetcher: typeof fetch;
-  requests: { url: string; body: string }[];
+  requests: { url: string; body: string; headers: Headers }[];
 }
 
 function json(body: unknown, status = 200): Response {
@@ -36,12 +42,12 @@ function json(body: unknown, status = 200): Response {
 }
 
 export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
-  const requests: { url: string; body: string }[] = [];
+  const requests: { url: string; body: string; headers: Headers }[] = [];
   const now = options.now ?? new Date();
   const fetcher: typeof fetch = async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     const body = init?.body instanceof FormData ? [...init.body.entries()].map(([key, value]) => `${key}=${String(value)}`).join("&") : String(init?.body ?? "");
-    requests.push({ url, body });
+    requests.push({ url, body, headers: new Headers(init?.headers) });
     if (options.down) {
       throw new TypeError("network down");
     }
@@ -117,6 +123,30 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
     if (url === urlhausHostEndpoint) {
       return json(options.urlhaus ?? { query_status: "no_results" });
     }
+    if (url.startsWith(phishstatsEndpoint)) {
+      if (options.phishstatsStatus) {
+        return json({ error: "Daily API quota reached" }, options.phishstatsStatus);
+      }
+      const where = new URL(url).searchParams.get("_where") ?? "";
+      const byHost = /^\(host,eq,([^)]+)\)$/.exec(where);
+      const byUrl = /^\(url,like,~([^~]+)~\)$/.exec(where);
+      const records = (options.phishstats ?? []).filter((record) => (byHost ? record.host === byHost[1] : byUrl ? record.url.includes(byUrl[1]!) : false));
+      return json(records.map((record, index) => ({ id: 1000 + index, score: null, ...record })));
+    }
+    if (url.startsWith(radarEndpoint)) {
+      const domain = new URL(url).pathname.split("/").at(-1) ?? "";
+      const ranked = options.radar?.[domain];
+      if (!ranked) {
+        return json({ success: false, errors: [{ code: 404, message: "Not Found" }] }, 404);
+      }
+      return json({
+        success: true,
+        result: {
+          details_0: { categories: (ranked.categories ?? ["Technology"]).map((name, index) => ({ id: index, name, superCategoryId: 0 })), ...(ranked.bucket ? { bucket: ranked.bucket } : {}), ...(ranked.rank ? { rank: ranked.rank } : {}) },
+          meta: { dateRange: [{ startTime: "2026-09-28T00:00:00Z", endTime: "2026-10-05T00:00:00Z" }] },
+        },
+      });
+    }
     if (url.includes("challenges.cloudflare.com")) {
       return json(options.turnstile ?? { success: true, hostname: "scamcam.kevinle.tech", action: "scan" });
     }
@@ -127,16 +157,47 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
 
 export const allowAllBudgets = async () => true;
 
-export function listOf(names: string[], asked: string[][] = []): DomainListLookup {
-  const listed = new Set(names);
+export function listsOf(entries: Partial<Record<DomainListName, string[]>>, asked: string[][] = [], syncedAt = Math.floor(Date.now() / 1000)): DomainListLookup {
   return {
-    async lookup(requested: string[]): Promise<DomainListResult> {
+    async lookup(requested: string[]): Promise<DomainListResults> {
       asked.push(requested);
-      return { status: "ok", listed: new Set(requested.filter((name) => listed.has(name))), syncedAt: 0 };
+      return new Map(
+        Object.entries(entries).map(([list, names]) => [list as DomainListName, { status: "ok" as const, listed: new Set(requested.filter((name) => names!.includes(name))), syncedAt }]),
+      );
     },
   };
 }
 
+export function listOf(names: string[], asked: string[][] = []): DomainListLookup {
+  return listsOf({ phishing_database: names }, asked);
+}
+
 export function listInState(status: "stale" | "not_configured" | "unavailable"): DomainListLookup {
-  return { lookup: async () => ({ status }) };
+  return { lookup: async () => new Map([["phishing_database", { status }]]) };
+}
+
+export interface FakeDnsEntry {
+  dbl?: string;
+  zrd?: string;
+  rcode?: number;
+}
+
+export function fakeSpamhaus(entries: Record<string, FakeDnsEntry>, asked: string[][] = [], down = false): DnsTransport {
+  return {
+    async resolve(names: string[]): Promise<DnsAnswer[]> {
+      asked.push(names);
+      if (down) {
+        return names.map(() => ({ status: "failed" }));
+      }
+      return names.map((name): DnsAnswer => {
+        const match = /^(.+)\.([a-z0-9]+)\.(dbl|zrd)\.dq\.spamhaus\.net$/.exec(name);
+        const entry = match ? entries[match[1]!] : undefined;
+        if (entry?.rcode !== undefined) {
+          return { status: "answered", rcode: entry.rcode, addresses: [] };
+        }
+        const address = match?.[3] === "dbl" ? entry?.dbl : entry?.zrd;
+        return address ? { status: "answered", rcode: 0, addresses: [address] } : { status: "answered", rcode: 3, addresses: [] };
+      });
+    },
+  };
 }

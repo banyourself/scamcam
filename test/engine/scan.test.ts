@@ -4,7 +4,7 @@ import { memoryLookups } from "../../src/engine/cache";
 import { canonicalizeUrl, urlExpressions } from "../../src/engine/safe-browsing";
 import { scanContent, type ScanOptions } from "../../src/engine/scan";
 import { ScanReportSchema } from "../../src/shared/report-schema";
-import { allowAllBudgets, fakeNetwork, listInState, listOf, type FakeNetworkOptions } from "./fake-network";
+import { allowAllBudgets, fakeNetwork, listInState, listOf, listsOf, type FakeNetworkOptions } from "./fake-network";
 
 const now = new Date("2026-10-05T12:00:00.000Z");
 
@@ -141,7 +141,7 @@ describe("scanContent", () => {
   });
 
   it("keeps working when every outside source is down", async () => {
-    const { scan } = options({ down: true }, { safeBrowsingKey: "key", urlhausKey: "key", phishingList: listInState("unavailable") });
+    const { scan } = options({ down: true }, { safeBrowsingKey: "key", urlhausKey: "key", scamLists: listInState("unavailable") });
     const report = await scanContent("steamcommunlty.example/tradeoffer/new", scan);
     expect(report.level).toBe("high_risk");
     expect(report.notChecked.map((entry) => entry.reason)).toEqual(["unavailable", "unavailable", "unavailable", "unavailable", "unavailable", "unavailable"]);
@@ -177,7 +177,7 @@ describe("scanContent", () => {
 
 describe("Phishing.Database list in scans", () => {
   it("raises a strong warning for a listed site but never confirms it", async () => {
-    const { scan } = options({}, { phishingList: listOf(["cheap-skins.example"]) });
+    const { scan } = options({}, { scamLists: listOf(["cheap-skins.example"]) });
     const report = await scanContent("https://cheap-skins.example/", scan);
     expect(report.level).toBe("suspicious");
     expect(report.evidence[0]!.title).toBe("Phishing.Database lists cheap-skins.example as a phishing site");
@@ -185,7 +185,7 @@ describe("Phishing.Database list in scans", () => {
   });
 
   it("adds up with a look-alike name to high risk", async () => {
-    const { scan } = options({}, { phishingList: listOf(["steamcommunlty.example"]) });
+    const { scan } = options({}, { scamLists: listOf(["steamcommunlty.example"]) });
     const report = await scanContent("https://steamcommunlty.example/tradeoffer/new", scan);
     expect(report.level).toBe("high_risk");
     expect(report.evidence.some((item) => item.title.startsWith("Phishing.Database lists"))).toBe(true);
@@ -193,7 +193,7 @@ describe("Phishing.Database list in scans", () => {
 
   it("matches a listed parent domain but not a sibling of a listed name", async () => {
     const asked: string[][] = [];
-    const { scan } = options({}, { phishingList: listOf(["evil-trade.example", "a.shared-host.example"], asked) });
+    const { scan } = options({}, { scamLists: listOf(["evil-trade.example", "a.shared-host.example"], asked) });
     const parent = await scanContent("https://login.evil-trade.example/verify", scan);
     expect(parent.evidence.some((item) => item.title === "Phishing.Database lists evil-trade.example as a phishing site")).toBe(true);
     const sibling = await scanContent("https://b.shared-host.example/", scan);
@@ -205,7 +205,7 @@ describe("Phishing.Database list in scans", () => {
     "https://l.instagram.com/?u=https%3A%2F%2Fcheap-skins.example%2F&e=AT0",
     "https://l.instagram.com/",
   ])("treats a listed redirect service as context and checks the real destination: %s", async (content) => {
-    const { scan } = options({}, { phishingList: listOf(["l.instagram.com", "cheap-skins.example"]) });
+    const { scan } = options({}, { scamLists: listOf(["l.instagram.com", "cheap-skins.example"]) });
     const report = await scanContent(content, scan);
     const redirector = report.evidence.find((item) => item.id === "pdb-shared-l.instagram.com");
     expect(redirector?.signal).toBe("neutral");
@@ -214,31 +214,47 @@ describe("Phishing.Database list in scans", () => {
   });
 
   it("says when the list copy is more than a day old", async () => {
-    const dated = { lookup: async (names: string[]) => ({ status: "ok" as const, listed: new Set(names.filter((name) => name === "cheap-skins.example")), syncedAt: Date.parse("2026-10-01T09:00:00Z") / 1000 }) };
-    const report = await scanContent("https://cheap-skins.example/", options({}, { phishingList: dated }).scan);
+    const dated = listsOf({ phishing_database: ["cheap-skins.example"] }, [], Date.parse("2026-10-01T09:00:00Z") / 1000);
+    const report = await scanContent("https://cheap-skins.example/", options({}, { scamLists: dated }).scan);
     expect(report.evidence[0]!.detail).toContain("The copy ScamCam checked was published on October 1, 2026.");
   });
 
+  it("credits each list that has the domain, and two lists together make it high risk", async () => {
+    const { scan } = options({}, { scamLists: listsOf({ metamask: ["wallet-claim.example"], scamsniffer: ["wallet-claim.example"], scam_links: [] }) });
+    const report = await scanContent("https://wallet-claim.example/airdrop", scan);
+    expect(report.level).toBe("high_risk");
+    const byId = (id: string) => report.evidence.find((item) => item.id === id);
+    expect(byId("list-metamask-wallet-claim.example")).toMatchObject({ title: "MetaMask's phishing list includes wallet-claim.example", source: { name: "MetaMask phishing list", url: "https://github.com/MetaMask/eth-phishing-detect" } });
+    expect(byId("list-scamsniffer-wallet-claim.example")?.source.name).toBe("ScamSniffer scam database");
+    expect(report.evidence.some((item) => item.id.startsWith("list-scam_links"))).toBe(false);
+  });
+
+  it("names a stale list in what could not be checked", async () => {
+    const stale = { lookup: async () => new Map([["scamsniffer", { status: "stale" as const }]] as const) };
+    const report = await scanContent("https://wallet-claim.example/", options({}, { scamLists: stale }).scan);
+    expect(report.notChecked).toContainEqual({ name: "ScamSniffer scam database", reason: "out_of_date" });
+  });
+
   it("treats a listed shortener as context, not as a warning about this link", async () => {
-    const { scan } = options({}, { phishingList: listOf(["bit.ly"]) });
+    const { scan } = options({}, { scamLists: listOf(["bit.ly"]) });
     const report = await scanContent("https://bit.ly/3abcde", scan);
-    const listed = report.evidence.find((item) => item.title.includes("community phishing list"));
+    const listed = report.evidence.find((item) => item.title.includes("community scam list"));
     expect(listed?.signal).toBe("neutral");
   });
 
   it("never looks up official sites", async () => {
     const asked: string[][] = [];
-    const { scan } = options({}, { phishingList: listOf(["steamcommunity.com"], asked) });
+    const { scan } = options({}, { scamLists: listOf(["steamcommunity.com"], asked) });
     const report = await scanContent("https://steamcommunity.com/tradeoffer/new/?partner=1", scan);
     expect(asked).toEqual([]);
     expect(report.level).toBe("no_known_threat");
   });
 
   it("says when the list is out of date or not connected", async () => {
-    const stale = await scanContent("https://cheap-skins.example/", options({}, { phishingList: listInState("stale") }).scan);
+    const stale = await scanContent("https://cheap-skins.example/", options({}, { scamLists: listInState("stale") }).scan);
     expect(stale.notChecked).toContainEqual({ name: "Phishing.Database (community list)", reason: "out_of_date" });
     const missing = await scanContent("https://cheap-skins.example/", options().scan);
-    expect(missing.notChecked).toContainEqual({ name: "Phishing.Database (community list)", reason: "not_configured" });
+    expect(missing.notChecked).toContainEqual({ name: "Community scam lists", reason: "not_configured" });
   });
 });
 

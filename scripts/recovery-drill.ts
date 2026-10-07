@@ -15,6 +15,8 @@ const tables: Record<string, string> = {
   error_events: "SELECT * FROM error_events ORDER BY id",
   maintenance_runs: "SELECT * FROM maintenance_runs ORDER BY id",
   provider_usage: "SELECT * FROM provider_usage ORDER BY provider, day",
+  shared_reports: "SELECT id, hex(iv) AS iv, hex(ciphertext) AS ciphertext, created_at, expires_at FROM shared_reports ORDER BY id",
+  result_flags: "SELECT * FROM result_flags ORDER BY id",
   d1_migrations: "SELECT name FROM d1_migrations ORDER BY id",
 };
 const syntheticNames = 20_000;
@@ -54,15 +56,24 @@ async function seed(directory: string): Promise<void> {
   const names = Array.from({ length: syntheticNames }, (_, index) => `drill-${index}.example`);
   const statements = [
     `INSERT INTO app_state (key, value, updated_at) VALUES ('writes_paused', 'false', ${now});`,
-    `INSERT INTO provider_usage (provider, day, calls, expires_at) VALUES ('safe_browsing', '${day}', 42, ${later}), ('urlhaus', '${day}', 17, ${later}), ('workers_ai', '${day}', 5, ${later});`,
+    `INSERT INTO provider_usage (provider, day, calls, expires_at) VALUES ('safe_browsing', '${day}', 42, ${later}), ('urlhaus', '${day}', 17, ${later}), ('workers_ai', '${day}', 5, ${later}), ('phishstats', '${day}', 3, ${later});`,
     `INSERT INTO maintenance_runs (task, status, detail_json, started_at, finished_at, expires_at) VALUES ('daily', 'succeeded', '{"alerts":[]}', ${now - 60}, ${now}, ${later});`,
     `INSERT INTO error_events (code, route, created_at, expires_at) VALUES ('TypeError', '/api/v1/scans', ${now}, ${now + 7 * 86_400});`,
+    `INSERT INTO shared_reports (id, iv, ciphertext, created_at, expires_at) VALUES ('drill-share-0000000000', X'000102030405060708090a0b', X'deadbeefcafe', ${now}, ${now + 600});`,
+    `INSERT INTO result_flags (id, report_key, case_number, kind, level, subject, evidence, reason, note, created_at, expires_at) VALUES ('drill-flag-00000000000', '0123456789abcdef0123456789abcdef', 'SC-000000-0000', 'url', 'suspicious', 'drill.example', 'brand-mismatch-drill.example', 'safe_but_warned', 'drill note', ${now}, ${now + 30 * 86_400});`,
     ...domainListStatements({
       list: "phishing_database",
       version: "drill-1",
       syncedAt: now,
       expiresAt: now + domainListKeepSeconds,
       shards: await buildShards(names),
+    }),
+    ...domainListStatements({
+      list: "metamask",
+      version: "drill-2",
+      syncedAt: now,
+      expiresAt: now + domainListKeepSeconds,
+      shards: await buildShards(names.slice(0, 2000)),
     }),
   ];
   const file = join(directory, "seed.sql");

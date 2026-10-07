@@ -89,6 +89,17 @@ async function auditReportFlow(cdp: Cdp, base: string): Promise<string[]> {
         continue;
       }
       failures.push(...(await checkPage(cdp, label, false)));
+      const flagLabel = `/ (report, flag form) ${theme} ${viewport.width}px`;
+      const opened = await cdp.evaluate<boolean>(
+        `(() => { const button = [...document.querySelectorAll("button")].find((item) => item.textContent.trim() === "Flag result as incorrect"); button?.click(); return Boolean(button); })()`,
+      );
+      if (!opened) {
+        failures.push(`${flagLabel}: the report has no flag button`);
+        console.log(`FAIL  ${flagLabel}`);
+        continue;
+      }
+      await waitFor(cdp, `[...document.querySelectorAll("legend")].some((legend) => legend.textContent === "What is wrong?")`);
+      failures.push(...(await checkPage(cdp, flagLabel, false)));
     }
   }
   return failures;

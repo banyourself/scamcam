@@ -1,5 +1,7 @@
+import type { DomainListName } from "../../engine/domain-list";
+
 export interface DomainListBuild {
-  list: "phishing_database";
+  list: DomainListName;
   version: string;
   syncedAt: number;
   expiresAt: number;
@@ -9,6 +11,7 @@ export interface DomainListBuild {
 export const maxStatementBytes = 100_000;
 
 const versionPattern = /^[A-Za-z0-9._-]{1,64}$/;
+const listNamePattern = /^[a-z_]{1,32}$/;
 
 function hex(bytes: Uint8Array): string {
   let text = "";
@@ -26,6 +29,9 @@ function wholeSeconds(value: number, label: string): number {
 }
 
 export function domainListStatements(build: DomainListBuild): string[] {
+  if (!listNamePattern.test(build.list)) {
+    throw new RangeError("The list name may contain only lowercase letters and underscores");
+  }
   if (!versionPattern.test(build.version)) {
     throw new RangeError("The list version may contain only letters, digits, dots, dashes, and underscores");
   }

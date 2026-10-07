@@ -6,13 +6,13 @@ export function PrivacyPage() {
     <DocumentPage
       title="Privacy policy"
       reference="SC-POL-01"
-      updated="2026-10-05"
+      updated="2026-10-06"
       lead="ScamCam is built to know as little about you as possible."
     >
       <h2>The short version</h2>
       <ul>
         <li>No accounts, ads, analytics, or tracking.</li>
-        <li>What you paste is checked and then thrown away. It is not saved unless you choose to share a report.</li>
+        <li>What you paste is checked and then thrown away. It is not saved unless you choose to share a report or flag a result.</li>
         <li>Screenshots are read on your own device and are never uploaded.</li>
         <li>Files you check stay on your device. Only their fingerprints are sent, never the file or its name.</li>
         <li>ScamCam does not save your IP address.</li>
@@ -73,7 +73,12 @@ export function PrivacyPage() {
           </tr>
           <tr>
             <td>The name of the website in a link, such as example.com</td>
-            <td>To look up how old the domain is (domain registries), whether it exists (Cloudflare DNS), whether Cloudflare&apos;s security filter blocks it (Cloudflare 1.1.1.2), and whether it is known for malware (URLhaus and ThreatFox)</td>
+            <td>
+              To look up how old the domain is (domain registries), whether it exists (Cloudflare DNS), whether Cloudflare&apos;s
+              security filter blocks it (Cloudflare 1.1.1.2), whether it is known for malware (URLhaus and ThreatFox), whether
+              Spamhaus lists it or first saw it in the last day, whether PhishStats has phishing reports for it, and how popular it
+              is (Cloudflare Radar)
+            </td>
             <td>The answers are kept for 1 minute to 1 day under a scrambled key, so the name itself is not stored</td>
           </tr>
           <tr>
@@ -85,6 +90,15 @@ export function PrivacyPage() {
             <td>A report you choose to share (the message text only if you tick the box)</td>
             <td>To show it to whoever has the link</td>
             <td>Kept encrypted for the 5, 10, or 15 minutes you pick, then deleted within 5 minutes. The key is only in the link, so ScamCam cannot read it</td>
+          </tr>
+          <tr>
+            <td>A result you flag as incorrect</td>
+            <td>So a person can review the result by hand and improve ScamCam. A flag never changes any result</td>
+            <td>
+              30 days, or less once reviewed. Only the result, the names of its findings, the link&apos;s domain or the file&apos;s
+              fingerprint, the reason you picked, and your note with emails, phone numbers, and codes hidden. Never the message,
+              the full link, the file, or your IP address
+            </td>
           </tr>
           <tr>
             <td>ScamCam&apos;s own records of each request (time, page, result code, how long it took) and of each AI check (its one-word answer and size)</td>
@@ -114,8 +128,9 @@ export function PrivacyPage() {
           <strong>Google Safe Browsing</strong> receives only short scrambled fingerprints, never the link itself.
         </li>
         <li>
-          <strong>Domain registries, Cloudflare DNS (1.1.1.1 and its 1.1.1.2 security filter), and URLhaus and ThreatFox (abuse.ch)</strong> receive only the website name, for
-          example <em>login.example.com</em>, never the rest of the link or your message.
+          <strong>Domain registries, Cloudflare DNS (1.1.1.1 and its 1.1.1.2 security filter), URLhaus and ThreatFox (abuse.ch), Spamhaus, PhishStats, and Cloudflare Radar</strong>{" "}
+          receive only the website name, for example <em>example.com</em> or <em>login.example.com</em>, never the rest of the
+          link or your message. Spamhaus is asked directly over DNS, without going through a public resolver.
         </li>
         <li>
           <strong>Workers AI</strong> (Cloudflare) receives a message only when ScamCam&apos;s rules cannot decide, with
@@ -129,8 +144,14 @@ export function PrivacyPage() {
           through Cloudflare DNS.
         </li>
         <li>
-          <strong>Phishing.Database</strong> is a public list of phishing sites. ScamCam keeps a scrambled copy and checks
-          links against it without sending them anywhere.
+          <strong>Phishing.Database, MetaMask&apos;s phishing list, ScamSniffer, PhishDestroy, a public-domain Discord and Steam
+          scam list, and CERT Polska&apos;s warning list</strong> are public lists of scam sites. ScamCam keeps a scrambled copy of
+          each and checks links against them without sending the links anywhere.
+        </li>
+        <li>
+          <strong>VirusTotal, Google, urlscan.io, Cisco Talos, ScamAdviser, URLVoid, and Hybrid Analysis</strong> are linked from
+          each report so you can check there too. ScamCam sends them nothing. They see the domain or fingerprint in the address
+          only if you click a link, under their own privacy policies.
         </li>
       </ul>
 
@@ -160,7 +181,8 @@ export function PrivacyPage() {
       <h2>Where information is processed</h2>
       <p>
         Cloudflare runs ScamCam in data centers around the world, usually one near you. The lookup services listed above
-        are based in the United States, Switzerland (abuse.ch), and wherever each domain registry operates.
+        are based in the United States, Switzerland (abuse.ch), and the countries where Spamhaus, PhishStats, and each domain
+        registry operate.
       </p>
 
       <h2>Your rights</h2>
@@ -173,7 +195,8 @@ export function PrivacyPage() {
 
       <h2>Changes</h2>
       <p>
-        This policy takes effect on October 5, 2026. Any change will be posted on this page with a new date.
+        This version takes effect on October 6, 2026. It adds result flags, the Spamhaus, PhishStats, and Cloudflare Radar
+        lookups, five more scam lists, and links to other checkers. Any change will be posted on this page with a new date.
       </p>
     </DocumentPage>
   );

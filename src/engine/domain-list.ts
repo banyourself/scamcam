@@ -1,10 +1,70 @@
 export const domainListShardCount = 1024;
 export const domainListKeyBytes = 8;
-export const domainListStaleAfterSeconds = 7 * 24 * 60 * 60;
-export const domainListAlertAfterSeconds = 2 * 24 * 60 * 60;
 export const domainListKeepSeconds = 10 * 24 * 60 * 60;
 
-export type DomainListName = "phishing_database";
+export const domainListNames = ["phishing_database", "metamask", "scamsniffer", "phishdestroy", "scam_links", "cert_polska"] as const;
+
+export type DomainListName = (typeof domainListNames)[number];
+
+export interface DomainListDetails {
+  source: string;
+  url: string;
+  title: string;
+  about: string;
+  staleAfterDays: number;
+  alertAfterDays: number;
+}
+
+export const domainListDetails: Record<DomainListName, DomainListDetails> = {
+  phishing_database: {
+    source: "Phishing.Database (community list)",
+    url: "https://github.com/Phishing-Database/Phishing.Database",
+    title: "Phishing.Database lists {name} as a phishing site",
+    about: "Phishing.Database is a free community list of phishing sites.",
+    staleAfterDays: 7,
+    alertAfterDays: 2,
+  },
+  metamask: {
+    source: "MetaMask phishing list",
+    url: "https://github.com/MetaMask/eth-phishing-detect",
+    title: "MetaMask's phishing list includes {name}",
+    about: "MetaMask's security team keeps this list of sites that steal crypto wallets.",
+    staleAfterDays: 7,
+    alertAfterDays: 2,
+  },
+  scamsniffer: {
+    source: "ScamSniffer scam database",
+    url: "https://github.com/scamsniffer/scam-database",
+    title: "ScamSniffer lists {name} as a crypto scam site",
+    about: "ScamSniffer tracks wallet drainers and other crypto scam sites. Its public copy runs about a week behind.",
+    staleAfterDays: 7,
+    alertAfterDays: 2,
+  },
+  phishdestroy: {
+    source: "PhishDestroy list",
+    url: "https://github.com/phishdestroy/destroylist",
+    title: "PhishDestroy lists {name} as a phishing or scam site",
+    about: "PhishDestroy is a community project that reports and lists phishing and scam sites.",
+    staleAfterDays: 7,
+    alertAfterDays: 2,
+  },
+  scam_links: {
+    source: "Discord and Steam scam links (DevSpen)",
+    url: "https://github.com/DevSpen/scam-links",
+    title: "A Discord and Steam scam list includes {name}",
+    about: "This public-domain list collects fake Nitro, Steam, and other scam links seen on Discord.",
+    staleAfterDays: 365,
+    alertAfterDays: 180,
+  },
+  cert_polska: {
+    source: "CERT Polska warning list",
+    url: "https://cert.pl/en/warning-list/",
+    title: "CERT Polska lists {name} as a dangerous site",
+    about: "CERT Polska, Poland's national security team, keeps this official list of dangerous sites.",
+    staleAfterDays: 3,
+    alertAfterDays: 2,
+  },
+};
 
 export type DomainListResult =
   | { status: "ok"; listed: Set<string>; syncedAt: number }
@@ -12,8 +72,10 @@ export type DomainListResult =
   | { status: "not_configured" }
   | { status: "unavailable" };
 
+export type DomainListResults = Map<DomainListName, DomainListResult>;
+
 export interface DomainListLookup {
-  lookup(names: string[]): Promise<DomainListResult>;
+  lookup(names: string[]): Promise<DomainListResults>;
 }
 
 const hostnamePattern = /^(?=.{1,253}$)(?:[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/;

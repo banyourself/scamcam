@@ -1,13 +1,14 @@
 import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
 import { describe, expect, it, vi } from "vitest";
 import type { TextModel } from "../../src/engine/ai-review";
-import { memoryLookupCache } from "../../src/engine/cache";
+import { createLookupState, memoryLookupCache } from "../../src/engine/cache";
 import { buildShards, domainListKeepSeconds } from "../../src/engine/domain-list";
 import { createApp } from "../../src/worker/app";
+import { runScan } from "../../src/worker/scan-runner";
 import { rateLimitKey } from "../../src/worker/middleware/rate-limit";
 import { domainListStatements } from "../../src/worker/repositories/domain-list-sql";
 import { nowInSeconds } from "../../src/worker/retention";
-import { fakeNetwork } from "../engine/fake-network";
+import { fakeNetwork, fakeSpamhaus } from "../engine/fake-network";
 import { countingCache, countingDatabase, freePlanSubrequestLimit } from "./counting";
 
 const origin = "https://scamcam.kevinle.tech";
@@ -176,5 +177,34 @@ describe("Workers Free plan limits", () => {
       await env.DB.batch([env.DB.prepare("DELETE FROM domain_list_shards"), env.DB.prepare("DELETE FROM domain_lists")]);
     }
   });
-});
 
+  it("keeps the scanner's extra checks for a message with 20 links under 50 subrequests", async () => {
+    const queries = { queries: 0 };
+    const asked: string[][] = [];
+    const fake = fakeNetwork({ safeBrowsing: () => ({ cacheSeconds: 300 }), radar: {} });
+    const links = Array.from({ length: 20 }, (_, index) => `https://login.secure${index}.account-check${index}.example/a/b/c/d?x=${index}`);
+    const bindings = {
+      ...env,
+      DB: countingDatabase(env.DB, queries),
+      SAFE_BROWSING_API_KEY: "k",
+      URLHAUS_AUTH_KEY: "k",
+      SPAMHAUS_DQS_KEY: "testkey0123456789abcdefgh",
+      PHISHSTATS_API_KEY: "psk_test",
+      CLOUDFLARE_RADAR_TOKEN: "radar-test-token",
+    };
+    const { report } = await runScan(bindings, `my friend sent these, are they ok? ${links.join(" ")}`, {
+      fetcher: fake.fetcher,
+      lookups: { cache: memoryLookupCache(), state: createLookupState(), clock: Date.now },
+      aiModel: null,
+      extendedLookups: true,
+      dnsTransport: fakeSpamhaus({}, asked),
+    });
+    expect(report.notChecked.map((item) => item.name)).not.toContain("Spamhaus DBL and ZRD");
+    const used = { fetches: fake.requests.length, connections: asked.length, queries: queries.queries };
+    console.log(JSON.stringify({ scannerSubrequestsForTwentyLinks: used }));
+    expect(asked).toHaveLength(1);
+    expect(fake.requests.filter((request) => request.url.includes("phishstats"))).toHaveLength(1);
+    expect(fake.requests.filter((request) => request.url.includes("/radar/")).length).toBeLessThanOrEqual(2);
+    expect(used.fetches + used.connections + used.queries, JSON.stringify(used)).toBeLessThan(freePlanSubrequestLimit);
+  });
+});
