@@ -35,6 +35,8 @@ state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
   form), the browser privacy check (now also scanning, flagging, and seeing the confirmation), and the recovery drill
   (9 tables). Local workerd reached Spamhaus's real servers over TCP with a placeholder key, and PhishStats' query
   syntax was checked live without a key.
+- Released the same day: migration `0006` applied to production with the existing list kept, all six lists synced
+  in 1 minute 23 seconds (02:49 UTC on 2026-10-07), and `npm run check:live` passed.
 
 ## 2026-10-06: File checks, ThreatFox, and list fixes
 

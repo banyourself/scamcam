@@ -18,7 +18,7 @@ documentation checked on 2026-10-05; re-check before launch.
 | Workers AI | 10,000 neurons per day on Free and Paid | Calls fail on Free; billed at $0.011 per 1,000 neurons on Paid | Unclear messages only, capped at 2,000 calls a day (about 4,300 neurons at 2.14 per call, under 6,400 even with the longest messages) |
 | Turnstile | Unlimited challenges, 20 widgets | n/a | One widget |
 | Rate limiting binding | No plan restriction or price found | | 60 API requests, 10 scans, 10 share links, and 3 flags per minute per client |
-| GitHub Actions | 2,000 minutes per month for private repos on Free (3,000 on Pro) | Blocked if no payment method | About 3 minutes per push, plus the daily scam list sync for six lists |
+| GitHub Actions | 2,000 minutes per month for private repos on Free (3,000 on Pro) | Blocked if no payment method | About 3 minutes per push, plus about 1.5 minutes a day for the scam list sync of six lists (measured on 2026-10-07) |
 | GitHub Codespaces | 120 core hours and 15 GB-month (180 and 20 on Pro) | Blocked if no payment method | Optional |
 
 ## Cost of one scan (measured in October 2026)

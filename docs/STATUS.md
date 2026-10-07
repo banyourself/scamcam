@@ -16,7 +16,7 @@ ScamCam has been live at https://scamcam.kevinle.tech since 2026-10-05.
 | Schedules | `17 3 * * *` (daily cleanup), `41 4 * * 1` (weekly review), and `*/5 * * * *` (expired share links) |
 | Database | D1 `scamcam` in Western North America, created at launch with all 4 migrations of that time applied; share links added migration `0005` (`shared_reports`), and migration `0006` adds five more lists, the `phishstats` budget, and `result_flags` |
 | Turnstile | A ScamCam widget for `scamcam.kevinle.tech` only; tokens are tied to the hostname and to the `scan` or `flag` action |
-| Scam lists | Six lists synced by the "Scam list sync" workflow, scheduled for 07:37 UTC: Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen's Discord and Steam list, and CERT Polska. A local build on 2026-10-06 took 27 s for all six (392,063, 102,886, 356,136, 216,406, 10,075, and 127,505 entries). Phishing.Database has published nothing since 2026-10-02 15:30 UTC, and its issue tracker reports its site returning 503 errors, so reports say how old that copy is |
+| Scam lists | Six lists synced by the "Scam list sync" workflow, scheduled for 07:37 UTC: Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen's Discord and Steam list, and CERT Polska. The first sync of all six ran at 02:49 UTC on 2026-10-07 in 1 minute 23 seconds (392,063, 102,885, 356,136, 216,485, 10,075, and 127,517 entries, 1,024 shards each). Phishing.Database has published nothing since 2026-10-02 15:30 UTC, and its issue tracker reports its site returning 503 errors, so reports say how old that copy is |
 | Policies | Published without draft labels; the current Privacy policy takes effect on October 6, 2026 (flags, the new lookups, and links to other checkers) |
 | Personal site | `kevinle.tech` and `www.kevinle.tech` still answer 200 with their own pages; their DNS answers matched the baseline taken before deployment |
 | Repository | `banyourself/scamcam` on GitHub with a protected `main` branch (no force pushes or deletion, also for admins); CI jobs `check` (with the restore drill), `accessibility`, `privacy`, and `secrets` |
@@ -88,8 +88,8 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | CIRCL hashlookup | A file's SHA-256 | Working, no key (checked locally on 2026-10-06) |
 | Team Cymru Malware Hash Registry | A file's SHA-1, through Cloudflare DNS | Working, no key (checked locally on 2026-10-06) |
 | Cloudflare 1.1.1.2 security DNS | The hostname only | Working; verified locally on 2026-10-06 against Cloudflare's own blocked test hosts |
-| Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen, CERT Polska | Nothing from visitors; a GitHub Actions job downloads the public lists | Phishing.Database synced since launch; the other five load with the first "Scam list sync" run. Matches are a strong warning, never confirmation |
-| Spamhaus DQS (DBL and ZRD) | The registrable domain inside the query name, over TCP straight to Spamhaus | Code in production after this release; starts when `SPAMHAUS_DQS_KEY` is set. Reached from local workerd with a placeholder key on 2026-10-06 |
+| Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen, CERT Polska | Nothing from visitors; a GitHub Actions job downloads the public lists | All six synced to production on 2026-10-07; matches are a strong warning, never confirmation |
+| Spamhaus DQS (DBL and ZRD) | The registrable domain inside the query name, over TCP straight to Spamhaus | Deployed on 2026-10-06; starts when `SPAMHAUS_DQS_KEY` is set. Reached from local workerd with a placeholder key on 2026-10-06 |
 | PhishStats | The registrable domain, or the exact host for shared hosting | Starts when `PHISHSTATS_API_KEY` is set; capped at 140 calls a day. Its query syntax was checked live without a key on 2026-10-06 |
 | Cloudflare Radar | The registrable domain only | Starts when `CLOUDFLARE_RADAR_TOKEN` is set; not yet called with a real token |
 | Workers AI (`@cf/qwen/qwen3-30b-a3b-fp8`) | The redacted message with links replaced by `[link]` | On, capped at 2,000 calls a day |
@@ -152,7 +152,8 @@ Full tables are in [SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md) and [OWASP_LLM_TOP
 | Scan | Turnstile does not finish in a headless browser, so a real scan is checked by hand |
 
 Since 2026-10-06 the live check also runs the screenshot step, and it requires `no-transform` on pages and its absence
-on scripts and styles.
+on scripts and styles. It passed again after the flags and lists release on 2026-10-06, and the new `/api/v1/flags`
+route answered 400 to an invalid body.
 
 ## Open items
 
