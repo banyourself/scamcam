@@ -1,4 +1,4 @@
-import { useDeferredValue, useId, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent } from "react";
+import { useDeferredValue, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent } from "react";
 import { extractInput, maxInputLength } from "../../../shared/extract";
 import { isEmailFile, type EmailFacts } from "../../../shared/email";
 import { describeFile, fileKindNames, maxFileBytes } from "../../../shared/file-check";
@@ -11,6 +11,7 @@ import type { ApiHealth } from "@/hooks/useApiHealth";
 import type { FileInspection } from "@/lib/file-inspect";
 import { acceptedImageTypes, ScreenshotError } from "@/lib/image-check";
 import { cleanReadText, combineWithReadText, insertReadText } from "@/lib/screenshot-text";
+import { takeHandoff } from "@/lib/handoff";
 
 function statusLine(health: ApiHealth, busy: boolean): { label: string; tone: "standby" | "offline" | "live" } {
   if (busy) {
@@ -62,7 +63,8 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
   const inputId = useId();
   const hintId = useId();
   const previewId = useId();
-  const [text, setText] = useState("");
+  const [handoff] = useState(takeHandoff);
+  const [text, setText] = useState(handoff ?? "");
   const [token, setToken] = useState<string | null>(null);
   const [resetKey, setResetKey] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -76,6 +78,8 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const anyFileInput = useRef<HTMLInputElement>(null);
   const textBox = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const autoRun = useRef(Boolean(handoff));
   const deferred = useDeferredValue(text);
   const extracted = useMemo(() => extractInput(deferred), [deferred]);
   const status = statusLine(health, busy);
@@ -87,6 +91,13 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
     extracted.redactions.codes && plural(extracted.redactions.codes, "code"),
   ].filter(Boolean);
   const waitingForCheck = Boolean(siteKey) && !token;
+
+  useEffect(() => {
+    if (autoRun.current && canScan && !busy && text.trim().length > 0 && !waitingForCheck) {
+      autoRun.current = false;
+      formRef.current?.requestSubmit();
+    }
+  }, [canScan, busy, text, waitingForCheck]);
 
   function clearText() {
     setText("");
@@ -292,6 +303,7 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
         className="mt-4 flex flex-col gap-3"
         aria-describedby={hintId}
         aria-busy={busy || reading !== null}
+        ref={formRef}
         onSubmit={(event) => void submit(event)}
         onDragOver={(event) => {
           if (event.dataTransfer?.types.includes("Files")) {
@@ -463,6 +475,12 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
             </div>
           )}
         </div>
+
+        {handoff && autoRun.current && (
+          <p className="text-sm text-ink-faint" role="status">
+            The text you sent to ScamCam is ready. The check starts as soon as the security check finishes.
+          </p>
+        )}
 
         {canScan && siteKey && (
           <TurnstileWidget

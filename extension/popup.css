@@ -1,0 +1,88 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f3f1ea;
+  --surface: #fffdf7;
+  --ink: #17191a;
+  --ink-faint: #5f6468;
+  --line: #c9c4b6;
+  --accent: #8a5a00;
+  --accent-ink: #fffaf0;
+  --error: #a3261c;
+  --focus: #8a5a00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0d0c;
+    --surface: #151917;
+    --ink: #e7ece8;
+    --ink-faint: #8a958e;
+    --line: #2e3531;
+    --accent: #f2b33d;
+    --accent-ink: #1a1203;
+    --error: #ff8a7a;
+    --focus: #ffc65c;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  width: 340px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+}
+
+main { padding: 14px; display: grid; gap: 12px; }
+
+header { display: flex; align-items: center; gap: 8px; }
+
+h1 { margin: 0; font-size: 16px; letter-spacing: 0.02em; }
+
+h1 span { font-weight: 400; color: var(--ink-faint); font-size: 13px; margin-left: 4px; }
+
+form { display: grid; gap: 8px; }
+
+label { font-weight: 600; font-size: 13px; }
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 96px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 13px/1.4 ui-monospace, Consolas, Menlo, monospace;
+}
+
+.hint, footer { margin: 0; font-size: 12px; color: var(--ink-faint); }
+
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+button {
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+button:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.error { margin: 0; min-height: 1em; font-size: 12px; color: var(--error); }
+
+footer a { color: inherit; margin-left: 4px; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

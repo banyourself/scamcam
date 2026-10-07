@@ -5,7 +5,7 @@ export function CookiesPage() {
     <DocumentPage
       title="Cookies"
       reference="SC-POL-04"
-      updated="2026-10-05"
+      updated="2026-10-07"
       lead="ScamCam does not use advertising, analytics, or tracking cookies, so there is no cookie banner."
     >
       <table>
@@ -37,6 +37,9 @@ export function CookiesPage() {
         site in a real browser found no cookies and no browser storage other than the theme choice, and the only other
         site contacted was Cloudflare&apos;s bot check. Cloudflare describes its security cookies in
         its <a href="https://developers.cloudflare.com/fundamentals/reference/policies-compliances/cloudflare-cookies/">cookie list</a>.
+      </p>
+      <p>
+        The ScamCam browser extension stores nothing in your browser and sets no cookies.
       </p>
       <p>
         Strictly necessary security storage does not need consent under EU and UK rules. If ScamCam ever adds anything

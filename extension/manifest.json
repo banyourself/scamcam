@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "ScamCam - Check the Scan",
+  "short_name": "ScamCam",
+  "version": "1.0.0",
+  "description": "Right-click a link, a message, or a page to check it for scams on ScamCam. No access to the sites you visit.",
+  "homepage_url": "https://scamcam.kevinle.tech/extension",
+  "permissions": ["contextMenus", "activeTab"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Check with ScamCam",
+    "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png" }
+  },
+  "commands": {
+    "_execute_action": { "suggested_key": { "default": "Alt+Shift+S" }, "description": "Open ScamCam" }
+  },
+  "icons": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
+  "content_security_policy": { "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" },
+  "minimum_chrome_version": "116"
+}

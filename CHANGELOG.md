@@ -3,6 +3,23 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-07: Browser extension for Edge and Chrome
+
+- New ScamCam extension (`extension/`): right-click a link, selected text, or a page and choose Check with ScamCam, or
+  open it from the toolbar or with Alt+Shift+S and paste anything. It opens ScamCam in a new tab with the text filled
+  in, and the check starts by itself once the usual Turnstile check passes, so bot protection and rate limits still
+  apply to every scan.
+- The extension has no host permissions and cannot read any page. It asks only for context menus and the active tab,
+  stores nothing, makes no network requests, and its pages run under a strict content security policy.
+- The text travels after `#check=` as base64url, which browsers never send to a server. The site reads it once, drops
+  control characters, caps it at 4,000 characters, rejects anything malformed, and clears it from the address bar and
+  history before the scan.
+- New /extension page with install steps and permissions, a footer link, and updates to the privacy policy, terms,
+  cookies, and accessibility pages. `npm run build` now packs `downloads/scamcam-extension-<version>.zip` with the site.
+- Store listing text for Microsoft Edge Add-ons is in [docs/EDGE-LISTING.md](docs/EDGE-LISTING.md).
+- Verified: typecheck, 788 Vitest tests in 49 files (3 new for the hand-off), the build, and a cross-check that the
+  extension's encoding decodes on the site.
+
 ## 2026-10-07: Settled Modrinth releases read "No known threat detected", new releases are not trusted yet
 
 - A Minecraft mod that Modrinth has published for at least two weeks, in a project that passed Modrinth's review,

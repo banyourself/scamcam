@@ -35,6 +35,10 @@ Every report also links to other well-known checkers, such as VirusTotal, Google
 urlscan.io, and Cisco Talos, so a visitor can compare answers. ScamCam does not send them anything; they only see the
 domain or fingerprint if the visitor clicks.
 
+With the ScamCam extension for Edge and Chrome, people can right-click a link, a selected message, or a page and
+choose Check with ScamCam. It opens the site with the text filled in and cannot read any page itself
+([/extension](https://scamcam.kevinle.tech/extension)).
+
 If a result looks wrong, the visitor can flag it. A flag goes into a queue I review by hand and never changes any
 result, so flagging a scam site over and over cannot make it look safe.
 

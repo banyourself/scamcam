@@ -6,6 +6,7 @@ import { AccessibilityPage } from "@/pages/AccessibilityPage";
 import { ContactPage } from "@/pages/ContactPage";
 import { CookiesPage } from "@/pages/CookiesPage";
 import { DisclosurePage } from "@/pages/DisclosurePage";
+import { ExtensionPage } from "@/pages/ExtensionPage";
 import { HomePage } from "@/pages/HomePage";
 import { HowItWorksPage } from "@/pages/HowItWorksPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
@@ -22,6 +23,7 @@ const DesignPreviewPage = import.meta.env.DEV
 const routes: Record<string, ComponentType> = {
   "/": HomePage,
   "/how-it-works": HowItWorksPage,
+  "/extension": ExtensionPage,
   "/privacy": PrivacyPage,
   "/terms": TermsPage,
   "/acceptable-use": AcceptableUsePage,

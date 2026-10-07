@@ -149,6 +149,15 @@ export function PrivacyPage() {
         </tbody>
       </table>
 
+      <h2>The browser extension</h2>
+      <p>
+        The optional ScamCam extension for Edge and Chrome adds Check with ScamCam to the right-click menu and the toolbar. It
+        has no access to the websites you visit. When you choose it, it opens ScamCam in a new tab with the link, selected text,
+        or page address you picked, carried in the part of the address after #, which browsers do not send to servers. ScamCam
+        clears that from the address as soon as the page loads, and the check then works exactly like one you paste in, under
+        this policy. The extension stores nothing and sends nothing on its own.
+      </p>
+
       <h2>Services ScamCam relies on</h2>
       <ul>
         <li>

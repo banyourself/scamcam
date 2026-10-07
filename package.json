@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/pack-extension.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run && node --test \"test/node/*.test.ts\"",

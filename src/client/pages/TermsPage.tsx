@@ -11,6 +11,10 @@ export function TermsPage() {
         statements about anyone&apos;s intent. Some checks use an AI model, which can be wrong.
       </p>
 
+      <p>
+        These terms also cover the ScamCam browser extension, which only opens ScamCam with what you choose to check.
+      </p>
+
       <h2>No warranty</h2>
       <p>
         ScamCam is provided as is, without warranties of any kind. A link or message that ScamCam does not flag can still

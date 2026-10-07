@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ScamCam</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header>
+      <img src="icons/icon-32.png" alt="" width="24" height="24">
+      <h1>ScamCam <span>Check the Scan</span></h1>
+    </header>
+    <form id="form" novalidate>
+      <label for="text">Link or message to check</label>
+      <textarea id="text" rows="5" maxlength="4000" spellcheck="false" autocomplete="off" aria-describedby="hint"></textarea>
+      <p id="hint" class="hint">Opens ScamCam in a new tab and checks it there. Nothing is sent until ScamCam opens.</p>
+      <div class="row">
+        <button type="submit" id="check" class="primary" disabled>Check it</button>
+        <button type="button" id="page" hidden>Check this page</button>
+      </div>
+      <p id="error" class="error" role="alert"></p>
+    </form>
+    <footer>
+      Tip: right-click any link or selected text and choose Check with ScamCam.
+      <a href="https://scamcam.kevinle.tech/privacy" target="_blank" rel="noopener noreferrer">Privacy</a>
+    </footer>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
