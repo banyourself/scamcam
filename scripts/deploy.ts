@@ -85,6 +85,7 @@ function main(): void {
     if (built.name !== "scamcam" || JSON.stringify(built.routes) !== expectedRoutes || built.vars?.APP_ENV !== "production") {
       throw new Error("The production build did not use the production settings");
     }
+    step("Pack the browser extension", join(root, "scripts", "pack-extension.mjs"), []);
     step(dryRun ? "Deploy (dry run, nothing is uploaded)" : "Deploy", bin("wrangler", "bin", "wrangler.js"), dryRun ? ["deploy", "--dry-run"] : ["deploy"]);
     console.log(dryRun ? "\nDry run finished. Nothing was deployed." : "\nDeployed. Next: npm run check:live");
   } finally {
