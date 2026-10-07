@@ -17,7 +17,8 @@ state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 - New /extension page with install steps and permissions, a footer link, and updates to the privacy policy, terms,
   cookies, and accessibility pages. `npm run build` now packs `downloads/scamcam-extension-<version>.zip` with the site.
 - Store listing text for Microsoft Edge Add-ons is in [docs/EDGE-LISTING.md](docs/EDGE-LISTING.md).
-- Verified: typecheck, 788 Vitest tests in 49 files (3 new for the hand-off), the build, and a cross-check that the
+- Verified: typecheck, 788 Vitest tests in 49 files (3 new for the hand-off), the build, `npm run check:live` (all
+  pass), a live hand-off that filled the text and cleared the address, and a cross-check that the
   extension's encoding decodes on the site.
 
 ## 2026-10-07: Settled Modrinth releases read "No known threat detected", new releases are not trusted yet
