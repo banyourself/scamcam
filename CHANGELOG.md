@@ -14,8 +14,8 @@ state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
   search that took 5.4 seconds. It now uses a "starts with" search, which took 0.2 seconds for the same record.
 - Spamhaus, PhishStats, and Cloudflare Radar failures now raise alerts with the reason or HTTP status and the
   provider's own message, never the domain or a key. Radar was confirmed working with a scan of `wikipedia.org`.
-- Verified: 610 Vitest tests in 40 files and 17 Node tests pass, and a local copy of the runtime asked Cloudflare's
-  real resolver over DNS over HTTPS.
+- Verified: 610 Vitest tests in 40 files and 17 Node tests pass, and live scans on the deployed site showed Spamhaus's
+  listing of `dbltest.com` and PhishStats' report for a `pages.dev` phishing site, with no alerts in the logs.
 
 ## 2026-10-06: Result flags, five more scam lists, Spamhaus, PhishStats, Radar, and a license
 
