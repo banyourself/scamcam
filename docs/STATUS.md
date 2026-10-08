@@ -37,8 +37,8 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | AI step | 2026-10-05 | `@cf/qwen/qwen3-30b-a3b-fp8` for messages the rules cannot decide; one label, can add a warning but never lower a result, 2,000 calls a day |
 | File checks | 2026-10-06 | "Check a file", paste, or drop: the browser finds the real type and warning signs and sends only fingerprints; MalwareBazaar, CIRCL hashlookup, and Team Cymru's Malware Hash Registry are checked ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#file-checks-2026-10-06)) |
 | Minecraft mods and modpacks | 2026-10-07 | Mods are read on the device for what account stealers do (login folders, webhooks, hidden downloads, anti-analysis checks, hidden commands, launcher accounts, the login token), then compared with Modrinth by SHA-1 and mod ID (a reviewed release public for two weeks with nothing malware-like reads "No known threat detected"; newer releases get no credit, against hacked developer accounts); `.mrpack` and CurseForge packs are checked for unsafe downloads and carried mods ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#minecraft-mods-and-modpacks-2026-10-07)) |
-| Breach check | Built 2026-10-08, not deployed yet | /breaches checks a password with Pwned Passwords by k-anonymity: the browser sends only the first 5 characters of its SHA-1 fingerprint to `GET /api/v1/passwords/range/{prefix}`, which asks with `Add-Padding`, adds its own random padding, keeps each answer a day in the Cache API, and allows 20 checks a minute per visitor (`PASSWORD_RATE_LIMITER`). It also searches Have I Been Pwned's public breach list in the browser (`GET /api/v1/breaches`, built by the scanner at most every 12 hours, kept in its storage and for 6 hours at the edge). Link reports mention a known breach of the link's site as context, from the scanner's stored copy only. Email addresses are not checked ([API_LICENSE_MATRIX.md](API_LICENSE_MATRIX.md)) |
-| GitHub repository facts | Built 2026-10-08, not deployed yet | In the scanner, for one github.com, raw.githubusercontent.com, codeload.github.com, or github.io link per scan: when the repository and its owner were made, stars, forks, archived, and whether GitHub removed (404) or blocked (451) it. A new repository or owner is a weak sign; a removed or blocked repository a moderate one; stars never lower the risk. Starts once `GITHUB_API_TOKEN` is set. Roblox profile checks are not built ([API_LICENSE_MATRIX.md](API_LICENSE_MATRIX.md)) |
+| Breach check | 2026-10-08 | /breaches checks a password with Pwned Passwords by k-anonymity: the browser sends only the first 5 characters of its SHA-1 fingerprint to `GET /api/v1/passwords/range/{prefix}`, which asks with `Add-Padding`, adds its own random padding, keeps each answer a day in the Cache API, and allows 20 checks a minute per visitor (`PASSWORD_RATE_LIMITER`). It also searches Have I Been Pwned's public breach list in the browser (`GET /api/v1/breaches`, built by the scanner at most every 12 hours, kept in its storage and for 6 hours at the edge). Link reports mention a known breach of the link's site as context, from the scanner's stored copy only. Email addresses are not checked ([API_LICENSE_MATRIX.md](API_LICENSE_MATRIX.md)) |
+| GitHub repository facts | 2026-10-08 | In the scanner, for one github.com, raw.githubusercontent.com, codeload.github.com, or github.io link per scan: when the repository and its owner were made, stars, forks, archived, and whether GitHub removed (404) or blocked (451) it. A new repository or owner is a weak sign; a removed or blocked repository a moderate one; stars never lower the risk. Starts once `GITHUB_API_TOKEN` is set. Roblox profile checks are not built ([API_LICENSE_MATRIX.md](API_LICENSE_MATRIX.md)) |
 | Report it and Totals | 2026-10-07 | Suspicious or worse reports offer a copy-ready summary and the right places to report; /stats shows anonymous 7 and 30 day totals from `scan_totals` (migration `0009`, applied to production 2026-10-07) |
 | Browser extension | 2026-10-07 | `extension/`: right-click or toolbar "Check with ScamCam" opens the site with the text after `#check=`; no host permissions, nothing stored; manual install from /extension until the Edge Add-ons listing is approved ([EDGE-LISTING.md](EDGE-LISTING.md)) |
 | Screenshot reading | 2026-10-06 | "Read a screenshot", paste, or drop: the browser reads the text (Tesseract.js 7.0.0, English `best_int` model) and any QR code (jsQR 1.4.0), inverts dark-mode screenshots first, and adds the text to the box for review |
@@ -107,9 +107,9 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | Bitly and is.gd/v.gd link expansion | Only the short code of their own links, from the scanner | Built 2026-10-07 with my Bitly token; tested with a fake server, answer formats checked live |
 | Steam Web API | The profile name or account number only, from the scanner | Key set on 2026-10-07; a live scan of a real profile reached Steam without errors |
 | ScamSniffer scam wallets and FCC consumer complaints | Nothing from visitors; the sync downloads them | Synced to production on 2026-10-07 (4,599 wallets, 28,734 numbers); both matched in live scans |
-| GitHub REST API (`repos`, `users`) | The repository owner and name, or the account name, from the scanner, with ScamCam's token | Built 2026-10-08; waiting for `GITHUB_API_TOKEN`; tested with a fake server |
-| Pwned Passwords (Have I Been Pwned) | The first 5 characters of a password's SHA-1 fingerprint, from the Worker, never the visitor's address | Built 2026-10-08, no key; the local preview reached it live on 2026-10-08 (2,000 to 2,300 lines per range with padding) |
-| Have I Been Pwned breach list | Nothing from visitors; the scanner downloads the public list | Built 2026-10-08, no key; 1,042 breaches (1.1 MB) on 2026-10-08, 191 KB once compacted; CC BY 4.0, credited with a link wherever it is shown |
+| GitHub REST API (`repos`, `users`) | The repository owner and name, or the account name, from the scanner, with ScamCam's token | Live since 2026-10-08 with `GITHUB_API_TOKEN` set; tested with a fake server, and GitHub's real answers checked by hand for a public repository |
+| Pwned Passwords (Have I Been Pwned) | The first 5 characters of a password's SHA-1 fingerprint, from the Worker, never the visitor's address | Live since 2026-10-08, no key; production answered a range with 2,244 lines including padding |
+| Have I Been Pwned breach list | Nothing from visitors; the scanner downloads the public list | Live since 2026-10-08, no key; 1,042 breaches (1.1 MB) on 2026-10-08, 191 KB once compacted; CC BY 4.0, credited with a link wherever it is shown |
 | Workers AI (`@cf/qwen/qwen3-30b-a3b-fp8`) | The redacted message with links replaced by `[link]` | On, capped at 2,000 calls a day |
 | Cloudflare Turnstile | The token and the visitor's IP address | Production widget |
 
@@ -203,10 +203,11 @@ duration about ten times faster than needed. Every lookup now clears its timer w
 5. Ask abuse.ch (contact form) to confirm that showing per-lookup results with credit is fine, and ask Team Cymru
    (support@cymru.com) the same for the Malware Hash Registry.
 6. Review flags with `npm run flags` whenever the weekly report raises `flags_waiting`.
-7. The breach check and GitHub repository facts (2026-10-08) are built and tested locally but not deployed. Deploying
-   adds the `PASSWORD_RATE_LIMITER` binding (20 a minute). GitHub facts start once I create a fine-grained token with
-   read-only access to public repositories and no permissions and set `GITHUB_API_TOKEN` ([DEPLOYMENT.md](DEPLOYMENT.md),
-   step 14).
+7. The breach check, GitHub repository facts, and the PlayStation domain from the Wikidata review went live on
+   2026-10-08 as version `9a44ad58`, with `GITHUB_API_TOKEN` set and the `PASSWORD_RATE_LIMITER` binding added.
+   `npm run check:live` passed, including a password check that sent only 5 characters of its fingerprint. Run one
+   scan with a GitHub link by hand, because Turnstile does not finish in the headless check. The GitHub token's
+   expiry date is noted outside the repository; renew it before then ([DEPLOYMENT.md](DEPLOYMENT.md), step 14).
 
 ### Not verified yet
 
@@ -223,8 +224,9 @@ duration about ten times faster than needed. Every lookup now clears its timer w
 - A live URLhaus match. Only "no results" answers have been seen live; matches are tested with a fake server.
 - Google's `CANARY` and `FRAME_ONLY` attributes. They have not appeared live and are tested with encoded examples.
 - The Cache API was tested in local workerd only; production behavior (per data center, eviction) is untested.
-- Have I Been Pwned's rate limit for the breach list without a key, from Cloudflare's shared addresses, and keeping
-  the 191 KB breach list in the scanner's storage on Cloudflare (tested in local workerd only).
+- Have I Been Pwned's rate limit for the breach list without a key, from Cloudflare's shared addresses. The first
+  live request on 2026-10-08 was answered, and `/api/v1/breaches` served 1,042 breaches (190,968 bytes); whether that
+  copy came from the scanner's storage or the Worker fallback was not recorded.
 - RDAP and DNS were called live only from local runs; registry rate limits in production are unknown.
 - The `databaseSizeBytes` check relies on D1's `meta.size_after`; it works locally, and production behavior is not
   yet verified.
