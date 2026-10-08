@@ -6,7 +6,7 @@ export function PrivacyPage() {
     <DocumentPage
       title="Privacy policy"
       reference="SC-POL-01"
-      updated="2026-10-07"
+      updated="2026-10-08"
       lead="ScamCam is built to know as little about you as possible."
     >
       <h2>The short version</h2>
@@ -228,12 +228,19 @@ export function PrivacyPage() {
         your IP address and some browser signals to deliver the site and run the bot check, under Cloudflare&apos;s own
         privacy policy.
       </p>
+      <p>
+        ScamCam has no session replay: nothing records your clicks, mouse movements, scrolling, or keystrokes. Fonts,
+        images, and scripts come from ScamCam itself, not from Google or any font, analytics, or ad network. The only
+        outside code a page loads is Cloudflare&apos;s bot check.
+      </p>
 
       <h2>Cookies and Do Not Track</h2>
       <p>
         ScamCam sets no cookies of its own. Cloudflare may set strictly necessary security cookies. Your theme choice is
-        saved in your browser only. ScamCam does not track you across sites, so Do Not Track signals change nothing. See
-        the <Link to="/cookies">cookie policy</Link>.
+        saved in your browser only. ScamCam does not track you across sites, so Do Not Track signals change nothing.
+        ScamCam never sells or shares personal information, including for targeted advertising. If your browser sends a
+        Global Privacy Control signal, it is treated as a request not to sell or share, which ScamCam already never does.
+        See the <Link to="/cookies">cookie policy</Link>.
       </p>
 
       <h2>Legal basis in the EU and UK</h2>
@@ -262,10 +269,11 @@ export function PrivacyPage() {
 
       <h2>Changes</h2>
       <p>
-        This version takes effect on October 7, 2026. It adds email file checks, Discord invite and Steam account lookups,
-        short link expansion with Bitly and is.gd, the FCC&apos;s complaint numbers, and ScamSniffer&apos;s list of scam
-        wallets. Any change will be posted on this page
-        with a new date.
+        This version takes effect on October 8, 2026. It adds that ScamCam has no session replay, loads no fonts or code
+        from other companies apart from the bot check, and treats Global Privacy Control as a request not to sell or
+        share. The version of October 7, 2026 added email file checks, Discord invite and Steam account lookups, short
+        link expansion with Bitly and is.gd, the FCC&apos;s complaint numbers, and ScamSniffer&apos;s list of scam wallets.
+        Any change will be posted on this page with a new date.
       </p>
     </DocumentPage>
   );

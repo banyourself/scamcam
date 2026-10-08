@@ -106,7 +106,8 @@ export function FlagControls({ report, signature, siteKey }: { report: ScanRepor
               aria-describedby={`${groupId}-note-help`}
             />
             <p id={`${groupId}-note-help`} className="mt-1 text-xs text-ink-soft">
-              Up to {flagNoteMaxLength} characters. Leave out personal details. Emails, phone numbers, and codes are hidden automatically.
+              Up to {flagNoteMaxLength} characters. Leave out your name, where you live, and other personal details. Emails,
+              phone numbers, and codes are hidden automatically.
             </p>
           </div>
           <p className="text-xs text-ink-soft">

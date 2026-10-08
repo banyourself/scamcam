@@ -3,7 +3,7 @@ import { Link } from "@/router";
 
 export function TermsPage() {
   return (
-    <DocumentPage title="Terms of service" reference="SC-POL-02" updated="2026-10-07">
+    <DocumentPage title="Terms of service" reference="SC-POL-02" updated="2026-10-08">
       <h2>What ScamCam is</h2>
       <p>
         ScamCam is a free, noncommercial tool that gives automated, informational assessments of links and messages.
@@ -41,6 +41,18 @@ export function TermsPage() {
       <p>
         If you think a result about your website is wrong, <Link to="/contact">ask for a review</Link>. Confirmed mistakes
         are corrected and logged.
+      </p>
+
+      <h2>Copyright</h2>
+      <p>
+        ScamCam has no profile pictures, uploads that others can see, or public comments. Screenshots and files are read on
+        your device, and a shared report is encrypted, visible only to people with its link, and deleted within 20 minutes.
+        If you believe something reachable through ScamCam infringes your copyright, email{" "}
+        <a href="mailto:kevin@kevinle.tech">kevin@kevinle.tech</a> with: your name and contact details; the work you
+        believe is infringed; where it appears, such as a link; a statement that you believe in good faith the use is not
+        authorized by the owner, its agent, or the law; a statement that the notice is accurate and, under penalty of
+        perjury, that you are the owner or allowed to act for the owner; and your physical or electronic signature. The
+        material will be removed or disabled, and people who repeatedly infringe will be blocked.
       </p>
 
       <h2>Limitation of liability</h2>

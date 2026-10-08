@@ -3,6 +3,17 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-08: Privacy signals, session replay, and copyright notices
+
+- The Privacy policy (now effective October 8, 2026) says plainly that ScamCam has no session replay, loads no fonts or
+  code from other companies apart from Cloudflare's bot check, never sells or shares personal information, and treats
+  Global Privacy Control as a request not to sell or share. A review of the live pages confirmed it: the content
+  security policy allows only ScamCam itself and the Turnstile bot check, and the fonts are bundled with the site.
+- The Terms of service add a Copyright section with how to send a takedown notice and a repeat infringer rule. ScamCam
+  has no profile pictures, public uploads, or comments.
+- The flag form now asks people to leave out their name and where they live, not only contact details.
+- Verified: typecheck, 800 Vitest tests, the build, the accessibility check, and the privacy check.
+
 ## 2026-10-08: Page contents sidebar on document pages
 
 - How it works, Security, the policies, and the other document pages no longer leave the right half of a wide screen
