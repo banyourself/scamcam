@@ -3,6 +3,16 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-08: Page contents sidebar on document pages
+
+- How it works, Security, the policies, and the other document pages no longer leave the right half of a wide screen
+  empty. Next to the text there is now an "On this page" list of the page's sections that marks where you are, links
+  to the related pages, and a short box that leads back to the checker. The text keeps its readable width. Below 1024
+  pixels the sidebar is hidden and the page is one column, as before.
+- Section headings get stable anchors, so a link such as `/how-it-works#status` opens at that section.
+- Verified: typecheck, 800 Vitest tests, the build, the accessibility check (no WCAG 2.2 AA violations and no sideways
+  scrolling), the privacy check, and How it works and Security viewed in dark and light at 1320 and 375 pixels wide.
+
 ## 2026-10-07: Home screen icons and a gold link preview
 
 - Home screen icons (180, 192, and 512 pixels, plus a maskable 512) and `site.webmanifest`, so a saved shortcut on a

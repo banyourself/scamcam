@@ -208,6 +208,7 @@
 
   .prose-doc h2 {
     margin-top: 2.25rem;
+    scroll-margin-top: 1.5rem;
     font-family: var(--font-display);
     font-weight: 800;
     font-size: 1.6rem;

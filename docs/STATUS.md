@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-06.
+Last updated: 2026-10-08.
 
 What is live, where it runs, how it is checked, and what is still open. What shipped and when is in
 [CHANGELOG.md](../CHANGELOG.md), and what comes next is in [ROADMAP.md](ROADMAP.md).
