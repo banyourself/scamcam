@@ -3,6 +3,21 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-08: Code and file sharing sites are shared hosts
+
+- A live scan of `https://github.com/octocat/Hello-World` came back Listed as malicious, because URLhaus has thousands
+  of malware reports for files on github.com and ScamCam read that host listing as confirmation. Code and file sharing
+  sites that anyone can upload to (GitHub and githubusercontent.com, GitLab, Bitbucket, Codeberg, SourceForge, Dropbox,
+  MediaFire, MEGA, Gofile, Pixeldrain, Catbox, WeTransfer, Sendspace, 4shared, Box, OneDrive short links, Google Forms
+  short links, Pastebin, paste.ee, Telegraph, the Internet Archive, jsDelivr, unpkg, and the shared Google Drive, Docs,
+  Sites, Cloud Storage, Firebase Storage, and Amazon S3 hostnames) are now shared hosts, like free web hosts and short
+  links. A host listing there is context ("Other links on this service have spread malware"), and only a listing of the
+  exact link confirms. The same applies to ThreatFox, Spamhaus, PhishStats, and the scam lists, and Cloudflare Radar's
+  popularity rank is no longer shown for them, since it says nothing about one upload. A customer's own bucket, such as
+  `name.s3.amazonaws.com`, is not shared.
+- Verified: typecheck, 864 Vitest tests in 56 files (2 new; the scan test fails without the fix with the same result as
+  the live scan), 26 node tests, and the build.
+
 ## 2026-10-08: Official brand websites from Wikidata
 
 - `npm run brands:wikidata` asks Wikidata's public SPARQL service for the official website (property P856) of each

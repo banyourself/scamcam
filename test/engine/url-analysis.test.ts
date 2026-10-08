@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isUploadService } from "../../src/engine/brands";
 import { editDistance, skeleton } from "../../src/engine/confusables";
 import { decodePunycodeLabel, hostnameToUnicode } from "../../src/engine/punycode";
 import { strengthPoints } from "../../src/engine/signals";
@@ -69,6 +70,17 @@ describe("official and well-known sites", () => {
     const signals = raised("https://cdn.discordapp.com/attachments/1/2/FreeNitro.exe");
     expect(signals.map((signal) => signal.strength)).toEqual(["strong"]);
     expect(signals[0]!.title).toContain("someone uploaded");
+  });
+});
+
+describe("code and file sharing services", () => {
+  it("knows the services anyone can upload to, without matching look-alikes or customer hosts", () => {
+    for (const host of ["github.com", "raw.githubusercontent.com", "objects.githubusercontent.com", "gitlab.com", "www.dropbox.com", "drive.google.com", "s3.amazonaws.com", "files.catbox.moe"]) {
+      expect(isUploadService(host), host).toBe(true);
+    }
+    for (const host of ["github.io", "evil.github.io", "github.com.evil.example", "evilbox.com", "mybucket.s3.amazonaws.com", "google.com", "mail.google.com", "notgithub.com"]) {
+      expect(isUploadService(host), host).toBe(false);
+    }
   });
 });
 

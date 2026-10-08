@@ -3,7 +3,7 @@ import { hibpBreachUrl } from "../shared/breaches";
 import type { EmailFacts } from "../shared/email";
 import { extractInput, maskedLinks, qrValues, withoutQrLabels } from "../shared/extract";
 import type { Evidence, ScanReport, UncheckedSource } from "../shared/report";
-import { brands, brandsNamedIn, freeHostOf, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
+import { brands, brandsNamedIn, freeHostOf, isUploadService, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
 import type { AiReviewResult } from "./ai-review";
 import type { BreachIndex } from "./breach-catalog";
 import { cacheKey, memoryLookups, recallFromMemory, recordOutcome, rememberInMemory, sourceIsOpen, type Lookups } from "./cache";
@@ -91,7 +91,7 @@ function pickNetworkLinks(links: AnalyzedLink[]): AnalyzedLink[] {
 
 function isSharedHost(link: AnalyzedLink): boolean {
   const host = link.hostname ?? "";
-  return Boolean(link.officialBrand) || urlShorteners.has(link.registrableDomain ?? "") || freeHostOf(host) !== null;
+  return Boolean(link.officialBrand) || urlShorteners.has(link.registrableDomain ?? "") || freeHostOf(host) !== null || isUploadService(host);
 }
 
 function rdapSignals(link: AnalyzedLink, result: RdapResult, now: Date): Signal[] {
@@ -920,6 +920,7 @@ function isBroadName(name: string): boolean {
   return (
     urlShorteners.has(name) ||
     userContentHosts.includes(name) ||
+    isUploadService(name) ||
     freeHostOf(name) === name ||
     Boolean(officialBrandFor(name))
   );

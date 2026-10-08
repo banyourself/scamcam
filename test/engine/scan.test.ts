@@ -129,6 +129,22 @@ describe("scanContent", () => {
     expect(report.evidence.some((item) => item.title === "Other links on this service have spread malware")).toBe(true);
   });
 
+  it("treats URLhaus reports on code and file sharing sites as context, but still confirms the exact link", async () => {
+    const listing = { query_status: "ok", url_count: "9592", urls: [{ url: "https://github.com/someone/tool/releases/download/v1/setup.exe", url_status: "online" }] };
+    for (const link of ["https://github.com/octocat/Hello-World", "https://raw.githubusercontent.com/octocat/Hello-World/master/README", "https://drive.google.com/file/d/abc/view"]) {
+      const { scan } = options({ urlhaus: listing }, { urlhausKey: "key" });
+      const report = await scanContent(link, scan);
+      expect(ScanReportSchema.safeParse(report).success).toBe(true);
+      expect(report.level).not.toBe("confirmed_malicious");
+      expect(report.level).not.toBe("high_risk");
+      expect(report.evidence.find((item) => item.source.name === "URLhaus (abuse.ch)")?.title).toBe("Other links on this service have spread malware");
+    }
+    const { scan } = options({ urlhaus: listing }, { urlhausKey: "key" });
+    const exact = await scanContent("https://github.com/someone/tool/releases/download/v1/setup.exe", scan);
+    expect(exact.level).toBe("confirmed_malicious");
+    expect(exact.evidence[0]!.title).toBe("URLhaus lists this exact link as spreading malware");
+  });
+
   it("skips quota-limited sources when the daily budget is used up", async () => {
     const { scan } = options({}, { safeBrowsingKey: "key", urlhausKey: "key", takeBudget: async () => false });
     const report = await scanContent("https://www.example.org/news", scan);

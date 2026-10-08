@@ -131,7 +131,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Check | Latest recorded result |
 |---|---|
-| Vitest (worker, engine, and client projects) | 862 tests in 56 files pass (2026-10-08, with the breach check and GitHub repository facts) |
+| Vitest (worker, engine, and client projects) | 864 tests in 56 files pass (2026-10-08, with the breach check, GitHub repository facts, and code and file sharing sites as shared hosts) |
 | Node config and script tests (`npm run test:config`) | 26 pass, including the sitemap matching the page list and the Wikidata brand check (2026-10-08) |
 | Accessibility (`npm run test:a11y`) | Passes; 72 axe-core checks, including the open flag form, the email details box, and the breach page with a password answer and search results, in both themes at both widths (2026-10-08) |
 | Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot, file, Minecraft mod, email file, flag (scan, flag, confirmation), share, and breach check steps (only 5 characters of the password's fingerprint sent; search words never sent) |

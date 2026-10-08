@@ -164,6 +164,22 @@ export const riskyPathWords = [
 
 export const userContentHosts = ["cdn.discordapp.com", "media.discordapp.net", "steamusercontent.com", "ugc.rbxcdn.com"];
 
+export const uploadServiceDomains = [
+  "github.com", "githubusercontent.com", "gitlab.com", "bitbucket.org", "codeberg.org", "sourceforge.net", "dropbox.com",
+  "dropboxusercontent.com", "mediafire.com", "mega.nz", "mega.io", "gofile.io", "pixeldrain.com", "catbox.moe",
+  "wetransfer.com", "we.tl", "sendspace.com", "4shared.com", "box.com", "1drv.ms", "forms.gle", "pastebin.com", "paste.ee",
+  "telegra.ph", "archive.org", "jsdelivr.net", "unpkg.com",
+];
+
+export const uploadServiceHosts = [
+  "drive.google.com", "docs.google.com", "drive.usercontent.google.com", "sites.google.com", "storage.googleapis.com",
+  "firebasestorage.googleapis.com", "s3.amazonaws.com",
+];
+
+export function isUploadService(hostname: string): boolean {
+  return uploadServiceHosts.includes(hostname) || uploadServiceDomains.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
+}
+
 export const executableExtensions = ["exe", "scr", "bat", "cmd", "msi", "jar", "apk", "ps1", "vbs", "lnk", "iso", "dmg", "hta"];
 export const archiveExtensions = ["zip", "rar", "7z", "tar", "gz"];
 
