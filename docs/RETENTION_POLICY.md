@@ -16,6 +16,7 @@ This is ScamCam's written retention schedule (also required by the 2025 COPPA am
 | Provider call counts (no content, one row per provider per day) | 35 days | `provider_usage.expires_at`, daily cleanup |
 | Provider answers (Safe Browsing, URLhaus, RDAP, DNS, security DNS, Spamhaus, PhishStats, Cloudflare Radar) | The source's rule: Google's `cacheDuration`, 15 minutes, 1 to 24 hours, or the DNS TTL (at least 5 minutes for security DNS); Spamhaus 1 minute, PhishStats 6 hours, Radar 1 day | Scanner or Worker memory and Cache API expiry, with a stored expiry time checked on every read; Safe Browsing answers and everything in the scanner stay in memory only |
 | Files a visitor checks | Never uploaded or stored | The browser sends only fingerprints and finding codes; a test checks that no name or content reaches any server |
+| Account and repository answers (Discord, Steam, GitHub) | 1 hour, in the scanner's memory only, under hashed keys | Scanner memory |
 | File lookup answers (MalwareBazaar, CIRCL hashlookup, Team Cymru, Modrinth) | 15 minutes to 1 day, in the scanner's memory only, under hashed keys | Scanner memory |
 | AI answers (one label) | 1 hour, in memory only | Worker memory |
 | Passwords checked on /breaches | Never sent or stored; only 5 characters of the fingerprint leave the device | The browser |

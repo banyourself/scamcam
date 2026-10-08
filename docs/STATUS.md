@@ -38,6 +38,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | File checks | 2026-10-06 | "Check a file", paste, or drop: the browser finds the real type and warning signs and sends only fingerprints; MalwareBazaar, CIRCL hashlookup, and Team Cymru's Malware Hash Registry are checked ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#file-checks-2026-10-06)) |
 | Minecraft mods and modpacks | 2026-10-07 | Mods are read on the device for what account stealers do (login folders, webhooks, hidden downloads, anti-analysis checks, hidden commands, launcher accounts, the login token), then compared with Modrinth by SHA-1 and mod ID (a reviewed release public for two weeks with nothing malware-like reads "No known threat detected"; newer releases get no credit, against hacked developer accounts); `.mrpack` and CurseForge packs are checked for unsafe downloads and carried mods ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#minecraft-mods-and-modpacks-2026-10-07)) |
 | Breach check | Built 2026-10-08, not deployed yet | /breaches checks a password with Pwned Passwords by k-anonymity: the browser sends only the first 5 characters of its SHA-1 fingerprint to `GET /api/v1/passwords/range/{prefix}`, which asks with `Add-Padding`, adds its own random padding, keeps each answer a day in the Cache API, and allows 20 checks a minute per visitor (`PASSWORD_RATE_LIMITER`). It also searches Have I Been Pwned's public breach list in the browser (`GET /api/v1/breaches`, built by the scanner at most every 12 hours, kept in its storage and for 6 hours at the edge). Link reports mention a known breach of the link's site as context, from the scanner's stored copy only. Email addresses are not checked ([API_LICENSE_MATRIX.md](API_LICENSE_MATRIX.md)) |
+| GitHub repository facts | Built 2026-10-08, not deployed yet | In the scanner, for one github.com, raw.githubusercontent.com, codeload.github.com, or github.io link per scan: when the repository and its owner were made, stars, forks, archived, and whether GitHub removed (404) or blocked (451) it. A new repository or owner is a weak sign; a removed or blocked repository a moderate one; stars never lower the risk. Starts once `GITHUB_API_TOKEN` is set. Roblox profile checks are not built ([API_LICENSE_MATRIX.md](API_LICENSE_MATRIX.md)) |
 | Report it and Totals | 2026-10-07 | Suspicious or worse reports offer a copy-ready summary and the right places to report; /stats shows anonymous 7 and 30 day totals from `scan_totals` (migration `0009`, applied to production 2026-10-07) |
 | Browser extension | 2026-10-07 | `extension/`: right-click or toolbar "Check with ScamCam" opens the site with the text after `#check=`; no host permissions, nothing stored; manual install from /extension until the Edge Add-ons listing is approved ([EDGE-LISTING.md](EDGE-LISTING.md)) |
 | Screenshot reading | 2026-10-06 | "Read a screenshot", paste, or drop: the browser reads the text (Tesseract.js 7.0.0, English `best_int` model) and any QR code (jsQR 1.4.0), inverts dark-mode screenshots first, and adds the text to the box for review |
@@ -106,6 +107,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | Bitly and is.gd/v.gd link expansion | Only the short code of their own links, from the scanner | Built 2026-10-07 with my Bitly token; tested with a fake server, answer formats checked live |
 | Steam Web API | The profile name or account number only, from the scanner | Key set on 2026-10-07; a live scan of a real profile reached Steam without errors |
 | ScamSniffer scam wallets and FCC consumer complaints | Nothing from visitors; the sync downloads them | Synced to production on 2026-10-07 (4,599 wallets, 28,734 numbers); both matched in live scans |
+| GitHub REST API (`repos`, `users`) | The repository owner and name, or the account name, from the scanner, with ScamCam's token | Built 2026-10-08; waiting for `GITHUB_API_TOKEN`; tested with a fake server |
 | Pwned Passwords (Have I Been Pwned) | The first 5 characters of a password's SHA-1 fingerprint, from the Worker, never the visitor's address | Built 2026-10-08, no key; the local preview reached it live on 2026-10-08 (2,000 to 2,300 lines per range with padding) |
 | Have I Been Pwned breach list | Nothing from visitors; the scanner downloads the public list | Built 2026-10-08, no key; 1,042 breaches (1.1 MB) on 2026-10-08, 191 KB once compacted; CC BY 4.0, credited with a link wherever it is shown |
 | Workers AI (`@cf/qwen/qwen3-30b-a3b-fp8`) | The redacted message with links replaced by `[link]` | On, capped at 2,000 calls a day |
@@ -118,7 +120,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 | Where | Names |
 |---|---|
 | Worker secrets (production) | `TURNSTILE_SECRET_KEY`, `SAFE_BROWSING_API_KEY`, and `URLHAUS_AUTH_KEY`, which I typed in myself at launch, and `SHARE_SIGNING_KEY` for share links and flags ([DEPLOYMENT.md](DEPLOYMENT.md), step 8) |
-| Worker secrets for the extra sources | `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`, which I typed in myself on 2026-10-06 ([DEPLOYMENT.md](DEPLOYMENT.md), step 11), `STEAM_WEB_API_KEY`, `DISCORD_BOT_TOKEN`, and `BITLY_TOKEN` (all 2026-10-07, step 12) |
+| Worker secrets for the extra sources | `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`, which I typed in myself on 2026-10-06 ([DEPLOYMENT.md](DEPLOYMENT.md), step 11), `STEAM_WEB_API_KEY`, `DISCORD_BOT_TOKEN`, and `BITLY_TOKEN` (all 2026-10-07, step 12); `GITHUB_API_TOKEN` is not set yet (step 14) |
 | GitHub secrets | `CLOUDFLARE_D1_TOKEN` (D1 Edit only) and `CLOUDFLARE_ACCOUNT_ID` |
 | GitHub variable | `PHISHING_DATABASE_SYNC=enabled` |
 | Local | `.dev.vars`, ignored by git; `.dev.vars.example` holds only Cloudflare's public Turnstile test keys, a local-only signing key, and empty placeholders |
@@ -129,7 +131,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Check | Latest recorded result |
 |---|---|
-| Vitest (worker, engine, and client projects) | 837 tests in 55 files pass (2026-10-08, with the breach check) |
+| Vitest (worker, engine, and client projects) | 862 tests in 56 files pass (2026-10-08, with the breach check and GitHub repository facts) |
 | Node config and script tests (`npm run test:config`) | 20 pass, including the sitemap matching the page list |
 | Accessibility (`npm run test:a11y`) | Passes; 72 axe-core checks, including the open flag form, the email details box, and the breach page with a password answer and search results, in both themes at both widths (2026-10-08) |
 | Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot, file, Minecraft mod, email file, flag (scan, flag, confirmation), share, and breach check steps (only 5 characters of the password's fingerprint sent; search words never sent) |
@@ -142,7 +144,7 @@ How each suite runs is in [TEST_PLAN.md](TEST_PLAN.md).
 
 | Check | Result |
 |---|---|
-| Subrequests | 6.7 per cold scan on average for the benchmark (most 13), 31 for 20 links in the engine, 38 for 20 links through the whole Worker route (12 fetches, 20 cache calls, 6 queries), 29 for 20 links in the scanner with every source on (17 fetches, 6 Spamhaus lookups, 6 queries), and 37 when two of the links are Discord invites, two Steam profiles, and two Bitly links (25 fetches, 6 Spamhaus lookups, 6 queries), all on 2026-10-07 after merging the DNS lookups and batching budget counts; 0 for a warm repeat |
+| Subrequests | 6.7 per cold scan on average for the benchmark (most 13), 31 for 20 links in the engine, 39 for 20 links through the whole Worker route (12 fetches, 20 cache calls, 7 queries; the anonymous totals counter added a query on 2026-10-07), 29 for 20 links in the scanner with every source on (17 fetches, 6 Spamhaus lookups, 6 queries), and 38 when two of the links are Discord invites, two Steam profiles, two Bitly links, and one a GitHub repository (27 fetches, 6 Spamhaus lookups, 5 queries; 39 if the budget counts need a sixth query), measured on 2026-10-08; 0 for a warm repeat. A password check uses at most 3 and the breach list at most 3 |
 | Slow inputs | The slowest crafted input scans in under 1 ms in Node; before the fix the worst took about 23 ms |
 | Concurrency | 16 simultaneous scans from one address: exactly 10 allowed (local simulator) |
 | Cleanup | 10,250 expired rows in one table: 10,000 removed on the first run, 250 on the next. With a backlog in every table: 11,000 rows in 26 batches, fewer than 35 queries |
@@ -201,12 +203,17 @@ duration about ten times faster than needed. Every lookup now clears its timer w
 5. Ask abuse.ch (contact form) to confirm that showing per-lookup results with credit is fine, and ask Team Cymru
    (support@cymru.com) the same for the Malware Hash Registry.
 6. Review flags with `npm run flags` whenever the weekly report raises `flags_waiting`.
-7. The breach check (2026-10-08) is built and tested locally but not deployed. Deploying it adds the
-   `PASSWORD_RATE_LIMITER` binding (20 a minute); it needs no secret.
+7. The breach check and GitHub repository facts (2026-10-08) are built and tested locally but not deployed. Deploying
+   adds the `PASSWORD_RATE_LIMITER` binding (20 a minute). GitHub facts start once I create a fine-grained token with
+   read-only access to public repositories and no permissions and set `GITHUB_API_TOKEN` ([DEPLOYMENT.md](DEPLOYMENT.md),
+   step 14).
 
 ### Not verified yet
 
-- Subrequest counts are measured locally (38 for a 20-link scan in the Worker, 29 in the scanner) but not yet recorded on Cloudflare.
+- Subrequest counts are measured locally (39 for a 20-link scan in the Worker, 29 in the scanner, 38 with accounts,
+  short links, and a GitHub repository) but not yet recorded on Cloudflare.
+- GitHub's answers for live repositories, including a real 451 block, have not been seen; they are tested with a fake
+  server built from GitHub's documented fields.
 - The rate limiting binding counts per Cloudflare location and is eventually consistent, so the concurrency result
   comes from the local simulator only. The live check saw a 429 within 15 scans.
 - A live Steam ban result and whether `timecreated` comes back for public profiles (Valve's current reference does

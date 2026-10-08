@@ -3,6 +3,24 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-08: GitHub repository facts
+
+- For one GitHub link per scan (github.com, raw.githubusercontent.com, codeload.github.com, or a github.io site), the
+  scanner asks GitHub's REST API when the repository and the account that owns it were made, its stars and forks, and
+  whether it is archived. A repository or owner made in the last 30 days is a weak sign, a repository GitHub removed
+  (404) or blocked (451) a moderate one, and so is a repository link whose account is gone; stars and forks never lower the risk,
+  because they can be bought. GitHub's own routes, such as `/settings` and `/orgs`, are left alone.
+- GitHub receives only the owner and repository name, with a new optional `GITHUB_API_TOKEN` secret (a fine-grained
+  token with read-only access to public repositories and no permissions). Without it, reports list GitHub as not
+  connected and nothing is sent. Answers are kept an hour in the scanner's memory; 404 and 451 answers raise no alert.
+- Roblox profile checks are not built: Roblox's official Open Cloud API gives account age but no banned state or
+  verified badge, which only the older cookie-based endpoint has, and the terms for this use are unclear.
+- Subrequests: the scanner's worst case is 38 with a GitHub repository, two Discord invites, two Steam profiles, and two
+  Bitly links among 20 links (27 fetches, 6 Spamhaus lookups, 5 queries). The Worker fallback's 20-link case is 39, not
+  38: the anonymous totals counter added a query on 2026-10-07, and the docs now say so.
+- Verified: typecheck, 862 Vitest tests in 56 files (25 new), 20 node tests, the build, the accessibility check (72
+  axe-core checks), and the privacy check. GitHub is tested with a fake server built from its documented fields.
+
 ## 2026-10-08: Breach check
 
 - New **Breach check** page (/breaches, in the header, footer, and sitemap). It checks whether a password has leaked

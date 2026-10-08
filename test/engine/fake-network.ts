@@ -1,6 +1,7 @@
 import { hibpBreachesEndpoint } from "../../src/engine/breach-catalog";
 import { discordInviteEndpoint } from "../../src/engine/discord-invite";
 import { dohEndpoint, filteredDohEndpoint } from "../../src/engine/dns";
+import { githubApiBase } from "../../src/engine/github";
 import type { DomainListLookup, DomainListResults, ListName } from "../../src/engine/domain-list";
 import { hashlookupEndpoint, malwareBazaarEndpoint, mhrZone } from "../../src/engine/hash-lookups";
 import { modrinthApi } from "../../src/engine/modrinth";
@@ -48,8 +49,26 @@ export interface FakeNetworkOptions {
   passwordStatus?: number;
   breaches?: unknown;
   breachesStatus?: number;
+  githubRepos?: Record<string, FakeGithubRepo | number>;
+  githubUsers?: Record<string, FakeGithubUser | number>;
+  githubStatus?: number;
   down?: boolean;
   now?: Date;
+}
+
+export interface FakeGithubRepo {
+  createdDaysAgo?: number;
+  stars?: number;
+  forks?: number;
+  archived?: boolean;
+  fork?: boolean;
+  owner?: string;
+  ownerType?: string;
+}
+
+export interface FakeGithubUser {
+  createdDaysAgo?: number;
+  type?: string;
 }
 
 export interface FakeModrinthProject {
@@ -311,6 +330,41 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
       const prefix = url.slice(pwnedPasswordsEndpoint.length);
       const range = options.passwordRanges?.[prefix];
       return new Response(range ?? `${"0".repeat(35)}:0\r\n`, { headers: { "Content-Type": "text/plain" } });
+    }
+    if (url.startsWith(githubApiBase)) {
+      if (options.githubStatus) {
+        return json({ message: "API rate limit exceeded", documentation_url: "https://docs.github.com/rest" }, options.githubStatus);
+      }
+      const [kind, owner = "", repo = ""] = url.slice(githubApiBase.length).split("/").map((part) => decodeURIComponent(part).toLowerCase());
+      const daysAgo = (days: number | undefined) => new Date(now.getTime() - (days ?? 2000) * 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+      if (kind === "repos") {
+        const found = options.githubRepos?.[`${owner}/${repo}`];
+        if (found === 451) {
+          return json({ message: "Repository access blocked", block: { reason: "dmca", created_at: "2026-09-01T00:00:00Z", html_url: "https://github.com/github/dmca" } }, 451);
+        }
+        if (found === undefined || typeof found === "number") {
+          return json({ message: "Not Found", status: "404" }, typeof found === "number" ? found : 404);
+        }
+        return json({
+          id: 1,
+          name: repo,
+          full_name: `${found.owner ?? owner}/${repo}`,
+          owner: { login: found.owner ?? owner, type: found.ownerType ?? "User" },
+          created_at: daysAgo(found.createdDaysAgo),
+          stargazers_count: found.stars ?? 12,
+          forks_count: found.forks ?? 3,
+          archived: found.archived ?? false,
+          fork: found.fork ?? false,
+          description: "A project description that is never shown",
+        });
+      }
+      if (kind === "users") {
+        const found = options.githubUsers?.[owner];
+        if (found === undefined || typeof found === "number") {
+          return json({ message: "Not Found", status: "404" }, typeof found === "number" ? found : 404);
+        }
+        return json({ login: owner, type: found.type ?? "User", created_at: daysAgo(found.createdDaysAgo), name: "A display name that is never shown" });
+      }
     }
     if (url === hibpBreachesEndpoint) {
       return options.breachesStatus ? json({ statusCode: options.breachesStatus }, options.breachesStatus) : json(options.breaches ?? []);

@@ -27,8 +27,14 @@ const watchedHosts = new Map([
   ["v.gd", "isgd"],
   ["api.modrinth.com", "modrinth"],
   ["haveibeenpwned.com", "hibp"],
+  ["api.github.com", "github"],
 ]);
-const missingIsAnswer = new Set(["radar", "discord", "modrinth"]);
+const answerStatuses = new Map([
+  ["radar", [404]],
+  ["discord", [404]],
+  ["modrinth", [404]],
+  ["github", [404, 451]],
+]);
 
 export function describeError(error: unknown): string | undefined {
   const text = error instanceof Error ? `${error.name}: ${error.message}` : typeof error === "string" ? error : "";
@@ -97,7 +103,7 @@ export function watchedFetcher(fetcher: typeof fetch, clock: () => number = Date
     }
     try {
       const response = await fetcher(input, init);
-      if (!response.ok && !(missingIsAnswer.has(provider) && response.status === 404)) {
+      if (!response.ok && !(answerStatuses.get(provider) ?? []).includes(response.status)) {
         const detail = await errorText(response.clone());
         alert(provider, { status: response.status, ...(detail ? { detail } : {}) });
       }

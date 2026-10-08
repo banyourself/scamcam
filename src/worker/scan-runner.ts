@@ -107,6 +107,7 @@ export async function runScan(env: AppBindings, content: string, dependencies: S
     steamKey: env.STEAM_WEB_API_KEY || undefined,
     discordToken: env.DISCORD_BOT_TOKEN || undefined,
     bitlyToken: env.BITLY_TOKEN || undefined,
+    githubToken: env.GITHUB_API_TOKEN || undefined,
     breaches: dependencies.breaches,
   });
   const checked = ScanReportSchema.parse(report);

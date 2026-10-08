@@ -94,6 +94,14 @@ export function PrivacyPage() {
             </td>
           </tr>
           <tr>
+            <td>The account and repository name in a GitHub link, such as someone/project</td>
+            <td>
+              To ask GitHub when the repository and the account that owns it were made, how many stars and forks it has, and
+              whether GitHub removed or blocked it
+            </td>
+            <td>The answers are kept in memory for up to an hour, in North America, under a scrambled key. Descriptions and profile names are never shown or stored</td>
+          </tr>
+          <tr>
             <td>The message with emails, phone numbers, long codes, links, and invisible characters removed (names and usernames stay)</td>
             <td>Only when ScamCam&apos;s own rules cannot decide, a small AI model on Cloudflare (Workers AI) reads it to look for scam patterns</td>
             <td>Not stored. ScamCam remembers only the model&apos;s one-word answer, in memory, for up to an hour</td>
@@ -206,6 +214,11 @@ export function PrivacyPage() {
           shown as is, without any warranty, and ScamCam is not endorsed by or affiliated with Valve or Steam.
         </li>
         <li>
+          <strong>GitHub</strong> receives only the account and repository name from a GitHub link, such as{" "}
+          <em>someone/project</em>, with ScamCam&apos;s own token, never the rest of the link, your message, or your IP
+          address.
+        </li>
+        <li>
           <strong>Workers AI</strong> (Cloudflare) receives a message only when ScamCam&apos;s rules cannot decide, with
           emails, phone numbers, long codes, links, and invisible characters removed. Names and usernames are not removed.
           Cloudflare says it does not use this content to train AI models, and keeps it only when a site also stores it in
@@ -279,7 +292,7 @@ export function PrivacyPage() {
       <h2>Where information is processed</h2>
       <p>
         Cloudflare runs ScamCam in data centers around the world, usually one near you. The lookup services listed above
-        are based in the United States (including Discord and Steam), Australia (Have I Been Pwned), Switzerland (abuse.ch),
+        are based in the United States (including Discord, Steam, and GitHub), Australia (Have I Been Pwned), Switzerland (abuse.ch),
         and the countries where
         Spamhaus, PhishStats, and each domain registry operate.
       </p>
@@ -296,7 +309,7 @@ export function PrivacyPage() {
       <p>
         This version takes effect on October 8, 2026. It adds the breach check, which asks Pwned Passwords about the first
         5 characters of a password&apos;s fingerprint and searches Have I Been Pwned&apos;s list of breached sites on your
-        device, and says that ScamCam has no session replay, loads no fonts or code from other companies apart from the bot
+        device, and GitHub repository details for GitHub links, and says that ScamCam has no session replay, loads no fonts or code from other companies apart from the bot
         check, and treats Global Privacy Control as a request not to sell or share. The version of October 7, 2026 added email file checks, Discord invite and Steam account lookups, short
         link expansion with Bitly and is.gd, the FCC&apos;s complaint numbers, and ScamSniffer&apos;s list of scam wallets.
         Any change will be posted on this page with a new date.

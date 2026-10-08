@@ -26,7 +26,9 @@ is only a last resort for inconclusive context.
 
 - Never hardcode or commit secrets. Secrets go in `wrangler secret` in production or in `.dev.vars` locally, which git
   ignores. The secret names are `TURNSTILE_SECRET_KEY`, `SAFE_BROWSING_API_KEY`, `URLHAUS_AUTH_KEY`,
-  `SHARE_SIGNING_KEY`, `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, and `CLOUDFLARE_RADAR_TOKEN`. `.dev.vars.example`
+  `SHARE_SIGNING_KEY`, `SPAMHAUS_DQS_KEY`, `PHISHSTATS_API_KEY`, `CLOUDFLARE_RADAR_TOKEN`, `STEAM_WEB_API_KEY`,
+  `DISCORD_BOT_TOKEN`, `BITLY_TOKEN`, and `GITHUB_API_TOKEN`. Optional sources turn themselves off when their secret is
+  missing. `.dev.vars.example`
   holds only Cloudflare's public Turnstile test keys, a local-only share signing key, and empty placeholders, and must
   never hold a real key.
 - Flags are for review only. Nothing that makes a verdict may read `result_flags`; `test/node/config.test.ts` fails

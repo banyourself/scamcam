@@ -209,7 +209,7 @@ describe("Workers Free plan limits", () => {
     expect(used.fetches + used.spamhausLookups + used.queries, JSON.stringify(used)).toBeLessThan(freePlanSubrequestLimit);
   });
 
-  it("stays under 50 subrequests in the scanner when the 20 links include Discord invites, Steam profiles, and short links", async () => {
+  it("stays under 50 subrequests in the scanner when the 20 links include Discord invites, Steam profiles, short links, and a GitHub repository", async () => {
     const queries = { queries: 0 };
     const asked: string[][] = [];
     const fake = fakeNetwork({
@@ -219,9 +219,12 @@ describe("Workers Free plan limits", () => {
       steamVanity: { first: "76561198000000001", second: "76561198000000002" },
       steam: { "76561198000000001": {}, "76561198000000002": {} },
       shortLinks: { "bit.ly/first": "https://login.short0.account-short0.example/a", "bit.ly/second": "https://login.short1.account-short1.example/b" },
+      githubRepos: { "someone/game": { createdDaysAgo: 3 } },
+      githubUsers: { someone: { createdDaysAgo: 4 } },
     });
     const links = [
-      ...Array.from({ length: 14 }, (_, index) => `https://login.secure${index}.account-check${index}.example/a/b/c/d?x=${index}`),
+      ...Array.from({ length: 13 }, (_, index) => `https://login.secure${index}.account-check${index}.example/a/b/c/d?x=${index}`),
+      "https://github.com/someone/game/releases/download/v1/Setup.exe",
       "https://bit.ly/first",
       "https://bit.ly/second",
       "https://discord.gg/aaaa",
@@ -239,6 +242,7 @@ describe("Workers Free plan limits", () => {
       CLOUDFLARE_RADAR_TOKEN: "radar-test-token",
       STEAM_WEB_API_KEY: "steam-test-key",
       BITLY_TOKEN: "bitly-test-token",
+      GITHUB_API_TOKEN: "github-test-token",
     };
     const { report } = await runScan(bindings, `my friend sent these, are they ok? ${links.join(" ")}`, {
       fetcher: fake.fetcher,
@@ -254,6 +258,8 @@ describe("Workers Free plan limits", () => {
     expect(fake.requests.filter((request) => request.url.includes("discord.com/api"))).toHaveLength(2);
     expect(fake.requests.filter((request) => request.url.includes("api.steampowered.com"))).toHaveLength(4);
     expect(fake.requests.filter((request) => request.url.includes("api-ssl.bitly.com"))).toHaveLength(2);
+    expect(fake.requests.filter((request) => request.url.startsWith("https://api.github.com/"))).toHaveLength(2);
+    expect(report.evidence.map((item) => item.id)).toContain("github-new-someone/game");
     expect(used.fetches + used.spamhausLookups + used.queries, JSON.stringify(used)).toBeLessThan(freePlanSubrequestLimit);
   });
 });

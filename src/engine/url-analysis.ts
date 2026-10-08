@@ -37,9 +37,15 @@ export interface AnalyzedLink {
   signals: Signal[];
   discordInvite: string | null;
   steamAccount: SteamRef | null;
+  githubRef: GithubRef | null;
 }
 
 export type SteamRef = { kind: "id"; value: string } | { kind: "vanity"; value: string };
+
+export interface GithubRef {
+  owner: string;
+  repo: string | null;
+}
 
 const steamIdBase = 76561197960265728n;
 const discordInviteHosts = new Set(["discord.com", "www.discord.com", "ptb.discord.com", "canary.discord.com", "discordapp.com", "www.discordapp.com"]);
@@ -67,6 +73,42 @@ function steamAccountRef(hostname: string, url: URL): SteamRef | null {
     return { kind: "id", value: (steamIdBase + BigInt(partner)).toString() };
   }
   return null;
+}
+
+const githubOwnerPattern = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+const githubRepoPattern = /^[A-Za-z0-9._-]{1,100}$/;
+const githubRoutes = new Set([
+  "about", "account", "apps", "blog", "business", "codespaces", "collections", "contact", "copilot", "customer-stories",
+  "dashboard", "education", "enterprise", "events", "explore", "features", "git-guides", "home", "issues", "join", "login",
+  "logout", "marketplace", "mobile", "new", "nonprofit", "notifications", "organizations", "orgs", "partners", "pricing",
+  "pulls", "readme", "resources", "search", "security", "sessions", "settings", "signup", "site", "solutions", "sponsors",
+  "stars", "team", "topics", "trending", "users", "watching",
+]);
+
+function githubRefFrom(hostname: string, url: URL): GithubRef | null {
+  const parts = url.pathname.split("/").filter((part) => part !== "");
+  let owner: string | undefined;
+  let repo: string | undefined;
+  if (hostname === "github.com" || hostname === "www.github.com") {
+    [owner, repo] = parts;
+  } else if (hostname === "raw.githubusercontent.com" || hostname === "codeload.github.com") {
+    [owner, repo] = parts;
+    if (!repo) {
+      return null;
+    }
+  } else if (/^[a-z0-9-]+\.github\.io$/.test(hostname)) {
+    owner = hostname.slice(0, -".github.io".length);
+  } else {
+    return null;
+  }
+  if (!owner || !githubOwnerPattern.test(owner) || githubRoutes.has(owner.toLowerCase())) {
+    return null;
+  }
+  const name = repo?.replace(/\.git$/i, "");
+  if (name === undefined) {
+    return { owner, repo: null };
+  }
+  return githubRepoPattern.test(name) && name !== "." && name !== ".." ? { owner, repo: name } : null;
 }
 
 const schemePattern = /^[a-z][a-z0-9+.-]*:\/\//i;
@@ -238,6 +280,7 @@ export function analyzeLink(original: string): AnalyzedLink {
     signals: [],
     discordInvite: null,
     steamAccount: null,
+    githubRef: null,
   };
   const explicitHttp = /^http:\/\//i.test(original);
   let url: URL;
@@ -273,6 +316,7 @@ export function analyzeLink(original: string): AnalyzedLink {
   result.communitySite = communitySites[registrable] ? registrable : null;
   result.discordInvite = discordInviteCode(hostname, url);
   result.steamAccount = steamAccountRef(hostname, url);
+  result.githubRef = githubRefFrom(hostname, url);
   result.brandsMentioned = brands.filter((brand) => brandLabelsTouched(hostname, brand));
 
   const add = (partial: Omit<Signal, "source" | "link">) => result.signals.push(signal(hostname, partial));

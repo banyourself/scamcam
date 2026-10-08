@@ -56,7 +56,8 @@ export function HowItWorksPage() {
           and Steam scam links, and CERT Polska&apos;s warning list. For a Discord invite, ScamCam asks Discord when the
           server was made, whether Discord verified it, and whether its name pretends to be staff or support. For a Steam
           profile or trade link, it asks Steam whether the account is banned from trading, how new it is, and whether its
-          name pretends to be staff. For Bitly, is.gd, and v.gd short links, it asks the shortening service where the link
+          name pretends to be staff. For a GitHub link, it asks GitHub how old the repository and its owner are and whether
+          GitHub removed or blocked it; stars never count as proof that a download is safe. For Bitly, is.gd, and v.gd short links, it asks the shortening service where the link
           leads and checks that address too, without opening either one. Very popular sites in{" "}
           <a href="https://radar.cloudflare.com/domains">Cloudflare Radar</a>&apos;s ranking (
           <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>) only soften small warnings, such as an

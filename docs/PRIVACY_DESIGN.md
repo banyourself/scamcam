@@ -47,6 +47,7 @@ history, screenshots, cookies other than strictly necessary security cookies fro
 | Discord | The invite code from a Discord invite link | Up to 2 per scan, only in the scanner; answers kept in memory for an hour |
 | Have I Been Pwned (Pwned Passwords) | The first 5 hex characters of a password's SHA-1 fingerprint, sent by the Worker, so never the visitor's IP address | Each password check on /breaches |
 | Have I Been Pwned (breach list) | Nothing from visitors. The scanner downloads the public list | At most once every 12 hours |
+| GitHub | The owner and repository name from a github.com, raw.githubusercontent.com, or codeload.github.com link, or the account name from a profile or github.io link, with ScamCam's token | One link per scan (at most 2 calls), only in the scanner, when the token is set; answers kept in memory for an hour. Descriptions and profile names are never kept or shown |
 | Steam (Valve) | The profile name or account number from a steamcommunity.com link, with ScamCam's API key | Up to 2 accounts per scan (at most 4 calls), only in the scanner, when the key is set; answers kept in memory for an hour |
 | VirusTotal, Google Safe Browsing site status, urlscan.io, Cisco Talos, ScamAdviser, URLVoid, Hybrid Analysis | Nothing from ScamCam. The report links to their public pages; they see the domain or fingerprint in the address only if the visitor clicks | Only when the visitor clicks |
 | Cloudflare Turnstile | The Turnstile token and the visitor's IP address | Every scan |

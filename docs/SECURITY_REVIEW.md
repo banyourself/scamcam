@@ -58,7 +58,7 @@ is a self-review backed by automated tests, not an independent penetration test.
 | API1 Broken object level authorization | Not applicable: no accounts, stored objects, or IDs in requests |
 | API2 Broken authentication | Not applicable: no accounts. Turnstile is verified on the server and fails closed |
 | API3 Broken object property level authorization | Unknown request fields are refused; every report is checked against its schema before it is sent |
-| API4 Unrestricted resource consumption | 16 KB bodies, 4,000 characters, 20 links, 10 scans and 60 API requests a minute per visitor at each Cloudflare location, Turnstile on every scan, daily budgets for Safe Browsing, URLhaus, and Workers AI, response size caps, timeouts, parsing that grows in step with input length, and at most 38 subrequests per scan |
+| API4 Unrestricted resource consumption | 16 KB bodies, 4,000 characters, 20 links, 10 scans and 60 API requests a minute per visitor at each Cloudflare location, Turnstile on every scan, daily budgets for Safe Browsing, URLhaus, and Workers AI, response size caps, timeouts, parsing that grows in step with input length, and at most 39 subrequests per scan |
 | API5 Broken function level authorization | No admin endpoints. Scheduled tasks cannot be called over HTTP |
 | API6 Unrestricted access to sensitive business flows | Scanning is the only flow; it is protected by Turnstile, rate limits, and budgets, and bulk use is banned by the acceptable use policy |
 | API7 Server side request forgery | Submitted links are never fetched; only fixed provider hosts are called |
@@ -316,6 +316,17 @@ engine, so a bot flood cannot turn a scam site into a "no known threat" result.
 | A malicious mod that Modrinth publishes, such as an update from a hacked developer account | The listing earns credit only for a release public for two weeks in a reviewed project, and never when a malware-only finding is present. Answers are kept for 1 hour, so a removed release soon reads as "not a file Modrinth has", and a malware list match still confirms. The report says real mod pages have been hacked before | `test/engine/modrinth.test.ts` |
 | False alarms on popular mods | Capabilities that honest account tools need count once together and become context for files Modrinth publishes; checked against 61 real files from Modrinth | `test/client/mod-inspect.test.ts`, one run recorded in `docs/STATUS.md` |
 | Modrinth's rate limit | Answers are cached for hours; failures pause the source and show as Not checked | `test/engine/modrinth.test.ts` |
+
+## GitHub repository facts (2026-10-08)
+
+| Threat | Mitigation | Test |
+|---|---|---|
+| Sending GitHub more than it needs | Only the owner and repository name read from the link (validated against GitHub's name rules, with GitHub's own routes such as `settings` and `orgs` left out), never the full link, the message, or the visitor's address | `test/engine/github.test.ts` |
+| The token leaking | Sent only to `api.github.com` in the `Authorization` header; never in a URL or a log; it has no permissions, so a leak exposes nothing but rate limit | `test/engine/github.test.ts`, `test/worker/provider-watch.test.ts` |
+| Popularity used to make a scam look safe | Stars and forks are context only and never lower the risk; the report says they can be bought | `test/engine/github.test.ts` |
+| Overreacting to a new or missing repository | A new repository or owner is a weak sign, a removed or blocked repository a moderate one, and none of them confirms a scam | `test/engine/github.test.ts` |
+| Text from GitHub in reports | Descriptions, display names, and other free text are never kept or shown; only dates, counts, and flags are read, and the answer is checked with Zod and read with a 256 KB cap | `test/engine/github.test.ts` |
+| Running past the Free plan's 50 subrequests | One link per scan, 2 calls, scanner only; the worst case measured 38 | `test/worker/security.test.ts` |
 
 ## Breach check (2026-10-08)
 

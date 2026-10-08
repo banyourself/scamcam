@@ -69,6 +69,7 @@ export const sourceNames = {
   bitly: "Bitly link expansion",
   isgd: "is.gd link expansion",
   breaches: "Have I Been Pwned (known breaches)",
+  github: "GitHub repository details",
   ai: "AI pattern check (Workers AI)",
 } as const;
 

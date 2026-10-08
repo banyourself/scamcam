@@ -23,7 +23,8 @@ import { sourceNames, strengthPoints, type ScamFamily, type Signal } from "./sig
 import { lookupSpamhaus, spamhausDblUrl, spamhausZrdUrl, type DblListing, type DnsTransport, type SpamhausResult } from "./spamhaus";
 import { bitlyHomePage, expandShortLink, isgdHomePage, maxExpandedLinks, shortLinkRef, type ShortLinkRef, type ShortLinkService } from "./short-links";
 import { lookupSteamAccounts, maxSteamAccounts, steamHomePage, type SteamAccountResult } from "./steam";
-import { analyzeLink, type AnalyzedLink } from "./url-analysis";
+import { githubDocs, lookupGithub, maxGithubLinks, type GithubResult } from "./github";
+import { analyzeLink, type AnalyzedLink, type GithubRef } from "./url-analysis";
 import { lookupThreatfoxHost, threatfoxHomePage, type ThreatfoxResult } from "./threatfox";
 import { lookupUrlhausHost, sameUrl, urlhausHomePage, type UrlhausResult } from "./urlhaus";
 import { decideVerdict } from "./verdict";
@@ -47,6 +48,7 @@ export interface ScanOptions {
   steamKey?: string | undefined;
   discordToken?: string | undefined;
   bitlyToken?: string | undefined;
+  githubToken?: string | undefined;
   email?: EmailFacts | undefined;
   breaches?: BreachIndex | undefined;
 }
@@ -719,6 +721,114 @@ function steamSignals(link: AnalyzedLink, result: SteamAccountResult, now: Date)
   return signals;
 }
 
+function whenMade(iso: string, now: Date): string {
+  const days = daysSince(iso, now);
+  if (days !== null && days < 60) {
+    return madeAgo(days);
+  }
+  return `in ${new Date(iso).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}`;
+}
+
+function githubSignals(link: AnalyzedLink, ref: GithubRef, result: GithubResult, now: Date): Signal[] {
+  const name = ref.repo ? `${ref.owner}/${ref.repo}` : ref.owner;
+  const id = name.toLowerCase();
+  const base = { source: sourceNames.github, sourceUrl: githubDocs, link: link.hostname! };
+  if (result.status === "repo_blocked") {
+    return [
+      {
+        ...base,
+        id: `github-blocked-${id}`,
+        direction: "raises",
+        strength: "moderate",
+        title: "GitHub has blocked access to this repository",
+        detail: "GitHub blocks repositories after legal requests, such as copyright takedowns, or because of trade rules. Do not download files from it, or from a copy of it someone sends you.",
+      },
+    ];
+  }
+  if (result.status === "repo_missing" || result.status === "owner_missing") {
+    const accountGone = result.status === "owner_missing" || !result.ownerExists;
+    return [
+      {
+        ...base,
+        id: `github-missing-${id}`,
+        direction: "raises",
+        strength: result.status === "owner_missing" ? "weak" : "moderate",
+        title: accountGone ? "This GitHub account does not exist" : "GitHub has no public repository at this address",
+        detail: accountGone
+          ? "GitHub has no account with this name. It may have been deleted or suspended, or the link is mistyped. GitHub suspends accounts that spread malware or spam."
+          : "It was deleted, made private, or removed by GitHub, or the link is mistyped. GitHub removes repositories that spread malware, so be careful with files someone sends you from it.",
+      },
+    ];
+  }
+  if (result.status === "owner") {
+    const age = daysSince(result.createdAt, now);
+    const kind = result.ownerKind === "organization" ? "organization" : "account";
+    if (age !== null && age < newAccountDays) {
+      return [
+        {
+          ...base,
+          id: `github-new-${id}`,
+          direction: "raises",
+          strength: "weak",
+          title: `This GitHub ${kind} was made ${madeAgo(age)}`,
+          detail: "Fake downloads and phishing pages are often posted from new GitHub accounts, because GitHub removes them after reports. Many honest accounts are new too, so this is only one sign.",
+        },
+      ];
+    }
+    return [
+      {
+        ...base,
+        id: `github-account-${id}`,
+        direction: "context",
+        strength: "weak",
+        title: `This GitHub ${kind} was made ${whenMade(result.createdAt, now)}`,
+        detail: "Old accounts can still be stolen or sold, so this does not show that what it posts is safe.",
+      },
+    ];
+  }
+  if (result.status !== "repo") {
+    return [];
+  }
+  const signals: Signal[] = [];
+  const repoAge = daysSince(result.createdAt, now);
+  const ownerAge = result.ownerCreatedAt ? daysSince(result.ownerCreatedAt, now) : null;
+  const kind = result.ownerKind === "organization" ? "organization" : "account";
+  if ((ownerAge !== null && ownerAge < newAccountDays) || (repoAge !== null && repoAge < newAccountDays)) {
+    signals.push({
+      ...base,
+      id: `github-new-${id}`,
+      direction: "raises",
+      strength: "weak",
+      title:
+        ownerAge !== null && ownerAge < newAccountDays
+          ? `The GitHub ${kind} that owns this repository was made ${madeAgo(ownerAge)}`
+          : `This GitHub repository was made ${madeAgo(repoAge!)}`,
+      detail: "Fake game, cheat, and tool downloads are often posted from new accounts and repositories, because GitHub removes them after reports. Many honest projects are new too, so this is only one sign.",
+    });
+  }
+  if (result.archived) {
+    signals.push({
+      ...base,
+      id: `github-archived-${id}`,
+      direction: "context",
+      strength: "weak",
+      title: "The owner archived this GitHub repository",
+      detail: "It is read-only and no longer updated, so its downloads may be old.",
+    });
+  }
+  const stars = result.stars.toLocaleString("en-US");
+  const forks = result.forks.toLocaleString("en-US");
+  signals.push({
+    ...base,
+    id: `github-repo-${id}`,
+    direction: "context",
+    strength: "weak",
+    title: `GitHub shows ${name} was made ${whenMade(result.createdAt, now)}, with ${stars} star${result.stars === 1 ? "" : "s"} and ${forks} fork${result.forks === 1 ? "" : "s"}`,
+    detail: `${result.ownerCreatedAt ? `The ${kind} that owns it was made ${whenMade(result.ownerCreatedAt, now)}. ` : ""}${result.fork ? "It is a copy (fork) of another repository. " : ""}Stars and forks can be bought and old accounts can be stolen, so this does not show that files from it are safe.`,
+  });
+  return signals;
+}
+
 const shortLinkServices: Record<ShortLinkService, { name: string; source: string; url: string }> = {
   bitly: { name: "Bitly", source: sourceNames.bitly, url: bitlyHomePage },
   isgd: { name: "is.gd", source: sourceNames.isgd, url: isgdHomePage },
@@ -1172,6 +1282,25 @@ export async function scanContent(content: string, options: ScanOptions): Promis
           }
           if (results.some((result) => result.status === "unavailable")) {
             notChecked.push({ name: sourceNames.discord, reason: "unavailable" });
+          }
+        })(),
+      );
+    }
+    const githubLinks = uniqueBy(readable, (link) => (link.githubRef ? `${link.githubRef.owner}/${link.githubRef.repo ?? ""}`.toLowerCase() : null))
+      .sort((a, b) => linkScore(b) - linkScore(a))
+      .slice(0, maxGithubLinks);
+    if (githubLinks.length > 0 && !options.githubToken) {
+      notChecked.push({ name: sourceNames.github, reason: "not_configured" });
+    } else if (githubLinks.length > 0 && options.githubToken) {
+      const token = options.githubToken;
+      tasks.push(
+        (async () => {
+          const results = await Promise.all(githubLinks.map((link) => lookupGithub(link.githubRef!, { token, fetcher: options.fetcher, lookups })));
+          for (const [index, link] of githubLinks.entries()) {
+            attach(link, githubSignals(link, link.githubRef!, results[index]!, now));
+          }
+          if (results.some((result) => result.status === "unavailable")) {
+            notChecked.push({ name: sourceNames.github, reason: "unavailable" });
           }
         })(),
       );

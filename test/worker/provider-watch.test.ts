@@ -113,4 +113,18 @@ describe("provider alerts", () => {
       expect(logged).not.toContain(secret);
     }
   });
+
+  it("stays quiet about removed and blocked GitHub repositories, and logs GitHub errors without the repository", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    let status = 404;
+    const fetcher = watchedFetcher(async () => new Response(JSON.stringify({ message: status === 403 ? "API rate limit exceeded for user ID 1." : "Not Found" }), { status }));
+    await fetcher("https://api.github.com/repos/secretowner/secretrepo");
+    status = 451;
+    await fetcher("https://api.github.com/repos/secretowner/secretrepo");
+    expect(alertsFrom(log)).toEqual([]);
+    status = 403;
+    await fetcher("https://api.github.com/users/secretowner");
+    expect(alertsFrom(log).map(({ alert, status: code }) => ({ alert, status: code }))).toEqual([{ alert: "github_unavailable", status: 403 }]);
+    expect(log.mock.calls.join(" ")).not.toMatch(/secretowner|secretrepo/);
+  });
 });

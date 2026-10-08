@@ -75,6 +75,8 @@ result, so flagging a scam site over and over cannot make it look safe.
    Cloudflare Radar's ranking only soften small warnings, such as an often-abused ending, and never outweigh a real
    listing. Discord invites are checked with Discord (server age, verification, names that pretend to be staff) and
    Steam profiles and trade links with the Steam Web API (trade bans, new accounts, names that pretend to be staff).
+   For one GitHub link per scan, GitHub's API says how old the repository and its owner are and whether GitHub removed
+   or blocked it.
    Lookups are passive: ScamCam never opens a submitted link.
 4. **Check the message.** 48 rules in 24 scam families cover the scripts scammers use: login code requests, QR code
    logins, cookie theft, fake "verify you are human" steps that make you paste a command, crypto wallet drainers,
@@ -145,7 +147,7 @@ and [docs/SCAMCAM_ANALYSIS.md](docs/SCAMCAM_ANALYSIS.md).
 ScamCam runs entirely on Cloudflare's free plan and GitHub's free tier. The free plan gives a Worker only 10 ms of
 CPU per request, so the Worker stays a thin front door (bot check, rate limits, signing) and the scan engine runs in a
 Durable Object, which the free plan gives up to 30 seconds per request. If the scanner is ever unreachable, the
-Worker runs the scan itself. A request may also make only 50 outside calls, and a scan with 20 links uses at most 38.
+Worker runs the scan itself. A request may also make only 50 outside calls, and a scan with 20 links uses at most 39.
 Every source has a hard daily budget, and when one runs out the report says which check was skipped instead of
 guessing. The limits and how ScamCam stays inside them are in [docs/COST_MODEL.md](docs/COST_MODEL.md).
 
