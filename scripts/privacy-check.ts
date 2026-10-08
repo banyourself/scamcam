@@ -121,6 +121,8 @@ async function checkHeaders(): Promise<string[]> {
     "/robots.txt",
     "/sitemap.xml",
     "/og-image.png",
+    "/site.webmanifest",
+    "/apple-touch-icon.png",
     "/.well-known/security.txt",
   ];
   const failures: string[] = assets.length === 3 ? [] : [`found ${assets.length} of 3 asset paths in the page`];

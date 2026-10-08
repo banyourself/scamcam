@@ -3,6 +3,13 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-07: Home screen icons and a gold link preview
+
+- Home screen icons (180, 192, and 512 pixels, plus a maskable 512) and `site.webmanifest`, so a saved shortcut on a
+  phone shows the ScamCam mark instead of a blank tile. The files skip the Worker like the other static files.
+- `theme-color` is now ScamCam gold (`#f2b33d`), which Discord and other apps use for the stripe on a link preview.
+- Verified: typecheck, 800 Vitest tests, the build, and the privacy check (now also checking the manifest and icon headers).
+
 ## 2026-10-07: Search engines and link previews
 
 - Every public page now arrives with its own title, description, canonical link, and Open Graph and Twitter tags. The

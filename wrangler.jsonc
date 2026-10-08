@@ -9,7 +9,8 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/*", "!/assets/*", "!/ocr/*", "!/downloads/*", "!/favicon.svg", "!/robots.txt", "!/sitemap.xml",
-      "!/og-image.png", "!/apple-touch-icon.png", "!/.well-known/*", "!/security.txt"]
+      "!/og-image.png", "!/apple-touch-icon.png", "!/site.webmanifest", "!/icon-192.png", "!/icon-512.png",
+      "!/icon-maskable-512.png", "!/.well-known/*", "!/security.txt"]
   },
   "d1_databases": [
     {
