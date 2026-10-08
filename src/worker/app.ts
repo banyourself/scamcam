@@ -18,6 +18,7 @@ import { healthRoutes } from "./routes/health";
 import { passwordRoutes } from "./routes/passwords";
 import { scanRoutes } from "./routes/scan";
 import { shareRoutes } from "./routes/shares";
+import { siteDataRoutes } from "./routes/site-data";
 
 export const maxRequestBytes = 16 * 1024;
 
@@ -68,6 +69,7 @@ export function createApp(options: AppOptions = {}): OpenAPIHono<AppEnv> {
   app.route("/api/v1", statsRoutes);
   app.route("/api/v1", passwordRoutes);
   app.route("/api/v1", breachRoutes);
+  app.route("/api/v1", siteDataRoutes);
   app.doc31("/api/v1/openapi.json", {
     openapi: "3.1.0",
     info: { title: "ScamCam API", version: "1.0.0", description: "Free, noncommercial scam and phishing checks." },

@@ -47,6 +47,41 @@ describe("email files in scans", () => {
     expect(report.level).toBe("high_risk");
   });
 
+  it("does not treat a free outlook.com address as Microsoft, even when it passes its sender check", async () => {
+    const content = ["From: Microsoft Account Team", "Subject: Unusual sign-in activity", "", "We detected unusual sign-in activity. Review it now."].join(newline);
+    const { scan } = options(facts({ fromDomain: "outlook.com" }));
+    const report = await scanContent(content, scan);
+    expect(report.evidence.some((item) => item.id === "email-sender-verified")).toBe(false);
+    expect(report.evidence.find((item) => item.id === "email-name-mismatch")).toMatchObject({
+      signal: "raises_risk",
+      title: "The sender's name says Microsoft, but the email came from a free outlook.com address",
+    });
+  });
+
+  it("flags a support or security team that writes from a free address, and keeps real company senders verified", async () => {
+    const content = ["From: Account Security Team", "Subject: Action required", "", "Please confirm your details today."].join(newline);
+    const free = await scanContent(content, options(facts({ fromDomain: "gmail.com" })).scan);
+    expect(free.evidence.find((item) => item.id === "email-free-staff")).toMatchObject({
+      signal: "raises_risk",
+      title: "A support or security team writing from a free gmail.com address",
+    });
+    const company = await scanContent(content, options(facts({ fromDomain: "microsoft.com" })).scan);
+    expect(company.evidence.some((item) => item.id === "email-free-staff")).toBe(false);
+    expect(company.evidence.find((item) => item.id === "email-sender-verified")?.title).toBe("Sent from microsoft.com and passed its sender check");
+    const person = await scanContent(["From: Kevin", "Subject: Lunch", "", "Want to get lunch on Friday?"].join(newline), options(facts({ fromDomain: "gmail.com" })).scan);
+    expect(person.evidence.some((item) => item.id.startsWith("email-"))).toBe(false);
+  });
+
+  it("flags senders on throwaway email services, including their subdomains", async () => {
+    const content = ["From: Steam Support", "Subject: Trade hold", "", "Your trade is on hold."].join(newline);
+    for (const fromDomain of ["mailinator.com", "inbox.mailinator.com", "yopmail.com"]) {
+      const report = await scanContent(content, options(facts({ fromDomain })).scan);
+      expect(report.evidence.find((item) => item.id === "email-disposable")?.signal, fromDomain).toBe("raises_risk");
+    }
+    const normal = await scanContent(content, options(facts({ fromDomain: "steampowered.com" })).scan);
+    expect(normal.evidence.some((item) => item.id === "email-disposable")).toBe(false);
+  });
+
   it("notes a verified official sender without calling the email safe, and never looks it up", async () => {
     const asked: string[][] = [];
     const content = ["From: Steam", "Subject: Your Steam purchase", "", "Thanks for your purchase. It will appear in your library."].join(newline);

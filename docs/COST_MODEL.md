@@ -71,6 +71,17 @@ Per-visitor limits: 60 API requests, 10 scans, 10 share links, and 3 flags per m
 | CPU | The SHA-1 fingerprint and the search run in the browser; the Worker checks the range's format and adds padding (well under 1 ms). Parsing the 1.1 MB list happens in the scanner, which has 30 seconds | |
 | Rate limit | 20 password checks a minute per visitor (`PASSWORD_RATE_LIMITER`), inside the 60 API requests a minute | |
 
+## Cost of the site lookup
+
+| Resource | Per use | Limit |
+|---|---|---|
+| Worker requests | 2 when a visitor first searches (`GET /api/v1/site-security` and `GET /api/v1/breach-notices`), plus the breach list | 100,000 a day |
+| D1 reads | 1 query per request, returning 2 to 3 rows | 5 million rows a day |
+| D1 writes | About 11 statements a day from the workflow | 100,000 rows a day |
+| Subrequests and CPU | None to outside services; joining the parts and decoding base64 takes about 1 ms | |
+| Transfer | About 84 KB and 126 KB of gzip per visitor who searches; ScamCam sends them already compressed, so `no-transform` does not cost extra | |
+| GitHub Actions | Under a minute a day added to the existing "Scam list sync" job | |
+
 ## Billing risks and controls
 
 | Risk | Control |

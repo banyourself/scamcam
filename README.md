@@ -45,8 +45,10 @@ as daily counters of the input kind and result.
 
 The [Breach check](https://scamcam.kevinle.tech/breaches) tells people whether a password has leaked, using Pwned
 Passwords by Have I Been Pwned: the browser sends only the first 5 characters of the password's SHA-1 fingerprint and
-compares the answer itself. It also searches Have I Been Pwned's list of breached sites in the browser, so search words
-never leave the device.
+compares the answer itself. The same page estimates password strength, makes random passphrases, and has a site lookup
+that shows a site's two-step verification and passkey options (2FA Directory and Passkeys Directory), where to change
+the password (Apple's Password Manager Resources), its breaches on Have I Been Pwned, and breach notices filed with the
+Washington and California attorneys general. The browser searches all of it, so search words never leave the device.
 
 If a result looks wrong, the visitor can flag it. A flag goes into a queue I review by hand and never changes any
 result, so flagging a scam site over and over cannot make it look safe.

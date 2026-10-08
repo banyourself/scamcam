@@ -19,6 +19,7 @@ import { isPopular, lookupRadar, radarHomePage, type RadarResult } from "./radar
 import { lookupRdap, type RdapResult } from "./rdap";
 import { isRedirectorHost, maxUnwrapDepth, unwrapRedirect } from "./redirects";
 import { searchSafeBrowsing, threatDefinitionUrls, threatDescriptions, type SafeBrowsingResult } from "./safe-browsing";
+import { secretSignals } from "./secret-signals";
 import { sourceNames, strengthPoints, type ScamFamily, type Signal } from "./signals";
 import { lookupSpamhaus, spamhausDblUrl, spamhausZrdUrl, type DblListing, type DnsTransport, type SpamhausResult } from "./spamhaus";
 import { bitlyHomePage, expandShortLink, isgdHomePage, maxExpandedLinks, shortLinkRef, type ShortLinkRef, type ShortLinkService } from "./short-links";
@@ -1092,6 +1093,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     ...message.signals,
     ...(options.email ? emailSignals(options.email, sender, senderNameIn(extracted.redactedText)) : []),
     ...hiddenCharacterSignals(extracted.hidden),
+    ...secretSignals(extracted.secrets),
     ...(targetsCheckers
       ? [
           {

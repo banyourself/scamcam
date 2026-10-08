@@ -140,6 +140,11 @@ async function auditBreachFlow(cdp: Cdp, base: string): Promise<string[]> {
         await cdp.evaluate(typeInto('input[type="search"]', "adobe"));
         await cdp.evaluate(pressButton("Search"));
         await waitFor(cdp, `/breach(es)? match|No known breach matches|could not be loaded/.test(${statusText})`);
+        await cdp.evaluate(typeInto('input[type="password"]', "accessibility check password"));
+        await waitFor(cdp, `/Strength:|could not load/.test(document.body.textContent)`);
+        await cdp.evaluate(pressButton("Make a passphrase"));
+        await waitFor(cdp, `/bits of randomness/.test(document.body.textContent)`);
+        await cdp.evaluate(`document.querySelectorAll("details").forEach((details) => { details.open = true; })`);
       } catch (error) {
         failures.push(`${label}: the checks did not finish (${error instanceof Error ? error.message.slice(0, 120) : "unknown"})`);
         console.log(`FAIL  ${label}`);

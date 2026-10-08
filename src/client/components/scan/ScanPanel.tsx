@@ -3,6 +3,7 @@ import { extractInput, maxInputLength } from "../../../shared/extract";
 import { isEmailFile, type EmailFacts } from "../../../shared/email";
 import { describeFile, fileKindNames, maxFileBytes } from "../../../shared/file-check";
 import type { ScanReport } from "../../../shared/report";
+import { hideSecrets, secretHelp, secretLabels } from "../../../shared/secrets";
 import { reportSignatureHeader } from "../../../shared/share";
 import { TurnstileWidget } from "@/components/scan/TurnstileWidget";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,7 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
     extracted.redactions.emails && plural(extracted.redactions.emails, "email"),
     extracted.redactions.phoneNumbers && plural(extracted.redactions.phoneNumbers, "phone number"),
     extracted.redactions.codes && plural(extracted.redactions.codes, "code"),
+    ...extracted.secrets.map((kind) => `a ${secretLabels[kind]}`),
   ].filter(Boolean);
   const waitingForCheck = Boolean(siteKey) && !token;
 
@@ -267,7 +269,7 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
-          content: text,
+          content: hideSecrets(text).text,
           ...(token ? { turnstileToken: token } : {}),
           ...(fromScreenshot ? { fromScreenshot: true } : {}),
           ...(email ? { email } : {}),
@@ -475,6 +477,19 @@ export function ScanPanel({ health, onReport }: ScanPanelProps) {
             </div>
           )}
         </div>
+
+        {extracted.secrets.length > 0 && (
+          <div role="alert" className="space-y-2 border-l-4 border-level-malicious bg-panel-2 px-4 py-3 text-sm text-ink">
+            {extracted.secrets.map((kind) => (
+              <p key={kind}>
+                <strong>{secretHelp[kind].title}.</strong> ScamCam takes it out before checking, so it is never sent. {secretHelp[kind].advice}{" "}
+                <a href={secretHelp[kind].url} target="_blank" rel="noopener noreferrer">
+                  Official help
+                </a>
+              </p>
+            ))}
+          </div>
+        )}
 
         {handoff && autoRun.current && (
           <p className="text-sm text-ink-faint" role="status">

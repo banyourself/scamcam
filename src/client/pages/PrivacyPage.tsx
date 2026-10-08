@@ -52,7 +52,9 @@ export function PrivacyPage() {
             <td>The link or message you submit</td>
             <td>To check it</td>
             <td>
-              Not stored. Emails, phone numbers, and long codes are hidden before any outside check. US phone numbers and
+              Not stored. Login tokens and cookies for Discord, Roblox, Steam, and GitHub are taken out in your browser before
+              the text is sent, so they never leave your device. Emails, phone numbers, and long codes are hidden before any
+              outside check. US phone numbers and
               crypto wallet addresses are compared only with ScamCam&apos;s own scrambled copies of the FTC&apos;s and FCC&apos;s
               lists of reported numbers and ScamSniffer&apos;s list of scam wallets, never sent anywhere
             </td>
@@ -78,7 +80,8 @@ export function PrivacyPage() {
               Never uploaded. The text is shown to you first, then checked like a typed message. Only the sender&apos;s domain,
               the check results, and each attachment&apos;s type, file ending, and fixed codes for what was found are sent with
               it. Email addresses, recipients, attachment names, and the attachments themselves never leave your device. The
-              sender&apos;s domain is compared only with ScamCam&apos;s own copies of the scam lists
+              sender&apos;s domain is compared only with ScamCam&apos;s own copies of the scam lists and of a public list of
+              throwaway email services
             </td>
           </tr>
           <tr>
@@ -123,9 +126,17 @@ export function PrivacyPage() {
             </td>
           </tr>
           <tr>
-            <td>What you type in the breach search</td>
-            <td>To find websites and companies that had a data breach</td>
-            <td>Never sent. Your browser downloads the whole list of known breaches and searches it on your device</td>
+            <td>A password you type on the breach check page, for its strength estimate, and passphrases the page makes</td>
+            <td>To estimate how hard the password is to guess, and to make a random passphrase from a word list</td>
+            <td>Never sent or stored. Both happen only on your device</td>
+          </tr>
+          <tr>
+            <td>What you type in the site lookup</td>
+            <td>
+              To show a site&apos;s two-step verification and passkey options, where to change its password, its known
+              breaches, and breach notices filed with the Washington and California attorneys general
+            </td>
+            <td>Never sent. Your browser downloads the lists once and searches them on your device</td>
           </tr>
           <tr>
             <td>The name of the website in a link, such as example.com</td>
@@ -241,6 +252,11 @@ export function PrivacyPage() {
           from visitors.
         </li>
         <li>
+          <strong>2FA Directory and Passkeys Directory by 2factorauth, Apple&apos;s Password Manager Resources, and the
+          Washington State and California attorneys general</strong> publish the lists the site lookup uses. A scheduled job
+          downloads them once a day, with nothing from visitors.
+        </li>
+        <li>
           <strong>Phishing.Database, MetaMask&apos;s phishing list, ScamSniffer, PhishDestroy, a public-domain Discord and Steam
           scam list, and CERT Polska&apos;s warning list</strong> are public lists of scam sites, and ScamSniffer also lists scam
           wallet addresses. ScamCam keeps a scrambled copy of each and checks links, email senders, and wallet addresses
@@ -309,7 +325,9 @@ export function PrivacyPage() {
       <p>
         This version takes effect on October 8, 2026. It adds the breach check, which asks Pwned Passwords about the first
         5 characters of a password&apos;s fingerprint and searches Have I Been Pwned&apos;s list of breached sites on your
-        device, and GitHub repository details for GitHub links, and says that ScamCam has no session replay, loads no fonts or code from other companies apart from the bot
+        device, GitHub repository details for GitHub links, a password strength estimate and passphrase maker that work only on your
+        device, a site lookup searched on your device, and the removal of login tokens and cookies from text before it is
+        sent, and says that ScamCam has no session replay, loads no fonts or code from other companies apart from the bot
         check, and treats Global Privacy Control as a request not to sell or share. The version of October 7, 2026 added email file checks, Discord invite and Steam account lookups, short
         link expansion with Bitly and is.gd, the FCC&apos;s complaint numbers, and ScamSniffer&apos;s list of scam wallets.
         Any change will be posted on this page with a new date.

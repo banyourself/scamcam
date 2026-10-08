@@ -328,6 +328,18 @@ engine, so a bot flood cannot turn a scam site into a "no known threat" result.
 | Text from GitHub in reports | Descriptions, display names, and other free text are never kept or shown; only dates, counts, and flags are read, and the answer is checked with Zod and read with a 256 KB cap | `test/engine/github.test.ts` |
 | Running past the Free plan's 50 subrequests | One link per scan, 2 calls, scanner only; the worst case measured 38 | `test/worker/security.test.ts` |
 
+## Site lookup, password tools, tokens, and senders (2026-10-08)
+
+| Threat | Mitigation | Test |
+|---|---|---|
+| Third-party links in the lookup data used for script injection or tracking | The build keeps only `https:` links with a valid host and no user name or password, at most 500 characters; the browser renders a link only when it starts with `https://`, with `rel="noopener noreferrer nofollow"`; notes are cut to 300 characters with control characters removed; React escapes all text | `test/node/site-data.test.ts`, `test/client/site-data.test.ts` |
+| A broken or poisoned data build | Each source must have a minimum number of entries (2,000, 500, 300, 1,000, and 3,000) or that data set is not written; SQL is written only from hex versions and base64 parts, checked before writing; the Worker serves a version only when every part is present and the decoded size matches | `test/node/site-data.test.ts`, `test/worker/site-data.test.ts` |
+| Search words leaking | The browser downloads each file once and searches it; the privacy check confirms one GET each and that the search words appear in no request | `scripts/privacy-check.ts` |
+| A login token in pasted text reaching outside sources | Removed in the browser before sending and again on the server before link extraction, so no part of it can be read as a link or sent to the AI step | `test/client/secrets.test.ts`, `test/engine/scan.test.ts` |
+| Token patterns matching ordinary text | Patterns need the exact token shapes (Discord's three segments, Roblox's warning banner, a SteamID64 followed by a JWT, GitHub's prefixes and lengths); ordinary links, account numbers, JWTs, and short look-alikes are left alone | `test/client/secrets.test.ts` |
+| A free webmail address passing as a company | outlook.com, live.com, hotmail.com, and other free mail domains no longer count as the company's own sender, so a passed DMARC check from them is not shown as a verified Microsoft email | `test/engine/scan-email.test.ts` |
+| Weak passphrases | Words are picked with `crypto.getRandomValues` and rejection sampling, so every word is equally likely; 6 words give 77 bits | `test/client/password-tools.test.ts` |
+
 ## Breach check (2026-10-08)
 
 | Threat | Mitigation | Test |

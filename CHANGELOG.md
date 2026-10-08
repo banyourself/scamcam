@@ -3,6 +3,39 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-08: Breach page tools, login tokens kept out of checks, and sender checks
+
+- /breaches gained a password strength estimate (zxcvbn-ts 4, MIT, loaded only when someone types a password), a
+  passphrase maker (5 to 8 words from EFF's 7,776-word list, picked with `crypto.getRandomValues` and rejection sampling;
+  6 words are 77 bits), and lock-down steps for Discord, Roblox, Steam, Microsoft, Epic Games, and Google with each
+  one's official "sign out everywhere" and recovery pages. New sections explain stealer-log breaches (clean the computer
+  first, then change passwords from a trusted device), link to Have I Been Pwned's dashboard and Notify Me and to
+  Mozilla Monitor for email checks that prove ownership, and list free US identity steps (IdentityTheft.gov, the three
+  credit freezes, AnnualCreditReport.com, the IRS Identity Protection PIN, and ReportFraud.ftc.gov).
+- The breach search became a site lookup. For a website or company it shows the two-step verification methods and
+  passkey options from 2FA Directory and Passkeys Directory (by 2factorauth), a change-password link from Apple's
+  Password Manager Resources, the Have I Been Pwned breaches as before, and breach notices filed with the Washington
+  State and California attorneys general, with advice to compare a breach letter with the copy on the attorney
+  general's site. The browser downloads two gzip files (`GET /api/v1/site-security` and `GET /api/v1/breach-notices`)
+  and searches them itself.
+- The data is built by `scripts/site-data.ts` in the daily "Scam list sync" workflow and kept in D1 (migration `0010`,
+  `site_data` and `site_data_parts`), so the Worker makes no outside requests for it. A local build read 3,365 2FA
+  Directory entries, 1,077 passkey entries, 652 change-password links, and 7,022 notices, and packed them into 84 KB and
+  126 KB of gzip. Each source has a minimum size, links must be plain `https:`, and the Worker serves a version only
+  when every part is present.
+- Login tokens and cookies (Discord tokens, the Roblox `.ROBLOSECURITY` cookie, Steam's login cookie, and GitHub
+  tokens) are taken out of text in the browser before it is sent, and again on the server before links are read. The
+  scan box warns at once, and the report explains how to make the token useless. Before this, parts of a pasted token
+  could have been read as a link.
+- Email files: a sender on a throwaway email service (the CC0 disposable-email-domains list, 9,221 domains, bundled
+  with `npm run lists:disposable`) is a strong warning, and a "Support" or "Security" team writing from a free mailbox
+  is a moderate one. outlook.com, live.com, hotmail.com, and other free mail domains no longer count as the company's
+  own sender, so "Microsoft Account Team" from a free outlook.com address is now flagged instead of shown as a verified
+  Microsoft email.
+- Verified: typecheck, 889 Vitest tests in 60 files (25 new), 34 node tests (8 new), the build, the accessibility
+  check, the privacy check (one GET of each list, and the password, passphrase, and search words in no request), and
+  the restore drill with the two new tables.
+
 ## 2026-10-08: Code and file sharing sites are shared hosts
 
 - A live scan of `https://github.com/octocat/Hello-World` came back Listed as malicious, because URLhaus has thousands

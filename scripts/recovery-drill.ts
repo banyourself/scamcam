@@ -18,6 +18,8 @@ const tables: Record<string, string> = {
   shared_reports: "SELECT id, hex(iv) AS iv, hex(ciphertext) AS ciphertext, created_at, expires_at FROM shared_reports ORDER BY id",
   result_flags: "SELECT * FROM result_flags ORDER BY id",
   scan_totals: "SELECT * FROM scan_totals ORDER BY day, kind, level",
+  site_data: "SELECT * FROM site_data ORDER BY dataset",
+  site_data_parts: "SELECT dataset, version, part, body FROM site_data_parts ORDER BY dataset, version, part",
   d1_migrations: "SELECT name FROM d1_migrations ORDER BY id",
 };
 const syntheticNames = 20_000;
@@ -63,6 +65,8 @@ async function seed(directory: string): Promise<void> {
     `INSERT INTO shared_reports (id, iv, ciphertext, created_at, expires_at) VALUES ('drill-share-0000000000', X'000102030405060708090a0b', X'deadbeefcafe', ${now}, ${now + 600});`,
     `INSERT INTO result_flags (id, report_key, case_number, kind, level, subject, evidence, reason, note, created_at, expires_at) VALUES ('drill-flag-00000000000', '0123456789abcdef0123456789abcdef', 'SC-000000-0000', 'url', 'suspicious', 'drill.example', 'brand-mismatch-drill.example', 'safe_but_warned', 'drill note', ${now}, ${now + 30 * 86_400});`,
     `INSERT INTO scan_totals (day, kind, level, count, expires_at) VALUES ('2026-01-01', 'url', 'suspicious', 3, ${now + 90 * 86_400});`,
+    `INSERT INTO site_data (dataset, version, parts, bytes, built_at) VALUES ('site-security', '0123456789abcdef', 2, 12, ${now});`,
+    `INSERT INTO site_data_parts (dataset, version, part, body) VALUES ('site-security', '0123456789abcdef', 0, 'H4sIAAAA'), ('site-security', '0123456789abcdef', 1, 'AAAAAAAA');`,
     ...domainListStatements({
       list: "phishing_database",
       version: "drill-1",

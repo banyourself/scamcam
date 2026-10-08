@@ -1,20 +1,16 @@
 import { useId, useState } from "react";
-import type { BreachCatalog, BreachEntry } from "../../shared/api";
-import { breachNoteLabels, hibpBreachListPage, hibpBreachUrl, hibpHomePage, hibpLicenseUrl, searchBreaches } from "../../shared/breaches";
+import { hibpBreachListPage, hibpHomePage } from "../../shared/breaches";
 import { pwnedPasswordsPage } from "../../shared/passwords";
+import { AccountChecklists } from "@/components/breaches/AccountChecklists";
+import { PassphraseMaker, PasswordStrength } from "@/components/breaches/PasswordTools";
+import { SiteLookup } from "@/components/breaches/SiteLookup";
 import { DocumentPage } from "@/components/layout/DocumentPage";
 import { Button } from "@/components/ui/button";
-import { checkPassword, loadBreachCatalog, type PasswordResult } from "@/lib/breach-check";
+import { checkPassword, type PasswordResult } from "@/lib/breach-check";
 import { Link } from "@/router";
 
 const number = new Intl.NumberFormat("en-US");
 const fieldClass = "min-w-0 flex-1 rounded-[3px] border border-rule-strong bg-bg px-3.5 py-2.5 font-mono text-[0.95rem] text-ink placeholder:text-ink-faint focus-visible:border-accent";
-const shownClasses = 6;
-
-function longDate(day: string): string {
-  const date = new Date(`${day}T00:00:00Z`);
-  return Number.isNaN(date.getTime()) ? day : date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
 
 function PasswordAnswer({ result }: { result: PasswordResult }) {
   if (result.status === "found") {
@@ -110,6 +106,7 @@ function PasswordCheck() {
           <input type="checkbox" checked={visible} onChange={(event) => setVisible(event.target.checked)} />
           Show the password while typing
         </label>
+        <PasswordStrength password={password} />
         <p id={`${id}-help`} className="text-sm text-ink-soft">
           Your password never leaves this device. Your browser turns it into a SHA-1 fingerprint and sends only its first 5
           of 40 characters. ScamCam passes them to Pwned Passwords, which answers with every leaked fingerprint that starts
@@ -131,132 +128,13 @@ function PasswordCheck() {
   );
 }
 
-function BreachItem({ entry, catalog }: { entry: BreachEntry; catalog: BreachCatalog }) {
-  const classes = entry.classes.map((index) => catalog.dataClasses[index]).filter((name): name is string => Boolean(name));
-  const extra = classes.length - shownClasses;
-  return (
-    <li className="!mt-3 border border-rule bg-panel px-4 py-3">
-      <p className="text-ink">
-        <strong>{entry.title}</strong>
-        {entry.domain && <span className="ml-2 font-mono text-sm text-ink-soft">{entry.domain}</span>}
-      </p>
-      <p className="!mt-1 text-sm">
-        Breached on {longDate(entry.breachDate)}, {number.format(entry.accounts)} accounts. Added to Have I Been Pwned on{" "}
-        {longDate(entry.addedDate)}.
-      </p>
-      {classes.length > 0 && (
-        <p className="!mt-1 text-sm">
-          Exposed: {classes.slice(0, shownClasses).join(", ")}
-          {extra > 0 ? `, and ${extra} more` : ""}.
-        </p>
-      )}
-      {entry.notes.length > 0 && <p className="!mt-1 text-sm text-ink">{entry.notes.map((note) => breachNoteLabels[note]).join(". ")}.</p>}
-      <p className="!mt-1 text-sm">
-        <a href={hibpBreachUrl(entry.name)} target="_blank" rel="noopener noreferrer">
-          Details on Have I Been Pwned
-        </a>
-      </p>
-    </li>
-  );
-}
-
-function BreachSearch() {
-  const id = useId();
-  const [query, setQuery] = useState("");
-  const [catalog, setCatalog] = useState<BreachCatalog | null>(null);
-  const [state, setState] = useState<"idle" | "loading" | "failed" | "ready">("idle");
-  const [searched, setSearched] = useState("");
-  const term = catalog ? query : searched;
-  const results = catalog && term.trim().length >= 2 ? searchBreaches(catalog, term) : [];
-
-  async function search() {
-    setSearched(query);
-    if (catalog || state === "loading") {
-      return;
-    }
-    setState("loading");
-    const loaded = await loadBreachCatalog();
-    setCatalog(loaded);
-    setState(loaded ? "ready" : "failed");
-  }
-
-  return (
-    <section aria-labelledby={`${id}-heading`} className="mt-4 border border-rule bg-panel px-5 py-4">
-      <h3 id={`${id}-heading`} className="!mt-0">
-        Has this site been breached?
-      </h3>
-      <form
-        className="mt-3 space-y-3"
-        role="search"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void search();
-        }}
-      >
-        <label htmlFor={`${id}-query`} className="block text-sm text-ink">
-          Website or company name
-        </label>
-        <div className="flex flex-wrap gap-2">
-          <input
-            id={`${id}-query`}
-            type="search"
-            className={fieldClass}
-            placeholder="adobe.com or Adobe"
-            autoComplete="off"
-            spellCheck={false}
-            maxLength={200}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            aria-describedby={`${id}-help`}
-          />
-          <Button type="submit" disabled={state === "loading" || query.trim().length < 2}>
-            {state === "loading" ? "Loading" : "Search"}
-          </Button>
-        </div>
-        <p id={`${id}-help`} className="text-sm text-ink-soft">
-          ScamCam downloads the whole list of known breaches once, and your browser searches it, so what you type is never
-          sent anywhere.
-        </p>
-      </form>
-      <div role="status" aria-live="polite" className="mt-3 text-sm">
-        {state === "failed" && <p>The breach list could not be loaded right now. Try again in a few minutes.</p>}
-        {catalog && term.trim().length >= 2 && (
-          <p>
-            {results.length === 0
-              ? `No known breach matches "${term.trim()}". That does not prove the site was never breached; many breaches are never made public.`
-              : `${results.length === 20 ? "The first 20" : results.length} known ${results.length === 1 ? "breach matches" : "breaches match"} "${term.trim()}".`}
-          </p>
-        )}
-      </div>
-      {results.length > 0 && catalog && (
-        <ul className="!list-none !pl-0">
-          {results.map((entry) => (
-            <BreachItem key={entry.name} entry={entry} catalog={catalog} />
-          ))}
-        </ul>
-      )}
-      <p className="mt-4 text-xs text-ink-soft">
-        Breach data from{" "}
-        <a href={hibpHomePage} target="_blank" rel="noopener noreferrer">
-          Have I Been Pwned
-        </a>
-        , licensed under{" "}
-        <a href={hibpLicenseUrl} target="_blank" rel="noopener noreferrer">
-          CC BY 4.0
-        </a>
-        {catalog ? `, copied on ${longDate(catalog.fetchedAt.slice(0, 10))}` : ""}.
-      </p>
-    </section>
-  );
-}
-
 export function BreachesPage() {
   return (
     <DocumentPage
       title="Breach check"
       reference="SC-DOC-05"
       updated="2026-10-08"
-      lead="Find out whether a password has leaked in a data breach without sending it anywhere, and look up which websites and companies have been breached."
+      lead="Check whether a password has leaked, make a strong passphrase, look up how to protect an account on a site and whether it was breached, and lock down your accounts. Nothing you type here is sent anywhere."
     >
       <h2>Check a password</h2>
       <p>
@@ -265,28 +143,80 @@ export function BreachesPage() {
         built in.
       </p>
       <PasswordCheck />
+      <PassphraseMaker />
 
       <h2>Look up a website or company</h2>
       <p>
-        Search the{" "}
+        Search by website or company name to see how to turn on two-step verification and passkeys there, where to change
+        your password, the{" "}
         <a href={hibpBreachListPage} target="_blank" rel="noopener noreferrer">
           breaches Have I Been Pwned knows about
-        </a>{" "}
-        by website or company name. Link reports also mention when a link&apos;s site had a known breach, because scammers
-        often send fake &quot;secure your account&quot; messages after one.
+        </a>
+        , and breach notices the company filed with the Washington or California attorney general. Link reports also mention
+        when a link&apos;s site had a known breach, because scammers often send fake &quot;secure your account&quot; messages
+        after one.
       </p>
-      <BreachSearch />
+      <SiteLookup />
+
+      <h2>Lock down your accounts</h2>
+      <p>
+        If you think someone has your password or got into an account, do these steps from a device you trust. Signing out
+        everywhere matters as much as a new password, because a stolen login cookie keeps working until the session ends.
+      </p>
+      <AccountChecklists />
+
+      <h2>If your computer may be infected</h2>
+      <p>
+        Some breaches on Have I Been Pwned say &quot;From stealer logs&quot;. Those passwords were not taken from a website.
+        Malware on people&apos;s own computers copied them, often after they ran a fake game cheat, a cracked game, a
+        &quot;free Robux&quot; tool, or a mod from an unofficial site. This kind of malware takes saved passwords and login
+        cookies, and a login cookie gets past two-step verification.
+      </p>
+      <ol>
+        <li>
+          Clean the computer first. Run a full scan, and on Windows also run a Microsoft Defender offline scan (Windows
+          Security, then Virus and threat protection, then Scan options). If you are not sure it is clean, back up your files
+          and reinstall the system.
+        </li>
+        <li>
+          Then, from the clean computer or another device you trust, change your passwords, starting with your email, and
+          sign out everywhere using the steps above. Changing them on an infected computer hands the new ones over too.
+        </li>
+        <li>Turn on two-step verification, and check each account&apos;s recovery email, phone number, and connected apps.</li>
+        <li>If card or bank details were saved in your browser, tell your bank.</li>
+        <li>
+          Before you open a game file or mod someone sends you, <Link to="/">check the file with ScamCam</Link>.
+        </li>
+      </ol>
 
       <h2>Email addresses</h2>
       <p>
-        ScamCam does not check email addresses. Have I Been Pwned&apos;s email search needs a paid key, and the free
-        services either ask sites like this one to pay or show anyone the breaches of any address, including sensitive ones
-        such as dating sites. You can check your own address on{" "}
-        <a href={hibpHomePage} target="_blank" rel="noopener noreferrer">
-          haveibeenpwned.com
-        </a>
-        , which hides sensitive breaches until you prove the address is yours.
+        ScamCam does not look up email addresses, because the free services that do either ask sites like this one to pay
+        or show anyone the breaches of any address, including sensitive ones. These free services check your own address
+        and make you prove it is yours before they show the sensitive results:
       </p>
+      <ul>
+        <li>
+          <a href={hibpHomePage} target="_blank" rel="noopener noreferrer">
+            Have I Been Pwned
+          </a>{" "}
+          shows most breaches right away. Its{" "}
+          <a href="https://haveibeenpwned.com/Dashboard" target="_blank" rel="noopener noreferrer">
+            free dashboard
+          </a>
+          , which signs you in with a link sent to your email, also shows sensitive breaches and stealer logs, and{" "}
+          <a href="https://haveibeenpwned.com/NotifyMe" target="_blank" rel="noopener noreferrer">
+            Notify Me
+          </a>{" "}
+          emails you about new ones.
+        </li>
+        <li>
+          <a href="https://monitor.mozilla.org/" target="_blank" rel="noopener noreferrer">
+            Mozilla Monitor
+          </a>{" "}
+          sends free breach alerts for your email address.
+        </li>
+      </ul>
 
       <h2>If you were in a breach</h2>
       <ul>
@@ -298,8 +228,56 @@ export function BreachesPage() {
         </li>
         <li>If card or bank details were exposed, watch your statements and tell your bank about anything you do not recognize.</li>
         <li>
-          If a message says your account was breached and asks you to act fast, <Link to="/">check it with ScamCam</Link>{" "}
-          first.
+          Real breach letters and settlements never charge a fee or ask for your password. If a message says your account was
+          breached and asks you to act fast, <Link to="/">check it with ScamCam</Link> first.
+        </li>
+      </ul>
+
+      <h2>If your identity details were exposed</h2>
+      <p>If a breach exposed your Social Security number, ID, or financial details, these free steps help in the United States:</p>
+      <ul>
+        <li>
+          Follow the FTC&apos;s steps for your kind of breach at{" "}
+          <a href="https://www.identitytheft.gov/databreach" target="_blank" rel="noopener noreferrer">
+            IdentityTheft.gov
+          </a>
+          .
+        </li>
+        <li>
+          Freeze your credit for free at each of the three bureaus:{" "}
+          <a href="https://www.equifax.com/personal/credit-report-services/credit-freeze/" target="_blank" rel="noopener noreferrer">
+            Equifax
+          </a>
+          ,{" "}
+          <a href="https://www.experian.com/help/credit-freeze/" target="_blank" rel="noopener noreferrer">
+            Experian
+          </a>
+          , and{" "}
+          <a href="https://www.transunion.com/credit-freeze" target="_blank" rel="noopener noreferrer">
+            TransUnion
+          </a>
+          . A freeze stops new accounts being opened in your name, and you can lift it when you need credit.
+        </li>
+        <li>
+          Get your free credit reports at{" "}
+          <a href="https://www.annualcreditreport.com/" target="_blank" rel="noopener noreferrer">
+            AnnualCreditReport.com
+          </a>
+          , the only site the FTC says is authorized to give them out for free.
+        </li>
+        <li>
+          Get an{" "}
+          <a href="https://www.irs.gov/identity-theft-fraud-scams/get-an-identity-protection-pin" target="_blank" rel="noopener noreferrer">
+            IRS Identity Protection PIN
+          </a>{" "}
+          so nobody else can file a tax return in your name.
+        </li>
+        <li>
+          Report fraud to the FTC at{" "}
+          <a href="https://reportfraud.ftc.gov/" target="_blank" rel="noopener noreferrer">
+            ReportFraud.ftc.gov
+          </a>
+          .
         </li>
       </ul>
     </DocumentPage>

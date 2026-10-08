@@ -31,3 +31,16 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: bash scripts/sync-lists.sh
+      - name: Build the site security and breach notice data and write it to D1
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          status=0
+          node scripts/site-data.ts --out site-data || status=$?
+          if [[ -s site-data/site-data.sql ]]; then
+            npx wrangler d1 execute scamcam --remote --env production --file site-data/site-data.sql --yes > site-data/d1.log || status=1
+          fi
+          exit "$status"

@@ -684,6 +684,7 @@ async function checkBreaches(): Promise<string[]> {
     await cdp.send("Network.enable");
     await openPage(cdp, base, "/breaches");
     const hash = createHash("sha1").update(passwordProbe).digest("hex").toUpperCase();
+    let phrase = "";
     try {
       await cdp.evaluate(setInput('input[type="password"]', passwordProbe));
       await waitFor(cdp, `${buttonNamed("Check password")} && !${buttonNamed("Check password")}.disabled`);
@@ -696,6 +697,9 @@ async function checkBreaches(): Promise<string[]> {
       await waitFor(cdp, `${buttonNamed("Search")} && !${buttonNamed("Search")}.disabled`);
       await cdp.evaluate(`${buttonNamed("Search")}.click()`);
       await waitFor(cdp, `/No known breach matches|could not be loaded/.test(${breachStatus})`);
+      await cdp.evaluate(`${buttonNamed("Make a passphrase")}.click()`);
+      await waitFor(cdp, `/bits of randomness/.test(document.body.textContent)`);
+      phrase = await cdp.evaluate<string>(`document.querySelector('p[translate="no"]').textContent`);
     } catch (error) {
       failures.push(`the breach page did not work (${error instanceof Error ? error.message.slice(0, 160) : "unknown"})`);
     }
@@ -707,14 +711,23 @@ async function checkBreaches(): Promise<string[]> {
     if (lists.length !== 1 || lists[0]?.method !== "GET" || lists[0]?.url !== `${base}/api/v1/breaches`) {
       failures.push(`expected one GET of the breach list, saw ${lists.length}`);
     }
-    const secrets = [passwordProbe, encodeURIComponent(passwordProbe), "hunter2", hash.slice(5), hash.slice(5).toLowerCase(), hash.toLowerCase(), searchProbe];
+    for (const path of ["/api/v1/site-security", "/api/v1/breach-notices"]) {
+      const seen = requests.filter((request) => request.url.startsWith(`${base}${path}`));
+      if (seen.length !== 1 || seen[0]?.method !== "GET" || seen[0]?.url !== `${base}${path}`) {
+        failures.push(`expected one GET of ${path}, saw ${seen.length}`);
+      }
+    }
+    if (phrase.split("-").length < 5) {
+      failures.push("the passphrase maker did not make a passphrase");
+    }
+    const secrets = [passwordProbe, encodeURIComponent(passwordProbe), "hunter2", hash.slice(5), hash.slice(5).toLowerCase(), hash.toLowerCase(), searchProbe, ...(phrase ? [phrase, encodeURIComponent(phrase)] : [])];
     for (const request of requests) {
       const origin = new URL(request.url).origin;
       if (!/^(data|blob):/.test(request.url) && origin !== base && origin !== turnstileOrigin) {
         failures.push(`the breach page contacted ${origin}`);
       }
       if (secrets.some((secret) => request.url.includes(secret) || (request.postData ?? "").includes(secret))) {
-        failures.push(`the password, its full fingerprint, or the search words reached ${new URL(request.url).pathname}`);
+        failures.push(`the password, its full fingerprint, the passphrase, or the search words reached ${new URL(request.url).pathname}`);
       }
     }
     const storage = await cdp.evaluate<{ local: string[]; session: number; databases: number; caches: number }>(`(async () => ({
@@ -726,7 +739,7 @@ async function checkBreaches(): Promise<string[]> {
     if (storage.local.some((key) => !allowedStorageKeys.has(key)) || storage.session > 0 || storage.databases > 0 || storage.caches > 0) {
       failures.push(`the breach page stored something: ${JSON.stringify(storage)}`);
     }
-    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  a password checked with only 5 characters of its fingerprint sent, and a breach search that stayed in the browser`);
+    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  a password checked with only 5 characters of its fingerprint sent, a passphrase made on the device, and a site search that stayed in the browser`);
     return failures;
   });
 }

@@ -36,8 +36,14 @@ export function HowItWorksPage() {
           <strong>Read email files on your device.</strong> If you add a saved email (.eml), your browser reads its sender,
           subject, and text, and the results of the receiving mail server&apos;s sender checks (SPF, DKIM, and DMARC). ScamCam
           warns when the sender was faked, when the sender&apos;s name says Steam or Discord but the email came from somewhere
-          else, when replies would go to a different domain, and when an attachment can run code. Email addresses and
-          attachments never leave your device.
+          else, when the sender uses a throwaway address or a support team writes from a free address, when replies would
+          go to a different domain, and when an attachment can run code. Email addresses and attachments never leave your
+          device.
+        </li>
+        <li>
+          <strong>Keep login tokens out of it.</strong> If the text holds a Discord token, a Roblox login cookie, a Steam login
+          cookie, or a GitHub token, your browser takes it out before anything is sent and the report says how to make it
+          useless. Scammers ask for these because they work without a password or a login code.
         </li>
         <li>
           <strong>Look at the link itself.</strong> ScamCam finds the real domain (the part someone actually registered),
@@ -117,8 +123,10 @@ export function HowItWorksPage() {
         browser turns the password into a SHA-1 fingerprint and sends only its first 5 characters. ScamCam passes them to{" "}
         <a href="https://haveibeenpwned.com/Passwords">Pwned Passwords by Have I Been Pwned</a>, which answers with every
         leaked fingerprint that starts the same way, plus random filler, and your browser looks for yours among them. The
-        same page searches Have I Been Pwned&apos;s list of breached websites and companies on your device. ScamCam does not
-        check email addresses.
+        same page estimates how hard a password is to guess, makes random passphrases, and has a site lookup that shows how
+        to turn on two-step verification and passkeys, where to change the password, known breaches, and breach notices
+        filed with the Washington and California attorneys general. All of it runs on your device. ScamCam does not check
+        email addresses.
       </p>
 
       <h2>If a result looks wrong</h2>

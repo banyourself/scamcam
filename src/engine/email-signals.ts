@@ -1,5 +1,6 @@
 import { maxEmailAttachments, type EmailFacts } from "../shared/email";
-import { brands, brandsNamedIn, staffClaimIn } from "./brands";
+import { brands, brandsNamedIn, claimsStaff, freeMailDomains, staffClaimIn } from "./brands";
+import { disposableDomainList } from "./data/disposable-domains";
 import { fileSignals } from "./file-signals";
 import { normalizeMessage } from "./message-rules";
 import { sourceNames, type Signal } from "./signals";
@@ -13,6 +14,20 @@ export function senderLink(email: EmailFacts | undefined): AnalyzedLink | null {
   return link.hostname && link.registrableDomain && !link.isIp ? link : null;
 }
 
+export const disposableListUrl = "https://github.com/disposable-email-domains/disposable-email-domains";
+let disposable: ReadonlySet<string> | null = null;
+
+export function isDisposableDomain(hostname: string): boolean {
+  disposable ??= new Set(disposableDomainList.split(" "));
+  const labels = hostname.toLowerCase().split(".");
+  for (let start = 0; start < labels.length - 1; start += 1) {
+    if (disposable.has(labels.slice(start).join("."))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function senderNameIn(text: string): string | null {
   const first = text.split("\n", 1)[0] ?? "";
   return first.startsWith("From: ") ? first.slice(6).trim() : null;
@@ -22,7 +37,8 @@ export function emailSignals(email: EmailFacts, sender: AnalyzedLink | null, sen
   const signals: Signal[] = [];
   const base = { source: sourceNames.email };
   const domain = sender?.registrableDomain ?? null;
-  const official = sender?.officialBrand ?? null;
+  const freeMail = domain !== null && freeMailDomains.has(domain);
+  const official = freeMail ? null : (sender?.officialBrand ?? null);
   const impostors = senderName ? brandsNamedIn(normalizeMessage(senderName)).filter((brand) => brand.id !== official?.id) : [];
   const lookalike = sender?.signals.find((signal) => signal.lookalike && signal.direction === "raises");
   if (email.dmarc === "fail") {
@@ -63,8 +79,30 @@ export function emailSignals(email: EmailFacts, sender: AnalyzedLink | null, sen
       direction: "raises",
       strength: staffClaimIn(senderName ?? "") ? "strong" : "moderate",
       brandId: impostors[0]!.id,
-      title: `The sender's name says ${names}, but the email came from ${domain}`,
-      detail: `${domain} does not belong to ${names}. Scam emails put a trusted name in the sender field and send from somewhere else.`,
+      title: freeMail ? `The sender's name says ${names}, but the email came from a free ${domain} address` : `The sender's name says ${names}, but the email came from ${domain}`,
+      detail: freeMail
+        ? `Anyone can make a free ${domain} address and put any name on it. Companies send account and support email from their own domain, not from a free mailbox.`
+        : `${domain} does not belong to ${names}. Scam emails put a trusted name in the sender field and send from somewhere else.`,
+    });
+  } else if (freeMail && senderName && claimsStaff(senderName)) {
+    signals.push({
+      ...base,
+      id: "email-free-staff",
+      direction: "raises",
+      strength: "moderate",
+      title: `A support or security team writing from a free ${domain} address`,
+      detail: `Anyone can make a free ${domain} address and call it "Support" or "Security". Real support, security, and billing teams write from their company's own domain.`,
+    });
+  }
+  if (sender?.hostname && isDisposableDomain(sender.hostname)) {
+    signals.push({
+      ...base,
+      sourceUrl: disposableListUrl,
+      id: "email-disposable",
+      direction: "raises",
+      strength: "strong",
+      title: `The email came from a throwaway address (${sender.displayHostname ?? sender.hostname})`,
+      detail: "This domain hands out temporary email addresses that anyone can use for a few minutes without signing up. Real companies never send from them. ScamCam checks senders against the public disposable-email-domains list.",
     });
   }
   if (lookalike && domain) {

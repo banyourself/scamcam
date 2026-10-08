@@ -1,4 +1,5 @@
 import { removeHiddenCharacters, type HiddenCharacters } from "./hidden";
+import { hideSecrets, type SecretKind } from "./secrets";
 
 export const maxInputLength = 4000;
 export const maxLinks = 20;
@@ -55,6 +56,7 @@ export interface ExtractedInput {
   phones: string[];
   wallets: string[];
   redactions: Redactions;
+  secrets: SecretKind[];
   truncated: boolean;
   hidden: Omit<HiddenCharacters, "text">;
 }
@@ -104,7 +106,7 @@ function hideUsPhones(text: string): [string, string[]] {
 export function extractInput(rawText: string): ExtractedInput {
   const truncated = rawText.length > maxInputLength;
   const { text: visible, ...hidden } = removeHiddenCharacters(rawText.slice(0, maxInputLength));
-  const text = visible.normalize("NFC");
+  const { text, found: secrets } = hideSecrets(visible.normalize("NFC"));
   const [withoutEmails, emails] = countAndReplace(text, emailPattern, "[email hidden]", (offset) => insideLink(text, offset));
   const [withoutUsPhones, usPhones] = hideUsPhones(withoutEmails);
   const [withoutCodes, codes] = countAndReplace(withoutUsPhones, codePattern, "[code hidden]");
@@ -125,5 +127,5 @@ export function extractInput(rawText: string): ExtractedInput {
 
   const wallets = [...new Set([...redactedText.matchAll(walletPattern)].map((match) => match[0].toLowerCase()))].slice(0, maxWallets);
 
-  return { redactedText, links, phones, wallets, redactions: { emails, phoneNumbers, codes }, truncated, hidden };
+  return { redactedText, links, phones, wallets, redactions: { emails, phoneNumbers, codes }, secrets, truncated, hidden };
 }

@@ -19,7 +19,7 @@ export const pages: Record<string, PageMeta> = {
   },
   "/breaches": {
     title: "Breach check",
-    description: "Check whether a password has leaked in a data breach without sending it anywhere, and look up which websites and companies have been breached.",
+    description: "Check if a password leaked, make a strong passphrase, see how to protect an account, and look up breaches and breach notices. Nothing you type is sent.",
   },
   "/extension": {
     title: "Browser extension",

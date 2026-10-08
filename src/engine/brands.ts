@@ -180,6 +180,16 @@ export function isUploadService(hostname: string): boolean {
   return uploadServiceHosts.includes(hostname) || uploadServiceDomains.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
 }
 
+export const freeMailDomains = new Set([
+  "gmail.com", "googlemail.com", "outlook.com", "outlook.fr", "hotmail.com", "hotmail.co.uk", "hotmail.fr", "hotmail.it",
+  "hotmail.es", "hotmail.de", "live.com", "live.co.uk", "live.fr", "msn.com", "yahoo.com", "yahoo.co.uk", "yahoo.fr", "yahoo.de",
+  "yahoo.co.jp", "yahoo.ca", "yahoo.com.au", "ymail.com", "rocketmail.com", "aol.com", "icloud.com", "me.com", "mac.com",
+  "proton.me", "protonmail.com", "protonmail.ch", "pm.me", "gmx.com", "gmx.net", "gmx.de", "mail.com", "email.com", "zoho.com",
+  "zohomail.com", "yandex.com", "yandex.ru", "mail.ru", "inbox.ru", "list.ru", "bk.ru", "qq.com", "163.com", "126.com",
+  "tutanota.com", "tuta.io", "tutamail.com", "fastmail.com", "hushmail.com", "web.de", "t-online.de", "orange.fr", "laposte.net",
+  "libero.it", "rediffmail.com", "naver.com", "daum.net", "hanmail.net", "seznam.cz", "wp.pl", "o2.pl", "interia.pl",
+]);
+
 export const executableExtensions = ["exe", "scr", "bat", "cmd", "msi", "jar", "apk", "ps1", "vbs", "lnk", "iso", "dmg", "hta"];
 export const archiveExtensions = ["zip", "rar", "7z", "tar", "gz"];
 
@@ -222,6 +232,10 @@ export function brandsNamedIn(normalizedText: string): Brand[] {
 }
 
 const staffWords = /\b(?:support|staff|official|admins?|administrators?|moderators?|trust (?:and|&) safety|help ?desk|appeals?|verif(?:y|ied|ication)|security|hype ?squad)\b/;
+
+export function claimsStaff(name: string): boolean {
+  return staffWords.test(name.normalize("NFKC").toLowerCase().replace(/[_.|]+/g, " "));
+}
 
 export function staffClaimIn(name: string): Brand | null {
   const normalized = name.normalize("NFKC").toLowerCase().replace(/[_.|]+/g, " ");

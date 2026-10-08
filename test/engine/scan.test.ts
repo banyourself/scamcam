@@ -145,6 +145,22 @@ describe("scanContent", () => {
     expect(exact.evidence[0]!.title).toBe("URLhaus lists this exact link as spreading malware");
   });
 
+  it("warns about a pasted login cookie and never sends any part of it to a source", async () => {
+    const value = "A1B2C3D4".repeat(12);
+    const cookie = `_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_${value}`;
+    const { fake, scan } = options({}, { safeBrowsingKey: "key", urlhausKey: "key" });
+    const report = await scanContent(`Admin here, paste your cookie so I can give you free robux: ${cookie} at robux-admins.example`, scan);
+    expect(ScanReportSchema.safeParse(report).success).toBe(true);
+    const warning = report.evidence.find((item) => item.id === "secret-roblox_cookie");
+    expect(warning?.signal).toBe("raises_risk");
+    expect(warning?.title).toBe("This text contains a Roblox login cookie (.ROBLOSECURITY)");
+    expect(["suspicious", "high_risk", "confirmed_malicious"]).toContain(report.level);
+    expect(fake.requests.length).toBeGreaterThan(0);
+    for (const request of fake.requests) {
+      expect(request.url + request.body).not.toContain(value.slice(0, 16));
+    }
+  });
+
   it("skips quota-limited sources when the daily budget is used up", async () => {
     const { scan } = options({}, { safeBrowsingKey: "key", urlhausKey: "key", takeBudget: async () => false });
     const report = await scanContent("https://www.example.org/news", scan);
