@@ -33,6 +33,22 @@ github_list() {
   build "$name" "$format" "${sha:0:12}" "$list_date" "$min" "$max" && store "$name"
 }
 
+gitlab_list() {
+  local name="$1" project="$2" branch="$3" path="$4" format="$5" min="$6" max="$7"
+  local commit sha committed list_date
+  commit=$(curl --fail --silent --show-error --get --user-agent "ScamCam list sync (+https://scamcam.kevinle.tech)" \
+    "https://gitlab.com/api/v4/projects/${project//\//%2F}/repository/commits" \
+    --data-urlencode "ref_name=${branch}" --data-urlencode "path=${path}" --data-urlencode "per_page=1") || return 1
+  sha=$(node -e 'process.stdout.write(String(JSON.parse(process.argv[1])[0]?.id ?? ""))' "$commit") || return 1
+  [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Unexpected commit id for ${name}" >&2; return 1; }
+  committed=$(node -e 'process.stdout.write(String(JSON.parse(process.argv[1])[0]?.committed_date ?? ""))' "$commit") || return 1
+  list_date=$(date -u -d "$committed" +%s) || return 1
+  [[ "$list_date" =~ ^[0-9]{10}$ ]] || { echo "Unexpected commit date for ${name}" >&2; return 1; }
+  curl --fail --silent --show-error --location --max-filesize 100000000 --user-agent "ScamCam list sync (+https://scamcam.kevinle.tech)" \
+    "https://gitlab.com/${project}/-/raw/${sha}/${path}" --output "lists/${name}.input" || return 1
+  build "$name" "$format" "${sha:0:12}" "$list_date" "$min" "$max" && store "$name"
+}
+
 web_list() {
   local name="$1" url="$2" format="$3" min="$4" max="$5"
   local modified list_date
@@ -108,7 +124,7 @@ run() {
 run phishing_database github_list phishing_database Phishing-Database/Phishing.Database master phishing-domains-ACTIVE.txt text 100000 5000000
 run metamask github_list metamask MetaMask/eth-phishing-detect main src/config.json metamask 20000 1000000
 run scamsniffer github_list scamsniffer scamsniffer/scam-database main blacklist/domains.json json-array 50000 3000000
-run phishdestroy github_list phishdestroy phishdestroy/destroylist main list.txt text 30000 3000000
+run phishdestroy gitlab_list phishdestroy phishdestroy/destroylist main list.txt text 30000 3000000
 run scam_links github_list scam_links DevSpen/scam-links master src/links.txt text 2000 200000
 run cert_polska web_list cert_polska https://hole.cert.pl/domains/v2/domains.txt text 20000 2000000
 run ftc_dnc ftc_list ftc_dnc 30 50000 3000000

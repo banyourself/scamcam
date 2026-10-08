@@ -3,6 +3,16 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-08: PhishDestroy from GitLab, a real favicon, and 404s for missing files
+
+- GitHub blocked the PhishDestroy account on 2026-10-07, so the daily list sync failed on 2026-10-08. The project now
+  publishes on GitLab, and the sync reads `list.txt` there through the GitLab API at its latest commit, with the same
+  size limits and checks as the GitHub lists. Reports link to the GitLab project.
+- `/favicon.ico` is a real icon (16, 32, and 48 pixels) next to `favicon.svg`, instead of the page.
+- A missing file, such as `/old-logo.png`, now answers 404 with the page marked noindex, instead of 200 with the page.
+- Verified: a local run of the new sync step (218,151 PhishDestroy domains, nothing written to D1), typecheck, Vitest,
+  the build, and the privacy check.
+
 ## 2026-10-08: Privacy signals, session replay, and copyright notices
 
 - The Privacy policy (now effective October 8, 2026) says plainly that ScamCam has no session replay, loads no fonts or

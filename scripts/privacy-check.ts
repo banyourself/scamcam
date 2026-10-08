@@ -118,18 +118,20 @@ async function checkHeaders(): Promise<string[]> {
     ...publicRoutes,
     ...assets,
     "/favicon.svg",
+    "/favicon.ico",
     "/robots.txt",
     "/sitemap.xml",
     "/og-image.png",
     "/site.webmanifest",
     "/apple-touch-icon.png",
     "/.well-known/security.txt",
+    "/missing-file.png",
   ];
   const failures: string[] = assets.length === 3 ? [] : [`found ${assets.length} of 3 asset paths in the page`];
   for (const path of staticPaths) {
     const response = await fetch(base + path, { redirect: "manual" });
     await response.arrayBuffer();
-    const expected = path === "/missing-page" ? 404 : 200;
+    const expected = path === "/missing-page" || path === "/missing-file.png" ? 404 : 200;
     if (response.status !== expected) {
       failures.push(`${path}: answered ${response.status}, not ${expected}`);
     }

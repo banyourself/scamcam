@@ -12,7 +12,7 @@ function fakeAssets(seen: string[] = []): Fetcher {
     async fetch(input: RequestInfo | URL) {
       const url = new URL(input instanceof Request ? input.url : String(input));
       seen.push(url.pathname);
-      if (url.pathname === "/") {
+      if (url.pathname === "/" || url.pathname.startsWith("/gone")) {
         return new Response(shellHtml, {
           headers: { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": "default-src 'self'", ETag: '"abc"' },
         });
@@ -68,6 +68,13 @@ describe("page tags for search engines and link previews", () => {
     expect(html).toBe("file");
     expect(seen).toEqual(["/og-image.png"]);
     expect(planFor("/.well-known/security.txt").kind).toBe("asset");
+  });
+
+  it("answers a missing file with a 404 instead of the page", async () => {
+    const { response, html } = await page("/gone.ico");
+    expect(response.status).toBe(404);
+    expect(response.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+    expect(html).toContain('<meta name="robots" content="noindex, nofollow" />');
   });
 
   it("never lets a page title or description carry markup", () => {

@@ -112,7 +112,9 @@ export async function servePage(request: Request, assets: Fetcher): Promise<Resp
   const url = new URL(request.url);
   const plan = planFor(url.pathname);
   if (plan.kind === "asset") {
-    return assets.fetch(request);
+    const file = await assets.fetch(request);
+    const fallback = (file.headers.get("Content-Type") ?? "").includes("text/html") && !url.pathname.endsWith(".html");
+    return fallback ? finish(hidePage(file), 404, true) : file;
   }
   const shell = await assets.fetch(new Request(new URL("/", url), { method: request.method === "HEAD" ? "HEAD" : "GET" }));
   if (!shell.ok || !(shell.headers.get("Content-Type") ?? "").includes("text/html")) {

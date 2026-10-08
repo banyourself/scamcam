@@ -71,7 +71,7 @@ export const domainListDetails: Record<ListName, DomainListDetails> = {
   },
   phishdestroy: {
     source: "PhishDestroy list",
-    url: "https://github.com/phishdestroy/destroylist",
+    url: "https://gitlab.com/phishdestroy/destroylist",
     title: "PhishDestroy lists {name} as a phishing or scam site",
     about: "PhishDestroy is a community project that reports and lists phishing and scam sites.",
     staleAfterDays: 7,
