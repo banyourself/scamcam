@@ -214,7 +214,7 @@ skips the AI.
   step covers much of that gap.
 - The AI step is a small model on hand-written evaluation sets. It can be wrong, and its label can be less precise
   than the scam it caught.
-- The official domain lists are hand-maintained and must be reviewed when platforms add domains.
+- The official domain lists are hand-maintained and must be reviewed when platforms add domains. `npm run brands:wikidata` compares them with Wikidata's official websites to help with that review.
 
 ## Checks added on 2026-10-06
 

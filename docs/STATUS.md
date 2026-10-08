@@ -18,7 +18,7 @@ ScamCam has been live at https://scamcam.kevinle.tech since 2026-10-05.
 | Turnstile | A ScamCam widget for `scamcam.kevinle.tech` only; tokens are tied to the hostname and to the `scan` or `flag` action |
 | Scam lists | Six lists synced by the "Scam list sync" workflow, scheduled for 07:37 UTC: Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen's Discord and Steam list, and CERT Polska. The first sync of all six ran at 02:49 UTC on 2026-10-07 in 1 minute 23 seconds (392,063, 102,885, 356,136, 216,485, 10,075, and 127,517 entries, 1,024 shards each). Phishing.Database has published nothing since 2026-10-02 15:30 UTC, and its issue tracker reports its site returning 503 errors, so reports say how old that copy is. GitHub blocked the PhishDestroy account on 2026-10-07 and the project moved to GitLab, so the sync reads that list from `gitlab.com/phishdestroy/destroylist` since 2026-10-08 |
 | Policies | Published without draft labels; the current Privacy policy takes effect on October 8, 2026 (no session replay, Global Privacy Control, and outside code limited to the bot check) |
-| Personal site | `kevinle.tech` and `www.kevinle.tech` still answer 200 with their own pages; their DNS answers matched the baseline taken before deployment |
+| Personal site | `kevinle.tech` answers 200 with its own pages and `www.kevinle.tech` redirects to it (301) since 2026-10-08; ScamCam changed neither |
 | Repository | `banyourself/scamcam` on GitHub with a protected `main` branch (no force pushes or deletion, also for admins); CI jobs `check` (with the restore drill), `accessibility`, `privacy`, and `secrets` |
 
 ### Analytics injection found at launch
@@ -132,7 +132,7 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 | Check | Latest recorded result |
 |---|---|
 | Vitest (worker, engine, and client projects) | 862 tests in 56 files pass (2026-10-08, with the breach check and GitHub repository facts) |
-| Node config and script tests (`npm run test:config`) | 20 pass, including the sitemap matching the page list |
+| Node config and script tests (`npm run test:config`) | 26 pass, including the sitemap matching the page list and the Wikidata brand check (2026-10-08) |
 | Accessibility (`npm run test:a11y`) | Passes; 72 axe-core checks, including the open flag form, the email details box, and the breach page with a password answer and search results, in both themes at both widths (2026-10-08) |
 | Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot, file, Minecraft mod, email file, flag (scan, flag, confirmation), share, and breach check steps (only 5 characters of the password's fingerprint sent; search words never sent) |
 | Recovery drill (`npm run test:recovery`) | All 9 tables matched after export and restore, including shared reports, flags, two lists, and eight migrations; export 1.1 s (646 KB), restore 3.3 s (2026-10-07) |

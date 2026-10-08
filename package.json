@@ -23,6 +23,7 @@
     "test:recovery": "node scripts/recovery-drill.ts",
     "lists:build": "node scripts/domain-list.ts",
     "lists:sync": "bash scripts/sync-lists.sh",
+    "brands:wikidata": "node scripts/wikidata-brands.ts",
     "flags": "node scripts/flags.ts",
     "deploy": "node scripts/deploy.ts",
     "deploy:dry-run": "node scripts/deploy.ts --dry-run",

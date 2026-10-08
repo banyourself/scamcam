@@ -76,7 +76,7 @@ export const brands: Brand[] = [
   {
     id: "playstation",
     name: "PlayStation",
-    officialDomains: ["playstation.com", "playstation.net", "sonyentertainmentnetwork.com"],
+    officialDomains: ["playstation.com", "playstation.net", "sonyentertainmentnetwork.com", "sonyinteractive.com"],
     lookalikeLabels: ["playstation"],
     tokens: ["playstation", "psn"],
   },

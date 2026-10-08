@@ -3,6 +3,19 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-08: Official brand websites from Wikidata
+
+- `npm run brands:wikidata` asks Wikidata's public SPARQL service for the official website (property P856) of each
+  brand and its main products, then compares their registrable domains with the official domain lists in
+  `src/engine/brands.ts`. It only prints a report for a person to review and never changes the list. Wikidata data is
+  CC0, the script sends a User-Agent with a contact address, waits 1.5 seconds between brands, and honors
+  `Retry-After` when Wikidata is busy.
+- The first run checked 13 brands and 24 Wikidata items. Every domain Wikidata lists was already in the brand list
+  except `sonyinteractive.com`, the site of Sony Interactive Entertainment, which is now an official PlayStation domain.
+  Domains only in the brand list, such as `steamcommunity.com` and `discordapp.com`, stay, because Wikidata lists one or
+  two sites per item.
+- Verified: typecheck, 862 Vitest tests in 56 files, and 26 node tests (6 new, with a fake Wikidata server).
+
 ## 2026-10-08: GitHub repository facts
 
 - For one GitHub link per scan (github.com, raw.githubusercontent.com, codeload.github.com, or a github.io site), the
