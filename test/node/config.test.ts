@@ -112,6 +112,14 @@ test("static pages send a strict content security policy", () => {
   assert.ok(!scriptSources.includes("'unsafe-eval'"));
   assert.deepEqual(scriptSources.filter((source) => source.includes("unsafe")), ["'wasm-unsafe-eval'"]);
   assert.match(headers, /worker-src 'self';/);
+  assert.match(headers, /connect-src 'self';/);
+});
+
+test("the sitemap lists every public page and nothing else", () => {
+  const pagePaths = [...read("src/worker/pages.ts").matchAll(/^ {2}"(\/[a-z-]*)": \{/gm)].map((match) => match[1]).sort();
+  const sitemapPaths = [...read("public/sitemap.xml").matchAll(/<loc>https:\/\/scamcam\.kevinle\.tech(\/[a-z-]*)<\/loc>/g)].map((match) => match[1]).sort();
+  assert.ok(pagePaths.includes("/breaches"));
+  assert.deepEqual(sitemapPaths, pagePaths);
 });
 
 const emDash = String.fromCharCode(0x2014);

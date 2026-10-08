@@ -17,6 +17,10 @@ export const pages: Record<string, PageMeta> = {
     description:
       "How ScamCam checks a link, message, screenshot, or file: evidence from independent sources, compared before it reaches a verdict you can inspect.",
   },
+  "/breaches": {
+    title: "Breach check",
+    description: "Check whether a password has leaked in a data breach without sending it anywhere, and look up which websites and companies have been breached.",
+  },
   "/extension": {
     title: "Browser extension",
     description: "Check a link, a message, or a whole page without copying and pasting. Right-click it and choose Check with ScamCam.",

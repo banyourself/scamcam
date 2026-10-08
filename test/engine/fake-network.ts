@@ -1,9 +1,11 @@
+import { hibpBreachesEndpoint } from "../../src/engine/breach-catalog";
 import { discordInviteEndpoint } from "../../src/engine/discord-invite";
 import { dohEndpoint, filteredDohEndpoint } from "../../src/engine/dns";
 import type { DomainListLookup, DomainListResults, ListName } from "../../src/engine/domain-list";
 import { hashlookupEndpoint, malwareBazaarEndpoint, mhrZone } from "../../src/engine/hash-lookups";
 import { modrinthApi } from "../../src/engine/modrinth";
 import { phishstatsEndpoint } from "../../src/engine/phishstats";
+import { pwnedPasswordsEndpoint } from "../../src/engine/pwned-passwords";
 import { radarEndpoint } from "../../src/engine/radar";
 import { rdapBootstrapUrl } from "../../src/engine/rdap";
 import { safeBrowsingEndpoint } from "../../src/engine/safe-browsing";
@@ -42,6 +44,10 @@ export interface FakeNetworkOptions {
   modrinthFiles?: Record<string, { project: string; version: string; published?: string; status?: string }>;
   modrinthProjects?: FakeModrinthProject[];
   modrinthStatus?: number;
+  passwordRanges?: Record<string, string>;
+  passwordStatus?: number;
+  breaches?: unknown;
+  breachesStatus?: number;
   down?: boolean;
   now?: Date;
 }
@@ -297,6 +303,17 @@ export function fakeNetwork(options: FakeNetworkOptions = {}): FakeNetwork {
         const hashes = (JSON.parse(body) as { hashes: string[] }).hashes;
         return json(Object.fromEntries(hashes.filter((hash) => options.modrinthFiles?.[hash]).map((hash) => [hash, { project_id: options.modrinthFiles![hash]!.project }])));
       }
+    }
+    if (url.startsWith(pwnedPasswordsEndpoint)) {
+      if (options.passwordStatus) {
+        return new Response("error", { status: options.passwordStatus });
+      }
+      const prefix = url.slice(pwnedPasswordsEndpoint.length);
+      const range = options.passwordRanges?.[prefix];
+      return new Response(range ?? `${"0".repeat(35)}:0\r\n`, { headers: { "Content-Type": "text/plain" } });
+    }
+    if (url === hibpBreachesEndpoint) {
+      return options.breachesStatus ? json({ statusCode: options.breachesStatus }, options.breachesStatus) : json(options.breaches ?? []);
     }
     if (url.includes("challenges.cloudflare.com")) {
       return json(options.turnstile ?? { success: true, hostname: "scamcam.kevinle.tech", action: "scan" });

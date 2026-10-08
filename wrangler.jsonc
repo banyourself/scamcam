@@ -40,6 +40,11 @@
       "name": "FLAG_RATE_LIMITER",
       "namespace_id": "1004",
       "simple": { "limit": 3, "period": 60 }
+    },
+    {
+      "name": "PASSWORD_RATE_LIMITER",
+      "namespace_id": "1005",
+      "simple": { "limit": 20, "period": 60 }
     }
   ],
   "ai": {
@@ -108,6 +113,11 @@
           "name": "FLAG_RATE_LIMITER",
           "namespace_id": "1004",
           "simple": { "limit": 3, "period": 60 }
+        },
+        {
+          "name": "PASSWORD_RATE_LIMITER",
+          "namespace_id": "1005",
+          "simple": { "limit": 20, "period": 60 }
         }
       ],
       "ai": {

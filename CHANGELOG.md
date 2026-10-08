@@ -3,6 +3,32 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-08: Breach check
+
+- New **Breach check** page (/breaches, in the header, footer, and sitemap). It checks whether a password has leaked
+  with Pwned Passwords by Have I Been Pwned. The browser works out the password's SHA-1 fingerprint and sends only its
+  first 5 characters to `GET /api/v1/passwords/range/{prefix}`; the Worker asks Pwned Passwords with `Add-Padding`, adds
+  its own random padding to every answer, keeps each answer a day in the Cache API, and allows 20 checks a minute per
+  visitor (new `PASSWORD_RATE_LIMITER` binding). The browser compares the rest of the fingerprint itself and clears the
+  box. The password and its full fingerprint never leave the device, and the content security policy still allows
+  only ScamCam itself.
+- The same page searches Have I Been Pwned's public list of breached websites and companies (CC BY 4.0, credited and
+  linked). `GET /api/v1/breaches` serves a 191 KB compact copy that the scanner builds from the 1.1 MB list at most every
+  12 hours and keeps in its storage; the edge keeps it 6 hours. The browser downloads it once and searches it, so search
+  words never reach the server.
+- Link reports mention a known breach of the link's site as background (for example "Adobe had a data breach in
+  October 2013"), because scammers send fake "secure your account" messages after big breaches. It never changes the
+  risk, comes from the scanner's stored copy without a new request, and is shown for at most two sites.
+- Email addresses are not checked. Have I Been Pwned's email search needs a paid key, XposedOrNot's free API is for
+  personal use and points products to paid plans, and LeakCheck's free API shows sensitive breaches, such as dating
+  sites, for any address. The reasons are in `docs/API_LICENSE_MATRIX.md`.
+- The header navigation keeps each label on one line and wraps whole items on narrow screens.
+- The Privacy policy and How it works describe the breach check; the policy keeps its October 8, 2026 date.
+- Verified: typecheck, 837 Vitest tests in 55 files (36 new), 20 node tests (the sitemap now has to match the page
+  list), the build, the accessibility check (72 axe-core checks, including the breach page with answers), and the
+  privacy check (a probe password and search words never sent; only 5 characters of the fingerprint). The local preview
+  reached Pwned Passwords and the breach list live.
+
 ## 2026-10-08: PhishDestroy from GitLab, a real favicon, and 404s for missing files
 
 - GitHub blocked the PhishDestroy account on 2026-10-07, so the daily list sync failed on 2026-10-08. The project now

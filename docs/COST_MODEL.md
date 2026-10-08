@@ -60,6 +60,17 @@ Per-visitor limits: 60 API requests, 10 scans, 10 share links, and 3 flags per m
 | MalwareBazaar calls | 1, counted in the same abuse.ch daily budget as URLhaus (`URLHAUS_DAILY_LIMIT`, 5,000) | Fair use |
 | CPU | Hashing and parsing run in the visitor's browser; the server only builds the report | |
 
+## Cost of one breach check
+
+| Resource | Per check | Limit |
+|---|---|---|
+| Worker requests | 1 per password check (`GET /api/v1/passwords/range/{prefix}`) and 1 when the breach list is opened (`GET /api/v1/breaches`) | 100,000 per day |
+| Subrequests | At most 3 for a password: a cache read, Pwned Passwords, and a cache write; none to Pwned Passwords for a prefix seen in the last day. At most 3 for the breach list: a cache read, the scanner, and a cache write | 50 per request |
+| Durable Object requests | 1 when the edge has no copy of the breach list; the scanner downloads the list itself at most every 12 hours | 100,000 per day |
+| Durable Object storage | One 191 KB value, written at most every 12 hours | 5 GB on Free |
+| CPU | The SHA-1 fingerprint and the search run in the browser; the Worker checks the range's format and adds padding (well under 1 ms). Parsing the 1.1 MB list happens in the scanner, which has 30 seconds | |
+| Rate limit | 20 password checks a minute per visitor (`PASSWORD_RATE_LIMITER`), inside the 60 API requests a minute | |
+
 ## Billing risks and controls
 
 | Risk | Control |

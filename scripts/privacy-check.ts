@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -660,6 +661,76 @@ async function checkEmailFile(): Promise<string[]> {
   });
 }
 
+const passwordProbe = "privacy probe 7q4 hunter2";
+const searchProbe = "privacyprobe7q4";
+
+function setInput(selector: string, value: string): string {
+  return `(() => { const box = document.querySelector(${JSON.stringify(selector)}); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(box, ${JSON.stringify(value)}); box.dispatchEvent(new Event("input", { bubbles: true })); })()`;
+}
+
+function buttonNamed(label: string): string {
+  return `[...document.querySelectorAll("button")].find((button) => button.textContent.trim() === ${JSON.stringify(label)})`;
+}
+
+const breachStatus = `[...document.querySelectorAll('[role="status"]')].map((node) => node.textContent).join(" ")`;
+
+async function checkBreaches(): Promise<string[]> {
+  return withChrome(async (cdp) => {
+    const failures: string[] = [];
+    const requests: SeenRequest[] = [];
+    cdp.on("Network.requestWillBeSent", (params) => {
+      requests.push(params.request as SeenRequest);
+    });
+    await cdp.send("Network.enable");
+    await openPage(cdp, base, "/breaches");
+    const hash = createHash("sha1").update(passwordProbe).digest("hex").toUpperCase();
+    try {
+      await cdp.evaluate(setInput('input[type="password"]', passwordProbe));
+      await waitFor(cdp, `${buttonNamed("Check password")} && !${buttonNamed("Check password")}.disabled`);
+      await cdp.evaluate(`${buttonNamed("Check password")}.click()`);
+      await waitFor(cdp, `/appeared in data breaches|not found in any known breach|could not be reached|a lot of passwords/.test(${breachStatus})`);
+      if (!(await cdp.evaluate<boolean>(`document.querySelector('input[type="password"]').value === ""`))) {
+        failures.push("the password box was not cleared after the check");
+      }
+      await cdp.evaluate(setInput('input[type="search"]', searchProbe));
+      await waitFor(cdp, `${buttonNamed("Search")} && !${buttonNamed("Search")}.disabled`);
+      await cdp.evaluate(`${buttonNamed("Search")}.click()`);
+      await waitFor(cdp, `/No known breach matches|could not be loaded/.test(${breachStatus})`);
+    } catch (error) {
+      failures.push(`the breach page did not work (${error instanceof Error ? error.message.slice(0, 160) : "unknown"})`);
+    }
+    const ranges = requests.filter((request) => request.url.startsWith(`${base}/api/v1/passwords/`));
+    if (ranges.length !== 1 || ranges[0]?.method !== "GET" || ranges[0]?.url !== `${base}/api/v1/passwords/range/${hash.slice(0, 5)}`) {
+      failures.push(`expected one GET with the first 5 characters of the fingerprint, saw ${ranges.map((request) => `${request.method} ${new URL(request.url).pathname}`).join(", ") || "none"}`);
+    }
+    const lists = requests.filter((request) => request.url.startsWith(`${base}/api/v1/breaches`));
+    if (lists.length !== 1 || lists[0]?.method !== "GET" || lists[0]?.url !== `${base}/api/v1/breaches`) {
+      failures.push(`expected one GET of the breach list, saw ${lists.length}`);
+    }
+    const secrets = [passwordProbe, encodeURIComponent(passwordProbe), "hunter2", hash.slice(5), hash.slice(5).toLowerCase(), hash.toLowerCase(), searchProbe];
+    for (const request of requests) {
+      const origin = new URL(request.url).origin;
+      if (!/^(data|blob):/.test(request.url) && origin !== base && origin !== turnstileOrigin) {
+        failures.push(`the breach page contacted ${origin}`);
+      }
+      if (secrets.some((secret) => request.url.includes(secret) || (request.postData ?? "").includes(secret))) {
+        failures.push(`the password, its full fingerprint, or the search words reached ${new URL(request.url).pathname}`);
+      }
+    }
+    const storage = await cdp.evaluate<{ local: string[]; session: number; databases: number; caches: number }>(`(async () => ({
+      local: Object.keys(localStorage),
+      session: sessionStorage.length,
+      databases: (await indexedDB.databases()).length,
+      caches: (await caches.keys()).length,
+    }))()`);
+    if (storage.local.some((key) => !allowedStorageKeys.has(key)) || storage.session > 0 || storage.databases > 0 || storage.caches > 0) {
+      failures.push(`the breach page stored something: ${JSON.stringify(storage)}`);
+    }
+    console.log(`${failures.length > 0 ? "FAIL" : "pass"}  a password checked with only 5 characters of its fingerprint sent, and a breach search that stayed in the browser`);
+    return failures;
+  });
+}
+
 async function checkScreenshots(): Promise<string[]> {
   return withChrome(async (cdp) => {
     const failures: string[] = [];
@@ -824,7 +895,7 @@ async function checkLiveApi(): Promise<string[]> {
 
 async function main(): Promise<void> {
   if (live) {
-    const failures = [...(await checkHeaders()), ...(await checkLiveApi()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck()), ...(await checkModFile()), ...(await checkEmailFile())];
+    const failures = [...(await checkHeaders()), ...(await checkLiveApi()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck()), ...(await checkModFile()), ...(await checkEmailFile()), ...(await checkBreaches())];
     report(failures);
     return;
   }
@@ -832,7 +903,7 @@ async function main(): Promise<void> {
   const failures = checkBundle();
   const server = await preview({ preview: { port, strictPort: true, host: "127.0.0.1", cors: false }, logLevel: "error" });
   try {
-    failures.push(...(await checkHeaders()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck()), ...(await checkModFile()), ...(await checkEmailFile()));
+    failures.push(...(await checkHeaders()), ...(await checkBrowser()), ...(await checkScreenshots()), ...(await checkFileCheck()), ...(await checkModFile()), ...(await checkEmailFile()), ...(await checkBreaches()));
   } finally {
     await new Promise<void>((resolve) => server.httpServer.close(() => resolve()));
   }

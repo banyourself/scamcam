@@ -1,8 +1,11 @@
+import type { BreachEntry } from "../shared/api";
+import { hibpBreachUrl } from "../shared/breaches";
 import type { EmailFacts } from "../shared/email";
 import { extractInput, maskedLinks, qrValues, withoutQrLabels } from "../shared/extract";
 import type { Evidence, ScanReport, UncheckedSource } from "../shared/report";
 import { brands, brandsNamedIn, freeHostOf, officialBrandFor, urlShorteners, userContentHosts } from "./brands";
 import type { AiReviewResult } from "./ai-review";
+import type { BreachIndex } from "./breach-catalog";
 import { cacheKey, memoryLookups, recallFromMemory, recordOutcome, rememberInMemory, sourceIsOpen, type Lookups } from "./cache";
 import { discordInviteDocs, lookupDiscordInvite, type DiscordInviteResult } from "./discord-invite";
 import { isPrivateAddress, lookupHost, type HostResult } from "./dns";
@@ -45,11 +48,13 @@ export interface ScanOptions {
   discordToken?: string | undefined;
   bitlyToken?: string | undefined;
   email?: EmailFacts | undefined;
+  breaches?: BreachIndex | undefined;
 }
 
 const maxNetworkLinks = 3;
 const maxRadarLinks = 2;
 const maxDiscordInvites = 2;
+const maxBreachDomains = 2;
 const newAccountDays = 30;
 const recentReportDays = 90;
 const maxUnwrappedLinks = 5;
@@ -511,6 +516,33 @@ function radarSignals(link: AnalyzedLink, domain: string, result: RadarResult): 
       strength: "moderate",
       title: `${domain} is one of the most visited sites (${place} on Cloudflare Radar)`,
       detail: "Cloudflare Radar ranks domains by real traffic. Very popular sites are rarely made for scams, but they can still be hacked or misused, so this does not prove a link is safe. Ranking data from Cloudflare Radar, CC BY-NC 4.0.",
+    },
+  ];
+}
+
+function monthAndYear(day: string): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+function breachSignals(link: AnalyzedLink, entries: BreachEntry[]): Signal[] {
+  const latest = entries[0];
+  const domain = link.registrableDomain;
+  if (!latest || !domain) {
+    return [];
+  }
+  return [
+    {
+      id: `breach-${domain}`,
+      source: sourceNames.breaches,
+      sourceUrl: hibpBreachUrl(latest.name),
+      link: link.hostname!,
+      direction: "context",
+      strength: "weak",
+      title:
+        entries.length === 1
+          ? `${latest.title} had a data breach in ${monthAndYear(latest.breachDate)}`
+          : `${domain} has had ${entries.length} known data breaches, the latest in ${monthAndYear(latest.breachDate)}`,
+      detail: `Have I Been Pwned lists a breach of ${latest.title} that exposed ${latest.accounts.toLocaleString("en-US")} accounts. A past breach does not make this link a scam, but scammers send fake "secure your account" messages after big breaches, so open the site yourself instead of following a link. Breach data from Have I Been Pwned, CC BY 4.0.`,
     },
   ];
 }
@@ -1284,6 +1316,13 @@ export async function scanContent(content: string, options: ScanOptions): Promis
     }
   }
 
+  const breaches = options.breaches;
+  if (breaches) {
+    const breached = uniqueBy(readable, (link) => (!link.isIp && link.registrableDomain && breaches.has(link.registrableDomain) ? link.registrableDomain : null));
+    for (const link of breached.slice(0, maxBreachDomains)) {
+      attach(link, breachSignals(link, breaches.get(link.registrableDomain!) ?? []));
+    }
+  }
   const namedBrands = brandsNamedIn(normalizeMessage(messageText));
   for (const link of readable) {
     if (!popularLinks.has(link)) {

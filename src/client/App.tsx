@@ -3,6 +3,7 @@ import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { AcceptableUsePage } from "@/pages/AcceptableUsePage";
 import { AccessibilityPage } from "@/pages/AccessibilityPage";
+import { BreachesPage } from "@/pages/BreachesPage";
 import { ContactPage } from "@/pages/ContactPage";
 import { CookiesPage } from "@/pages/CookiesPage";
 import { DisclosurePage } from "@/pages/DisclosurePage";
@@ -24,6 +25,7 @@ const DesignPreviewPage = import.meta.env.DEV
 const routes: Record<string, ComponentType> = {
   "/": HomePage,
   "/how-it-works": HowItWorksPage,
+  "/breaches": BreachesPage,
   "/extension": ExtensionPage,
   "/stats": StatsPage,
   "/privacy": PrivacyPage,

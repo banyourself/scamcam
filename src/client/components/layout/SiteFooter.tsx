@@ -5,6 +5,7 @@ const groups = [
     heading: "ScamCam",
     links: [
       { to: "/", label: "Check a link or message" },
+      { to: "/breaches", label: "Breach check" },
       { to: "/how-it-works", label: "How it works" },
       { to: "/extension", label: "Browser extension" },
       { to: "/stats", label: "Totals" },

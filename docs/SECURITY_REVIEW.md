@@ -317,6 +317,18 @@ engine, so a bot flood cannot turn a scam site into a "no known threat" result.
 | False alarms on popular mods | Capabilities that honest account tools need count once together and become context for files Modrinth publishes; checked against 61 real files from Modrinth | `test/client/mod-inspect.test.ts`, one run recorded in `docs/STATUS.md` |
 | Modrinth's rate limit | Answers are cached for hours; failures pause the source and show as Not checked | `test/engine/modrinth.test.ts` |
 
+## Breach check (2026-10-08)
+
+| Threat | Mitigation | Test |
+|---|---|---|
+| The password leaving the device | The browser sends only 5 of the 40 hex characters of its SHA-1 fingerprint in a GET path; the box is cleared after each check; nothing is stored. The privacy check types a probe password and fails if the password, the rest of the fingerprint, or the search words appear in any request | `test/client/breach-check.test.ts`, the breach step of `scripts/privacy-check.ts` |
+| The prefix giving the password away through the answer's size | Pwned Passwords is asked with `Add-Padding`, and the Worker adds 0 to 200 random zero-count lines to every answer, so a cached answer is not a fixed size | `test/engine/breaches.test.ts` |
+| Using the endpoint as an open proxy | Exactly 5 hex characters or a 400 before any lookup; 20 checks a minute per visitor; answers cached a day; only `api.pwnedpasswords.com` is ever asked | `test/worker/breaches-api.test.ts` |
+| Junk from upstream | Range answers must be `SUFFIX:COUNT` lines and at most 512 KB; the breach list is read with an 8 MB cap, each entry is checked with Zod, descriptions (which contain HTML) are dropped, and a list with fewer than 100 valid entries is refused | `test/engine/breaches.test.ts` |
+| Prefixes in logs | Logs record the route pattern `/api/v1/passwords/range/:prefix`, never the prefix | `test/worker/breaches-api.test.ts` |
+| A breach line read as a verdict | It is context only, never raises or lowers the risk, and says that a past breach does not make a link a scam | `test/engine/breaches.test.ts` |
+| Looking up someone else's email | Not offered. The free sources that would allow it either need a paid plan for a site like this or show sensitive breaches for any address ([API_LICENSE_MATRIX.md](API_LICENSE_MATRIX.md)) | |
+
 ## ThreatFox, list dates, and abuse.ch links (2026-10-06)
 
 | Issue | Change | Test |

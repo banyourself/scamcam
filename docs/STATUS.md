@@ -37,6 +37,7 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | AI step | 2026-10-05 | `@cf/qwen/qwen3-30b-a3b-fp8` for messages the rules cannot decide; one label, can add a warning but never lower a result, 2,000 calls a day |
 | File checks | 2026-10-06 | "Check a file", paste, or drop: the browser finds the real type and warning signs and sends only fingerprints; MalwareBazaar, CIRCL hashlookup, and Team Cymru's Malware Hash Registry are checked ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#file-checks-2026-10-06)) |
 | Minecraft mods and modpacks | 2026-10-07 | Mods are read on the device for what account stealers do (login folders, webhooks, hidden downloads, anti-analysis checks, hidden commands, launcher accounts, the login token), then compared with Modrinth by SHA-1 and mod ID (a reviewed release public for two weeks with nothing malware-like reads "No known threat detected"; newer releases get no credit, against hacked developer accounts); `.mrpack` and CurseForge packs are checked for unsafe downloads and carried mods ([SCAMCAM_ANALYSIS.md](SCAMCAM_ANALYSIS.md#minecraft-mods-and-modpacks-2026-10-07)) |
+| Breach check | Built 2026-10-08, not deployed yet | /breaches checks a password with Pwned Passwords by k-anonymity: the browser sends only the first 5 characters of its SHA-1 fingerprint to `GET /api/v1/passwords/range/{prefix}`, which asks with `Add-Padding`, adds its own random padding, keeps each answer a day in the Cache API, and allows 20 checks a minute per visitor (`PASSWORD_RATE_LIMITER`). It also searches Have I Been Pwned's public breach list in the browser (`GET /api/v1/breaches`, built by the scanner at most every 12 hours, kept in its storage and for 6 hours at the edge). Link reports mention a known breach of the link's site as context, from the scanner's stored copy only. Email addresses are not checked ([API_LICENSE_MATRIX.md](API_LICENSE_MATRIX.md)) |
 | Report it and Totals | 2026-10-07 | Suspicious or worse reports offer a copy-ready summary and the right places to report; /stats shows anonymous 7 and 30 day totals from `scan_totals` (migration `0009`, applied to production 2026-10-07) |
 | Browser extension | 2026-10-07 | `extension/`: right-click or toolbar "Check with ScamCam" opens the site with the text after `#check=`; no host permissions, nothing stored; manual install from /extension until the Edge Add-ons listing is approved ([EDGE-LISTING.md](EDGE-LISTING.md)) |
 | Screenshot reading | 2026-10-06 | "Read a screenshot", paste, or drop: the browser reads the text (Tesseract.js 7.0.0, English `best_int` model) and any QR code (jsQR 1.4.0), inverts dark-mode screenshots first, and adds the text to the box for review |
@@ -105,6 +106,8 @@ personal site are unchanged, and the live check confirms that no analytics reque
 | Bitly and is.gd/v.gd link expansion | Only the short code of their own links, from the scanner | Built 2026-10-07 with my Bitly token; tested with a fake server, answer formats checked live |
 | Steam Web API | The profile name or account number only, from the scanner | Key set on 2026-10-07; a live scan of a real profile reached Steam without errors |
 | ScamSniffer scam wallets and FCC consumer complaints | Nothing from visitors; the sync downloads them | Synced to production on 2026-10-07 (4,599 wallets, 28,734 numbers); both matched in live scans |
+| Pwned Passwords (Have I Been Pwned) | The first 5 characters of a password's SHA-1 fingerprint, from the Worker, never the visitor's address | Built 2026-10-08, no key; the local preview reached it live on 2026-10-08 (2,000 to 2,300 lines per range with padding) |
+| Have I Been Pwned breach list | Nothing from visitors; the scanner downloads the public list | Built 2026-10-08, no key; 1,042 breaches (1.1 MB) on 2026-10-08, 191 KB once compacted; CC BY 4.0, credited with a link wherever it is shown |
 | Workers AI (`@cf/qwen/qwen3-30b-a3b-fp8`) | The redacted message with links replaced by `[link]` | On, capped at 2,000 calls a day |
 | Cloudflare Turnstile | The token and the visitor's IP address | Production widget |
 
@@ -126,10 +129,10 @@ Terms and limits for every source are in [API_LICENSE_MATRIX.md](API_LICENSE_MAT
 
 | Check | Latest recorded result |
 |---|---|
-| Vitest (worker, engine, and client projects) | 795 tests in 51 files pass (2026-10-07, with Report it and the anonymous totals) |
-| Node config and script tests (`npm run test:config`) | 19 pass |
-| Accessibility (`npm run test:a11y`) | Passes; 64 axe-core checks, including the open flag form and the email details box in both themes at both widths |
-| Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot, file, Minecraft mod, email file, flag (scan, flag, confirmation), and share steps |
+| Vitest (worker, engine, and client projects) | 837 tests in 55 files pass (2026-10-08, with the breach check) |
+| Node config and script tests (`npm run test:config`) | 20 pass, including the sitemap matching the page list |
+| Accessibility (`npm run test:a11y`) | Passes; 72 axe-core checks, including the open flag form, the email details box, and the breach page with a password answer and search results, in both themes at both widths (2026-10-08) |
+| Privacy and headers (`npm run test:privacy`) | Passes, including the screenshot, file, Minecraft mod, email file, flag (scan, flag, confirmation), share, and breach check steps (only 5 characters of the password's fingerprint sent; search words never sent) |
 | Recovery drill (`npm run test:recovery`) | All 9 tables matched after export and restore, including shared reports, flags, two lists, and eight migrations; export 1.1 s (646 KB), restore 3.3 s (2026-10-07) |
 | `npm audit` | 0 vulnerabilities (2026-10-05) |
 
@@ -198,6 +201,8 @@ duration about ten times faster than needed. Every lookup now clears its timer w
 5. Ask abuse.ch (contact form) to confirm that showing per-lookup results with credit is fine, and ask Team Cymru
    (support@cymru.com) the same for the Malware Hash Registry.
 6. Review flags with `npm run flags` whenever the weekly report raises `flags_waiting`.
+7. The breach check (2026-10-08) is built and tested locally but not deployed. Deploying it adds the
+   `PASSWORD_RATE_LIMITER` binding (20 a minute); it needs no secret.
 
 ### Not verified yet
 
@@ -211,6 +216,8 @@ duration about ten times faster than needed. Every lookup now clears its timer w
 - A live URLhaus match. Only "no results" answers have been seen live; matches are tested with a fake server.
 - Google's `CANARY` and `FRAME_ONLY` attributes. They have not appeared live and are tested with encoded examples.
 - The Cache API was tested in local workerd only; production behavior (per data center, eviction) is untested.
+- Have I Been Pwned's rate limit for the breach list without a key, from Cloudflare's shared addresses, and keeping
+  the 191 KB breach list in the scanner's storage on Cloudflare (tested in local workerd only).
 - RDAP and DNS were called live only from local runs; registry rate limits in production are unknown.
 - The `databaseSizeBytes` check relies on D1's `meta.size_after`; it works locally, and production behavior is not
   yet verified.

@@ -68,6 +68,7 @@ export const sourceNames = {
   steam: "Steam account details (Steam Web API)",
   bitly: "Bitly link expansion",
   isgd: "is.gd link expansion",
+  breaches: "Have I Been Pwned (known breaches)",
   ai: "AI pattern check (Workers AI)",
 } as const;
 

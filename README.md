@@ -43,6 +43,11 @@ Reports that come back suspicious or worse end with Report it: a copy-ready summ
 the scam. A public [Totals](https://scamcam.kevinle.tech/stats) page shows anonymous weekly and monthly counts, kept only
 as daily counters of the input kind and result.
 
+The [Breach check](https://scamcam.kevinle.tech/breaches) tells people whether a password has leaked, using Pwned
+Passwords by Have I Been Pwned: the browser sends only the first 5 characters of the password's SHA-1 fingerprint and
+compares the answer itself. It also searches Have I Been Pwned's list of breached sites in the browser, so search words
+never leave the device.
+
 If a result looks wrong, the visitor can flag it. A flag goes into a queue I review by hand and never changes any
 result, so flagging a scam site over and over cannot make it look safe.
 

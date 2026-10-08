@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 
 const navigation = [
   { to: "/", label: "Check" },
+  { to: "/breaches", label: "Breaches" },
   { to: "/how-it-works", label: "How it works" },
   { to: "/security", label: "Security" },
 ];
@@ -20,14 +21,14 @@ export function SiteHeader() {
         </Link>
         <div className="flex items-center gap-2 sm:gap-4">
           <nav aria-label="Main">
-            <ul className="flex items-center gap-1 font-mono text-sm">
+            <ul className="flex flex-wrap items-center gap-1 font-mono text-sm">
               {navigation.map((item) => (
                 <li key={item.to}>
                   <Link
                     to={item.to}
                     aria-current={path === item.to ? "page" : undefined}
                     className={cn(
-                      "rounded-sm px-2 py-1.5 text-ink-soft hover:text-ink",
+                      "whitespace-nowrap rounded-sm px-2 py-1.5 text-ink-soft hover:text-ink",
                       path === item.to && "text-ink underline decoration-accent decoration-2 underline-offset-[6px]",
                     )}
                   >

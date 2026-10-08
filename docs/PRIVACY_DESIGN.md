@@ -16,6 +16,8 @@ teenagers. The design goal is to keep nothing that is not needed.
 | IP address | Rate limiting, Turnstile | Not by ScamCam. Passed to the Cloudflare rate limiter and Turnstile, which do not store it for us |
 | Request metadata | Debugging | Worker logs keep method, route, status, duration, and a request ID made by the Worker for 3 days. No IP, no URL, no query. Cloudflare's own per-request invocation logs are turned off |
 | Error type and route | Reliability | `error_events` for 7 days |
+| A password the visitor checks on /breaches | To see whether it appears in Pwned Passwords | Never leaves the device. The browser works out its SHA-1 fingerprint and sends only the first 5 of its 40 hex characters; the browser compares the answer itself. The box is cleared after each check. The answer for a prefix is kept a day in the Cache API under a hashed key |
+| What the visitor types in the breach search | To find breached websites and companies | Never sent. The browser downloads the whole compact breach list and searches it on the device |
 | A flag the visitor sends on a result | So I can review the result by hand | `result_flags` for 30 days, or until I mark it reviewed: the case number, verdict, finding IDs, the link's registrable domain (or its host when it has none) or the file's SHA-256, the reason, and the note after redaction. Never the message, the full link, the file, the signature, or the IP address. Flags are never read by the scan engine |
 
 ## What is never collected
@@ -43,6 +45,8 @@ history, screenshots, cookies other than strictly necessary security cookies fro
 | Cloudflare Radar | The registrable domain only | Up to 2 per scan, only in the scanner, when the token is set; never for shared hosting |
 | Bitly, is.gd, and v.gd | Only the short code of their own short links (for example `bit.ly/abc`), with ScamCam's Bitly token for Bitly | Up to 2 per scan, only in the scanner; the destination is checked like any other link and never opened |
 | Discord | The invite code from a Discord invite link | Up to 2 per scan, only in the scanner; answers kept in memory for an hour |
+| Have I Been Pwned (Pwned Passwords) | The first 5 hex characters of a password's SHA-1 fingerprint, sent by the Worker, so never the visitor's IP address | Each password check on /breaches |
+| Have I Been Pwned (breach list) | Nothing from visitors. The scanner downloads the public list | At most once every 12 hours |
 | Steam (Valve) | The profile name or account number from a steamcommunity.com link, with ScamCam's API key | Up to 2 accounts per scan (at most 4 calls), only in the scanner, when the key is set; answers kept in memory for an hour |
 | VirusTotal, Google Safe Browsing site status, urlscan.io, Cisco Talos, ScamAdviser, URLVoid, Hybrid Analysis | Nothing from ScamCam. The report links to their public pages; they see the domain or fingerprint in the address only if the visitor clicks | Only when the visitor clicks |
 | Cloudflare Turnstile | The Turnstile token and the visitor's IP address | Every scan |
@@ -69,4 +73,7 @@ Gaming audiences include minors. Rules that apply from day one:
   prefix in memory only.
 - AI answers (one label) are kept only in the Worker's memory, for an hour, under a hash of the cleaned message.
 - The `Scanner` Durable Object keeps the same kinds of answers in its memory only, under the same hashed keys and
-  expiry rules. It writes nothing to its storage.
+  expiry rules. The only thing it writes to its storage is the public breach list from Have I Been Pwned.
+- Password ranges are kept in the named cache only, never in memory, because each is about 80 KB. The prefix is
+  already shared by about 2,000 leaked passwords, and every answer gets fresh random padding, so its size does not
+  give the prefix away.

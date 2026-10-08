@@ -1,5 +1,6 @@
 import { DocumentPage } from "@/components/layout/DocumentPage";
 import { RiskMeter } from "@/components/report/RiskMeter";
+import { Link } from "@/router";
 import { ocrBase } from "../../shared/ocr";
 import { riskExplanations, riskLabels, riskLevels } from "../../shared/report";
 
@@ -8,7 +9,7 @@ export function HowItWorksPage() {
     <DocumentPage
       title="How it works"
       reference="SC-DOC-01"
-      updated="2026-10-07"
+      updated="2026-10-08"
       lead="ScamCam treats every check like a case: collect evidence from independent sources, compare it, and only then reach a verdict you can inspect."
     >
       <h2>Evidence before AI</h2>
@@ -59,7 +60,10 @@ export function HowItWorksPage() {
           leads and checks that address too, without opening either one. Very popular sites in{" "}
           <a href="https://radar.cloudflare.com/domains">Cloudflare Radar</a>&apos;s ranking (
           <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>) only soften small warnings, such as an
-          often-abused ending, and never outweigh a real listing. ScamCam never opens the link itself. Google works to provide the most
+          often-abused ending, and never outweigh a real listing. When a link&apos;s site is on{" "}
+          <a href="https://haveibeenpwned.com/PwnedWebsites">Have I Been Pwned</a>&apos;s list of breached sites (
+          <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>), the report mentions it as background,
+          because scammers send fake &quot;secure your account&quot; messages after big breaches. ScamCam never opens the link itself. Google works to provide the most
           accurate and up-to-date information about unsafe web resources, but it cannot guarantee that its information is
           complete and error-free: some risky sites may not be identified, and some safe sites may be identified in error.
         </li>
@@ -105,6 +109,16 @@ export function HowItWorksPage() {
           ))}
         </tbody>
       </table>
+
+      <h2>Breach check</h2>
+      <p>
+        The <Link to="/breaches">breach check</Link> tells you whether a password has appeared in a data breach. Your
+        browser turns the password into a SHA-1 fingerprint and sends only its first 5 characters. ScamCam passes them to{" "}
+        <a href="https://haveibeenpwned.com/Passwords">Pwned Passwords by Have I Been Pwned</a>, which answers with every
+        leaked fingerprint that starts the same way, plus random filler, and your browser looks for yours among them. The
+        same page searches Have I Been Pwned&apos;s list of breached websites and companies on your device. ScamCam does not
+        check email addresses.
+      </p>
 
       <h2>If a result looks wrong</h2>
       <p>

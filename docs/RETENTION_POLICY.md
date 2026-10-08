@@ -18,6 +18,9 @@ This is ScamCam's written retention schedule (also required by the 2025 COPPA am
 | Files a visitor checks | Never uploaded or stored | The browser sends only fingerprints and finding codes; a test checks that no name or content reaches any server |
 | File lookup answers (MalwareBazaar, CIRCL hashlookup, Team Cymru, Modrinth) | 15 minutes to 1 day, in the scanner's memory only, under hashed keys | Scanner memory |
 | AI answers (one label) | 1 hour, in memory only | Worker memory |
+| Passwords checked on /breaches | Never sent or stored; only 5 characters of the fingerprint leave the device | The browser |
+| Pwned Passwords ranges (public answers for a 5-character prefix) | 1 day | Cache API expiry, with a stored expiry time checked on every read |
+| Have I Been Pwned breach list (public data) | Replaced after 12 hours when someone opens the list; used for at most 7 days; 6 hours at the edge | Scanner storage (one key) and Cache API expiry |
 | Scam list copies (hashed keys): Phishing.Database, MetaMask, ScamSniffer, PhishDestroy, DevSpen, CERT Polska, and the FTC's reported phone numbers (the last 30 days of reports) | Replaced daily; not used once the source data is too old (30 days for Phishing.Database, 7 for the other GitHub lists, 3 for CERT Polska, 10 for the FTC list, 365 for DevSpen's rarely updated list); deleted 10 days after the last sync | `domain_lists.expires_at`, `domain_list_shards.expires_at`, daily cleanup |
 | Threat intelligence cache | Provider-defined expiry (for example Safe Browsing `cacheDuration`) | Cache API, see provider answers above |
 | Verified first-party indicators | Reviewed at least every 30 days | `review_after` column (planned with the `threat_indicators` table) |

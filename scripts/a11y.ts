@@ -116,6 +116,41 @@ async function auditReportFlow(cdp: Cdp, base: string): Promise<string[]> {
   return failures;
 }
 
+const statusText = `[...document.querySelectorAll('[role="status"]')].map((node) => node.textContent).join(" ")`;
+
+function typeInto(selector: string, value: string): string {
+  return `(() => { const box = document.querySelector(${JSON.stringify(selector)}); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(box, ${JSON.stringify(value)}); box.dispatchEvent(new Event("input", { bubbles: true })); })()`;
+}
+
+function pressButton(label: string): string {
+  return `[...document.querySelectorAll("button")].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).click()`;
+}
+
+async function auditBreachFlow(cdp: Cdp, base: string): Promise<string[]> {
+  const failures: string[] = [];
+  for (const viewport of viewports) {
+    await cdp.send("Emulation.setDeviceMetricsOverride", { ...viewport, deviceScaleFactor: 1 });
+    for (const theme of themes) {
+      const label = `/breaches (answers) ${theme} ${viewport.width}px`;
+      await openWithTheme(cdp, base, "/breaches", theme);
+      try {
+        await cdp.evaluate(typeInto('input[type="password"]', "accessibility check password"));
+        await cdp.evaluate(pressButton("Check password"));
+        await waitFor(cdp, `/appeared in data breaches|not found in any known breach|could not be reached|a lot of passwords/.test(${statusText})`);
+        await cdp.evaluate(typeInto('input[type="search"]', "adobe"));
+        await cdp.evaluate(pressButton("Search"));
+        await waitFor(cdp, `/breach(es)? match|No known breach matches|could not be loaded/.test(${statusText})`);
+      } catch (error) {
+        failures.push(`${label}: the checks did not finish (${error instanceof Error ? error.message.slice(0, 120) : "unknown"})`);
+        console.log(`FAIL  ${label}`);
+        continue;
+      }
+      failures.push(...(await checkPage(cdp, label, false)));
+    }
+  }
+  return failures;
+}
+
 async function auditProductionBuild(): Promise<string[]> {
   process.env.NODE_ENV = "production";
   const server = await preview({ preview: { port: 4174, strictPort: true, host: "127.0.0.1" }, logLevel: "error" });
@@ -123,6 +158,7 @@ async function auditProductionBuild(): Promise<string[]> {
     return await withChrome(async (cdp) => [
       ...(await audit(cdp, "http://127.0.0.1:4174", publicRoutes)),
       ...(await auditReportFlow(cdp, "http://127.0.0.1:4174")),
+      ...(await auditBreachFlow(cdp, "http://127.0.0.1:4174")),
     ]);
   } finally {
     await new Promise<void>((resolve) => server.httpServer.close(() => resolve()));

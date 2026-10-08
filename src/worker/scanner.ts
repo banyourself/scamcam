@@ -1,10 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 import { createLookupState, memoryLookupCache, type Lookups } from "../engine/cache";
+import type { BreachCatalog } from "../shared/api";
 import { dohTransport } from "../engine/doh-transport";
 import type { DnsAnswer, DnsTransport } from "../engine/spamhaus";
 import type { AppBindings } from "./env";
 import type { EmailFacts } from "../shared/email";
 import type { FileCheckRequest } from "../shared/file-check";
+import { BreachKeeper } from "./breach-keeper";
 import { logEvent } from "./logging";
 import { runFileCheck, runScan, type ScanDependencies, type ScanOutcome } from "./scan-runner";
 
@@ -24,6 +26,7 @@ const watchedHosts = new Map([
   ["is.gd", "isgd"],
   ["v.gd", "isgd"],
   ["api.modrinth.com", "modrinth"],
+  ["haveibeenpwned.com", "hibp"],
 ]);
 const missingIsAnswer = new Set(["radar", "discord", "modrinth"]);
 
@@ -112,6 +115,10 @@ export class Scanner extends DurableObject<AppBindings> {
   private readonly lookups: Lookups = { cache: this.lookupCache, state: this.lookupState, clock: Date.now };
   private readonly fetcher = watchedFetcher((input, init) => fetch(input, init));
   private readonly dnsTransport = watchedTransport(dohTransport(this.fetcher));
+  private readonly breachKeeper = new BreachKeeper(
+    { get: (key) => this.ctx.storage.get(key), put: (key, value) => this.ctx.storage.put(key, value) },
+    this.fetcher,
+  );
 
   private dependencies(): ScanDependencies {
     return {
@@ -124,7 +131,12 @@ export class Scanner extends DurableObject<AppBindings> {
   }
 
   async scan(content: string, fromScreenshot = false, email?: EmailFacts): Promise<ScanOutcome> {
-    return runScan(this.env, content, this.dependencies(), fromScreenshot, email);
+    const breaches = await this.breachKeeper.index().catch(() => undefined);
+    return runScan(this.env, content, { ...this.dependencies(), breaches }, fromScreenshot, email);
+  }
+
+  async breachCatalog(): Promise<BreachCatalog | null> {
+    return this.breachKeeper.current();
   }
 
   async checkFile(request: FileCheckRequest): Promise<ScanOutcome> {
@@ -135,6 +147,11 @@ export class Scanner extends DurableObject<AppBindings> {
 export async function scanInScanner(namespace: DurableObjectNamespace<Scanner>, content: string, fromScreenshot = false, email?: EmailFacts): Promise<ScanOutcome> {
   const stub = namespace.get(namespace.idFromName(scannerName), { locationHint: scannerLocation });
   return (await stub.scan(content, fromScreenshot, email)) as ScanOutcome;
+}
+
+export async function breachCatalogInScanner(namespace: DurableObjectNamespace<Scanner>): Promise<BreachCatalog | null> {
+  const stub = namespace.get(namespace.idFromName(scannerName), { locationHint: scannerLocation });
+  return (await stub.breachCatalog()) as BreachCatalog | null;
 }
 
 export async function checkFileInScanner(namespace: DurableObjectNamespace<Scanner>, request: FileCheckRequest): Promise<ScanOutcome> {

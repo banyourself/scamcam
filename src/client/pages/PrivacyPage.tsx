@@ -16,6 +16,7 @@ export function PrivacyPage() {
         <li>Screenshots are read on your own device and are never uploaded.</li>
         <li>Files you check stay on your device. Only their fingerprints are sent, never the file or its name.</li>
         <li>Email files are read on your device. Email addresses and attachments never leave it.</li>
+        <li>Passwords you check for leaks never leave your device. Only the first 5 characters of a scrambled fingerprint are sent.</li>
         <li>ScamCam does not save your IP address.</li>
         <li>Nothing is sold or shared for marketing, ever.</li>
       </ul>
@@ -103,12 +104,29 @@ export function PrivacyPage() {
             <td>Google&apos;s answer is kept for as long as Google allows, usually a few minutes</td>
           </tr>
           <tr>
+            <td>A password you check on the breach check page</td>
+            <td>
+              Your browser works out its SHA-1 fingerprint and sends only the first 5 of its 40 characters, so ScamCam can ask
+              Pwned Passwords for every leaked fingerprint that starts the same way. Your browser then looks for yours itself
+            </td>
+            <td>
+              The password and its full fingerprint never leave your device and are never stored. The answer for those 5
+              characters, which about 2,000 leaked passwords share, is kept for a day under a scrambled key
+            </td>
+          </tr>
+          <tr>
+            <td>What you type in the breach search</td>
+            <td>To find websites and companies that had a data breach</td>
+            <td>Never sent. Your browser downloads the whole list of known breaches and searches it on your device</td>
+          </tr>
+          <tr>
             <td>The name of the website in a link, such as example.com</td>
             <td>
               To look up how old the domain is (domain registries), whether it exists (Cloudflare DNS), whether Cloudflare&apos;s
               security filter blocks it (Cloudflare 1.1.1.2), whether it is known for malware (URLhaus and ThreatFox), whether
               Spamhaus lists it or first saw it in the last day, whether PhishStats has phishing reports for it, and how popular it
-              is (Cloudflare Radar)
+              is (Cloudflare Radar). ScamCam also compares it with its own copy of Have I Been Pwned&apos;s list of breached
+              sites, without sending it anywhere
             </td>
             <td>The answers are kept for 1 minute to 1 day under a scrambled key, so the name itself is not stored</td>
           </tr>
@@ -204,6 +222,12 @@ export function PrivacyPage() {
           Modrinth, never the file, its name, or your IP address.
         </li>
         <li>
+          <strong>Have I Been Pwned</strong> receives only the first 5 characters of a password&apos;s SHA-1 fingerprint
+          when you check a password, asked by ScamCam on your behalf, never the password, the rest of the fingerprint, or
+          your IP address. ScamCam also downloads its public list of breached websites (CC BY 4.0) by itself, with nothing
+          from visitors.
+        </li>
+        <li>
           <strong>Phishing.Database, MetaMask&apos;s phishing list, ScamSniffer, PhishDestroy, a public-domain Discord and Steam
           scam list, and CERT Polska&apos;s warning list</strong> are public lists of scam sites, and ScamSniffer also lists scam
           wallet addresses. ScamCam keeps a scrambled copy of each and checks links, email senders, and wallet addresses
@@ -255,7 +279,8 @@ export function PrivacyPage() {
       <h2>Where information is processed</h2>
       <p>
         Cloudflare runs ScamCam in data centers around the world, usually one near you. The lookup services listed above
-        are based in the United States (including Discord and Steam), Switzerland (abuse.ch), and the countries where
+        are based in the United States (including Discord and Steam), Australia (Have I Been Pwned), Switzerland (abuse.ch),
+        and the countries where
         Spamhaus, PhishStats, and each domain registry operate.
       </p>
 
@@ -269,9 +294,10 @@ export function PrivacyPage() {
 
       <h2>Changes</h2>
       <p>
-        This version takes effect on October 8, 2026. It adds that ScamCam has no session replay, loads no fonts or code
-        from other companies apart from the bot check, and treats Global Privacy Control as a request not to sell or
-        share. The version of October 7, 2026 added email file checks, Discord invite and Steam account lookups, short
+        This version takes effect on October 8, 2026. It adds the breach check, which asks Pwned Passwords about the first
+        5 characters of a password&apos;s fingerprint and searches Have I Been Pwned&apos;s list of breached sites on your
+        device, and says that ScamCam has no session replay, loads no fonts or code from other companies apart from the bot
+        check, and treats Global Privacy Control as a request not to sell or share. The version of October 7, 2026 added email file checks, Discord invite and Steam account lookups, short
         link expansion with Bitly and is.gd, the FCC&apos;s complaint numbers, and ScamSniffer&apos;s list of scam wallets.
         Any change will be posted on this page with a new date.
       </p>

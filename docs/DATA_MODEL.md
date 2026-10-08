@@ -17,8 +17,9 @@ can move to PostgreSQL later without touching routes.
 | `domain_list_shards` (migrations `0003`, `0006`, `0007`, and `0008`) | Sorted 8-byte SHA-256 keys of listed domains, of phone numbers as `+1` and 10 digits for the phone lists, or of lowercase `0x` wallet addresses, 1,024 rows per list | `PRIMARY KEY (list, shard)`, replaced in place by each sync | 10 days after the last sync |
 | `result_flags` (migration `0006`) | Results a visitor flagged for review | `id` (128 random bits), `report_key` (unique: the first 16 bytes of SHA-256 of the report signature, so one flag per report), `case_number`, `kind`, `level`, `subject` (domain or file SHA-256), `evidence` (finding IDs), `reason` (`CHECK` on four values), `note` (at most 300 characters), `created_at`, `expires_at` | 30 days, or until reviewed. Never read by the scan engine |
 
-The `Scanner` Durable Object is declared with a SQLite storage backend, the only kind the Free plan allows, but it
-writes nothing there. Its lookup cache lives in memory.
+The `Scanner` Durable Object is declared with a SQLite storage backend, the only kind the Free plan allows. It keeps
+one key there, `breach-catalog`: the compact copy of Have I Been Pwned's public breach list (about 191 KB, under the 2
+MB value limit), replaced after 12 hours. Its lookup cache lives in memory.
 
 ## Planned tables
 

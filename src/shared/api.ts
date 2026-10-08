@@ -45,3 +45,24 @@ export const StatsResponseSchema = z
 
 export type StatsSummary = z.infer<typeof StatsSummarySchema>;
 export type StatsResponse = z.infer<typeof StatsResponseSchema>;
+
+export const breachNotes = ["unverified", "fabricated", "sensitive", "spam_list", "malware", "stealer_log", "retired"] as const;
+
+const BreachEntrySchema = z.object({
+  name: z.string(),
+  title: z.string(),
+  domain: z.string(),
+  breachDate: z.string(),
+  addedDate: z.string(),
+  accounts: z.number().int().nonnegative(),
+  classes: z.array(z.number().int().nonnegative()),
+  notes: z.array(z.enum(breachNotes)),
+});
+
+export const BreachCatalogSchema = z
+  .object({ fetchedAt: z.string(), dataClasses: z.array(z.string()), breaches: z.array(BreachEntrySchema) })
+  .openapi("BreachCatalog");
+
+export type BreachNote = (typeof breachNotes)[number];
+export type BreachEntry = z.infer<typeof BreachEntrySchema>;
+export type BreachCatalog = z.infer<typeof BreachCatalogSchema>;

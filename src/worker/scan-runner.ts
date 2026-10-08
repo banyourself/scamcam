@@ -1,4 +1,5 @@
 import { reviewMessage, type TextModel } from "../engine/ai-review";
+import type { BreachIndex } from "../engine/breach-catalog";
 import type { Lookups } from "../engine/cache";
 import { fileReport } from "../engine/file-scan";
 import { lookupFileHashes } from "../engine/hash-lookups";
@@ -22,6 +23,7 @@ export interface ScanDependencies {
   aiModel: TextModel | null;
   extendedLookups?: boolean;
   dnsTransport?: DnsTransport;
+  breaches?: BreachIndex | undefined;
 }
 
 export interface ScanOutcome {
@@ -105,6 +107,7 @@ export async function runScan(env: AppBindings, content: string, dependencies: S
     steamKey: env.STEAM_WEB_API_KEY || undefined,
     discordToken: env.DISCORD_BOT_TOKEN || undefined,
     bitlyToken: env.BITLY_TOKEN || undefined,
+    breaches: dependencies.breaches,
   });
   const checked = ScanReportSchema.parse(report);
   return { report: checked, signature: await signReport(checked, env.SHARE_SIGNING_KEY) };
