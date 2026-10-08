@@ -2,3 +2,5 @@ User-agent: *
 Allow: /
 Disallow: /api/
 Disallow: /r/
+
+Sitemap: https://scamcam.kevinle.tech/sitemap.xml

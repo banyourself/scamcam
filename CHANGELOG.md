@@ -3,6 +3,21 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-07: Search engines and link previews
+
+- Every public page now arrives with its own title, description, canonical link, and Open Graph and Twitter tags. The
+  React app is client side, so the Worker now runs first for page paths (`src/worker/pages.ts`) and rewrites the head
+  of the built `index.html` with HTMLRewriter. Files under `/assets`, `/ocr`, and the other static files still skip the
+  Worker. The `_headers` security headers still apply because the page comes from the asset binding.
+- Unknown paths answer a real 404 with `noindex` instead of a 200 that search engines treat as a soft 404. Shared
+  reports (`/r/...`) stay `noindex`.
+- New `sitemap.xml` with the twelve public pages, a `Sitemap:` line in `robots.txt`, a 1200 by 630 preview image
+  (`og-image.png`), and WebSite plus WebApplication structured data in the page.
+- In `vite dev` the Worker hands pages straight to Vite, so the dev server and the accessibility check still work.
+- Verified: typecheck, 800 Vitest tests in 52 files (5 new: every page's tags, the 404, shared reports, files passing
+  through, and no markup in titles), the privacy check (now expecting a 404 for a missing page and checking the sitemap
+  and preview image headers), the accessibility check, and the build.
+
 ## 2026-10-07: Report it, and public anonymous totals
 
 - Reports that come back suspicious or worse now end with **Report it**: a Copy summary button that builds a plain-text

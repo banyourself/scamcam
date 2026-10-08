@@ -3,7 +3,7 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
     "lib": ["ES2023"],
-    "types": ["./worker-configuration.d.ts", "@cloudflare/vitest-plugin/types"]
+    "types": ["./worker-configuration.d.ts", "@cloudflare/vitest-plugin/types", "vite/client"]
   },
   "include": ["src/worker", "src/shared", "src/engine", "test/worker", "test/engine"]
 }
