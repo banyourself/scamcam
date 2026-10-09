@@ -72,13 +72,13 @@ describe("callback scam rules", () => {
 
   it("catches fake order, charge, and voicemail texts that send you to a phone number", () => {
     const walmart =
-      '17607662951 Deposited a new message: "This notification relates to an HP Specter X 360 14 inch order for approximately $999. Open your Walmart account through the official app or website to review the purchase details. Please call us back or press 1 to speak with a Walmart customer support representative." Click here: 14699825001 to listen to full voice message.';
+      '17605550182 Deposited a new message: "This notification relates to an HP Specter X 360 14 inch order for approximately $999. Open your Walmart account through the official app or website to review the purchase details. Please call us back or press 1 to speak with a Walmart customer support representative." Click here: 14695550147 to listen to full voice message.';
     expect(ids(redacted(walmart))).toEqual(expect.arrayContaining(["fake-voicemail", "fake-order-callback", "company-callback"]));
     expect(analyzeMessage(redacted(walmart)).families).toEqual(["callback_scam"]);
     expect(ids(redacted("Your Norton subscription has been renewed for $399.99. If you did not authorize this, call our billing team at (855) 712-4433."))).toEqual(
       expect.arrayContaining(["fake-order-callback", "company-callback"]),
     );
-    expect(ids(redacted("PayPal: a payment of $649.00 to Coinbase was approved. Not you? Call 1-888-614-2077 now."))).toContain("fake-order-callback");
+    expect(ids(redacted("PayPal: a payment of $649.00 to Coinbase was approved. Not you? Call 1-888-555-0193 now."))).toContain("fake-order-callback");
     expect(ids(redacted("You have 1 new voicemail. Tap here: 213-555-0142 to listen."))).toContain("fake-voicemail");
   });
 

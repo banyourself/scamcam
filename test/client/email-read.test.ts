@@ -29,7 +29,7 @@ function email(lines: string[]): string {
 const html = '<html><head><style>p{color:red}</style><title>x</title></head><body><p>Dear user,</p><p>Your Steam account will be locked. Verify it at <a href="https://steam-login.example/verify?id=1&amp;t=2">steamcommunity.com/login</a> within 24 hours.</p><script>alert(1)</script><p>Steam&nbsp;Support &#8211; Valve</p></body></html>';
 
 const phishing = email([
-  "Delivered-To: victim.person@gmail.com",
+  "Delivered-To: victim.person@inbox.example",
   "Received: from mail.steam-security-alert.example (mail.steam-security-alert.example [203.0.113.9])",
   "Authentication-Results: mx.google.com;",
   "       dkim=none;",
@@ -38,7 +38,7 @@ const phishing = email([
   "Authentication-Results: spoofed.example; dmarc=pass",
   "From: =?UTF-8?B?U3RlYW0gU3VwcG9ydA==?= <no-reply@steam-security-alert.example>",
   "Reply-To: help.desk@other-mailer.example",
-  "To: victim.person@gmail.com",
+  "To: victim.person@inbox.example",
   "Subject: =?UTF-8?Q?Your_account_will_be_locked_=E2=80=93_action_needed?=",
   "MIME-Version: 1.0",
   'Content-Type: multipart/mixed; boundary="outer"',
@@ -91,7 +91,7 @@ describe("reading an email file on the visitor's device", () => {
       attachments: [{ kind: "windows_program", extension: "exe", findings: ["double_extension"] }],
     });
     const everything = JSON.stringify(read);
-    for (const secret of ["victim.person", "no-reply@", "help.desk", "gmail.com", "invoice.pdf", "203.0.113.9"]) {
+    for (const secret of ["victim.person", "no-reply@", "help.desk", "inbox.example", "invoice.pdf", "203.0.113.9"]) {
       expect(everything).not.toContain(secret);
     }
   });

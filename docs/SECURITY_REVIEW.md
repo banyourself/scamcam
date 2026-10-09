@@ -2,7 +2,7 @@
 
 Date: 2026-10-05, before launch, with sections added on 2026-10-06 for screenshot reading and share links. Scope:
 the code on `main` at the end of the security hardening work, run on my PC and in GitHub Actions. Nothing was
-deployed yet, so live Cloudflare behavior is not covered here; the live checks after launch are in `STATUS.md`. This
+deployed at the time, so live Cloudflare behavior is not covered here; the live checks after launch are in `STATUS.md`. This
 is a self-review backed by automated tests, not an independent penetration test. AI risks are covered separately in
 `OWASP_LLM_TOP_10.md`.
 

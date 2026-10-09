@@ -100,10 +100,10 @@ describe("domain list SQL", () => {
 
 describe("phone list entries", () => {
   it("normalizes US numbers in any common form and refuses everything else", () => {
-    for (const entry of ["4699825001", "14699825001", "+1 (469) 982-5001", "469.982.5001", " 469-982-5001 "]) {
-      expect(normalizePhoneEntry(entry), entry).toBe("+14699825001");
+    for (const entry of ["4695550147", "14695550147", "+1 (469) 555-0147", "469.555.0147", " 469-555-0147 "]) {
+      expect(normalizePhoneEntry(entry), entry).toBe("+14695550147");
     }
-    for (const entry of ["0699825001", "4691825001", "24699825001", "469982500", "+44 20 7946 0958", "not a number", ""]) {
+    for (const entry of ["0695550147", "4691550147", "24695550147", "469555014", "+44 20 7946 0958", "not a number", ""]) {
       expect(normalizePhoneEntry(entry), entry).toBeNull();
     }
   });

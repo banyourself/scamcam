@@ -153,7 +153,7 @@ How each suite runs is in [TEST_PLAN.md](TEST_PLAN.md).
 
 | Set | Result |
 |---|---|
-| Tuning benchmark (69 labeled cases, outside sources off) | Precision 1.000, recall 1.000; a tuning set, not an independent evaluation |
+| Tuning benchmark (88 labeled cases: 47 scams and 41 safe, outside sources off, run 2026-10-09) | Precision 1.000, recall 1.000; a tuning set, not an independent evaluation |
 | Held-out domains from Phishing.Database (rules only, one run) | Fresh sample (seed 20261007): 94 of 200 gaming-impersonation domains flagged (53 with the rules before 2026-10-07) and 0 of 200 random domains; 0 of 178 legitimate sites flagged. The first sample (seed 20261005) is now a tuning set: 127 of 200, up from 71 |
 | Real Minecraft files from Modrinth (one run, 2026-10-07) | 61 files: none flagged; 5 login-token tools would be Suspicious, never High risk, if Modrinth did not have the exact file; slowest 3.1 s (Essential, 51 MB) |
 | AI holdout (20 scams, 20 normal messages) | Rules only: 3 of 20 scams caught. Rules and Qwen3: 16 of 20, with 0 false alarms |

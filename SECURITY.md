@@ -2,14 +2,15 @@
 
 ## Reporting a vulnerability
 
-Email **kevin@kevinle.tech** with "ScamCam security" in the subject. Include what you found, how to reproduce it,
-and what an attacker could do with it. You will get a reply within 7 days.
+Email **kevin@kevinle.tech** with "ScamCam security" in the subject, or use **Report a vulnerability** on this
+repository's Security tab to report it privately through GitHub. Include what you found, how to reproduce it, and what
+an attacker could do with it. You will get a reply within 7 days.
 
 The machine-readable contact is at `/.well-known/security.txt` (RFC 9116).
 
 ### Authorized testing
 
-You may test `scamcam.kevinle.tech` when it is live, as long as you:
+You may test `scamcam.kevinle.tech` as long as you:
 
 - only use your own test data and never access, change, or delete other people's data,
 - keep request rates low and stop if you notice degraded service,
@@ -18,7 +19,7 @@ You may test `scamcam.kevinle.tech` when it is live, as long as you:
 - give a reasonable time to fix the issue before sharing details publicly.
 
 Good-faith research that follows these rules will not be met with legal action. This policy is based on the
-disclose.io templates (CC0) and is a draft pending review.
+disclose.io templates (CC0).
 
 Out of scope: missing headers that have no security impact, reports from automated scanners without a working
 proof, rate limits on purpose-built endpoints, and anything on `kevinle.tech` outside the ScamCam subdomain.
@@ -33,7 +34,7 @@ proof, rate limits on purpose-built endpoints, and anything on `kevinle.tech` ou
 | Abuse | Rate limits of 60 API requests and 10 scans per minute per visitor, with IPv6 visitors grouped by /64, through the Workers rate limiting binding (which counts per Cloudflare location and is eventually consistent); Turnstile verification on every scan that fails closed when it is not configured; daily provider budgets counted exactly for the whole service |
 | Errors | Users see a generic message and a request ID made by the Worker; the database records only the error type and route for 7 days |
 | Logging | Only fixed fields are logged (route, status, timing, the AI's label and size, maintenance reports, alerts). Cloudflare's per-request invocation logs are off. No IP addresses, messages, or links |
-| Platform limits | Every request stays within the Workers Free plan: parsing time grows in step with input length (under 1 ms for the worst crafted inputs), and a 20-link scan uses at most 38 of the 50 subrequests (37 in the scanner even with Discord, Steam, and short links). Both are tested |
+| Platform limits | Every request stays within the Workers Free plan: parsing time grows in step with input length (under 1 ms for the worst crafted inputs), and a 20-link scan uses at most 39 of the 50 subrequests (38 with Discord invites, Steam profiles, short links, and a GitHub repository among them). Both are tested |
 | Provider answers | Read with size caps (64 KB to 1 MB), time limits, and schemas; links to a provider must be that provider's own `https` pages |
 | Monitoring | Daily and weekly reports with alerts for usage near the daily budgets, storage, failed or stuck runs, cleanup backlog, errors, and a stale list |
 | Recovery | Runbook in [docs/RECOVERY.md](docs/RECOVERY.md); a backup and restore drill runs in CI |

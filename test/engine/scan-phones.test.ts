@@ -5,7 +5,7 @@ import { allowAllBudgets, fakeNetwork, listsOf } from "./fake-network";
 
 const now = new Date("2026-10-06T20:45:00.000Z");
 const walmart =
-  '17607662951 Deposited a new message:\n"This notification relates to an HP Specter X 360 14 inch order for approximately $999. Open your Walmart account through the official app or website to review the purchase details. Please call us back or press 1 to speak with a Walmart customer support representative."\nClick here: 14699825001 to listen to full voice message.';
+  '17605550182 Deposited a new message:\n"This notification relates to an HP Specter X 360 14 inch order for approximately $999. Open your Walmart account through the official app or website to review the purchase details. Please call us back or press 1 to speak with a Walmart customer support representative."\nClick here: 14695550147 to listen to full voice message.';
 
 function options(extra: Partial<ScanOptions> = {}) {
   const fake = fakeNetwork({ now });
@@ -15,7 +15,7 @@ function options(extra: Partial<ScanOptions> = {}) {
 describe("phone numbers in messages", () => {
   it("rates a fake order voicemail as high risk and notes the number reported to the FTC, without sending or showing it", async () => {
     const asked: string[][] = [];
-    const { scan, fake } = options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: ["+14699825001"] }, asked, Math.floor(now.getTime() / 1000) - 3600) });
+    const { scan, fake } = options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: ["+14695550147"] }, asked, Math.floor(now.getTime() / 1000) - 3600) });
     const report = await scanContent(walmart, scan);
     expect(report.level).toBe("high_risk");
     expect(report.summary).toBe("This matches the fake order or voicemail callback scam.");
@@ -28,9 +28,9 @@ describe("phone numbers in messages", () => {
     expect(report.recommendations[0]).toBe("Do not reply, call any number in it, or send money, codes, or files.");
     expect(report.recommendations.some((tip) => tip.startsWith("Do not call the number in the message."))).toBe(true);
     expect(report.recommendations.join(" ")).not.toContain("Do not open the link");
-    expect(asked.flat()).toEqual(expect.arrayContaining(["+17607662951", "+14699825001"]));
+    expect(asked.flat()).toEqual(expect.arrayContaining(["+17605550182", "+14695550147"]));
     const everything = JSON.stringify(report) + JSON.stringify(fake.requests);
-    for (const digits of ["7607662951", "4699825001", "982-5001"]) {
+    for (const digits of ["7605550182", "4695550147", "555-0147"]) {
       expect(everything).not.toContain(digits);
     }
     expect(report.subject.display.startsWith("[number hidden] Deposited a new message")).toBe(true);
@@ -53,23 +53,23 @@ describe("phone numbers in messages", () => {
   });
 
   it("adds FCC complaints as a second, smaller warning when the FTC also has reports", async () => {
-    const both = await scanContent("hey it's me, my new number is 469-982-5001", options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: ["+14699825001"], fcc_complaints: ["+14699825001"] }) }).scan);
+    const both = await scanContent("hey it's me, my new number is 469-555-0147", options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: ["+14695550147"], fcc_complaints: ["+14695550147"] }) }).scan);
     expect(both.evidence.find((item) => item.id === "fcc-complaints")).toMatchObject({
       signal: "raises_risk",
       title: "A phone number in this message was named in complaints to the FCC about unwanted calls",
       source: { name: "FCC consumer complaints", url: "https://opendata.fcc.gov/Consumer/CGB-Consumer-Complaints-Data/3xyp-aqkj" },
     });
     expect(["unknown", "suspicious"]).toContain(both.level);
-    const only = await scanContent("call me back at 469-982-5001", options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: [], fcc_complaints: ["+14699825001"] }) }).scan);
+    const only = await scanContent("call me back at 469-555-0147", options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: [], fcc_complaints: ["+14695550147"] }) }).scan);
     expect(only.evidence.some((item) => item.id === "fcc-complaints")).toBe(true);
     expect(only.evidence.some((item) => item.id === "ftc-dnc")).toBe(false);
-    expect(JSON.stringify(both) + JSON.stringify(only)).not.toContain("4699825001");
+    expect(JSON.stringify(both) + JSON.stringify(only)).not.toContain("4695550147");
     const missing = await scanContent("call me at 714-555-0199", options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: [] }) }).scan);
     expect(missing.notChecked).toContainEqual({ name: "FCC consumer complaints", reason: "not_configured" });
   });
 
   it("counts a reported number as one warning sign, not proof", async () => {
-    const report = await scanContent("hey it's me, my new number is 469-982-5001", options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: ["+14699825001"] }) }).scan);
+    const report = await scanContent("hey it's me, my new number is 469-555-0147", options({ scamLists: listsOf({ phishing_database: [], ftc_dnc: ["+14695550147"] }) }).scan);
     expect(report.evidence.some((item) => item.id === "ftc-dnc")).toBe(true);
     expect(["unknown", "suspicious"]).toContain(report.level);
   });

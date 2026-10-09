@@ -431,7 +431,8 @@ texts served at `/ocr/7.0.0-2/licenses/`. The site credits each source wherever 
 
 ScamCam™, "ScamCam - Check the Scan", and the ScamCam logo are trademarks of Kevin Le. The license covers the code,
 not the name or the logo: a copy or a changed version you share has to use a different name and must not suggest that I
-made or endorse it.
+made or endorse it. ScamCam is not affiliated with or endorsed by Discord, Roblox, Steam, Epic Games, Microsoft,
+Google, or any other company whose name appears in its checks.
 
 ## About
 

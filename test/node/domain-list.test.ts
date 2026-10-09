@@ -118,7 +118,7 @@ test("the list builder reads ScamSniffer's wallet addresses and skips malformed 
 test("the list builder reads FTC phone numbers for the phone list and skips anything that is not a US number", () => {
   const folder = mkdtempSync(join(tmpdir(), "scamcam-list-"));
   try {
-    const lines = ["4699825001", "14699825001", "(469) 982-5001", "0001234567", "Company_Phone_Number", ...Array.from({ length: 120 }, (_, index) => `7145550${String(index).padStart(3, "0")}`)];
+    const lines = ["4695550147", "14695550147", "(469) 555-0147", "0001234567", "Company_Phone_Number", ...Array.from({ length: 120 }, (_, index) => `7145550${String(index).padStart(3, "0")}`)];
     writeFileSync(join(folder, "ftc.txt"), lines.join(String.fromCharCode(10)));
     const summary = JSON.parse(
       execFileSync(process.execPath, [script, "--input", join(folder, "ftc.txt"), "--out", join(folder, "ftc.sql"), "--list", "ftc_dnc", "--version", "ftc-20261006", "--min-entries", "100"], { encoding: "utf8" }),
