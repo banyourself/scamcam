@@ -272,6 +272,7 @@ Problems I hit in production and how I fixed them:
 | Crafted 4,000-character inputs made link and email extraction take up to about 23 ms | Cheap checks first and patterns whose time grows in step with input length. 31 crafted and 300 fuzzed inputs now run in a test, and the worst takes under 1 ms |
 | Safe Browsing v5 answers only in binary Protocol Buffers | A small reader that rejects malformed input, checked against Google's live answers ([src/engine/protobuf.ts](src/engine/protobuf.ts)) |
 | The domain's Cloudflare Web Analytics setting injected an analytics beacon into ScamCam's pages at launch | Pages send `Cache-Control: no-transform`, and the live check confirms no analytics request is made |
+| A phone photo of an installer screen was checked as if `Resume.docx`, a file name in the window behind it, were a website | A link written without `http://` or `https://` is checked only when it ends in a real domain ending from the public suffix list ([src/engine/url-analysis.ts](src/engine/url-analysis.ts)), and a test replays that photo's text |
 
 ## Measured results
 
