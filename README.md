@@ -316,15 +316,15 @@ of each day, run with `npm test` on 2026-10-09.
 
 | Day | Commits | What shipped | Tests passing (Vitest + Node) |
 |---|---|---|---|
-| 2026-10-05 | 30 | The first commit held 13 documents (spec, architecture and threat model, license matrix, cost model, privacy design, test plan, and more) next to the foundation code. Then the evidence-room design, the detection engine with Safe Browsing v5, URLhaus, RDAP, and DNS, caching, the hashed Phishing.Database list, the AI step, a security review with 11 fixes, and the public launch | 20 + 5 at the first commit, 413 + 12 by the end of the day |
+| 2026-10-05 | 28 | The first commit held 12 documents (spec, architecture and threat model, license matrix, cost model, privacy design, test plan, and more) next to the foundation code. Then the evidence-room design, the detection engine with Safe Browsing v5, URLhaus, RDAP, and DNS, caching, the hashed Phishing.Database list, the AI step, a security review with 11 fixes, and the public launch | 20 + 5 at the first commit, 413 + 12 by the end of the day |
 | 2026-10-06 | 22 | Screenshot reading, expiring share links, the Scanner Durable Object, redirect decoding, file checks, ThreatFox, result flags, five more scam lists, Spamhaus over DNS over HTTPS, PhishStats, Cloudflare Radar, phone number checks, and the AGPL license | 621 + 18 |
 | 2026-10-07 | 20 | Discord and Steam checks, scam wallets, FCC numbers, email files, more file types, 25 rules for scams without links, short link expansion, Minecraft mods and modpacks, three benchmark gaps closed, the browser extension, Report it, and public totals | 800 + 19 |
 | 2026-10-08 | 10 | The breach check with k-anonymity, GitHub repository facts, the shared-host fix for code and file sharing sites, official brand domains checked against Wikidata, the site lookup, password tools, login token removal, and throwaway sender checks | 889 + 34 |
-| 2026-10-09 | 3 | The site lookup says where each breach result comes from, so a missing Have I Been Pwned entry no longer seems to contradict an official notice. The risk meter stacks into rows on phones, file names read from a screenshot such as Resume.docx are no longer checked as websites, and this README | 890 + 34 |
+| 2026-10-09 | 5 | The site lookup says where each breach result comes from, so a missing Have I Been Pwned entry no longer seems to contradict an official notice. The risk meter stacks into rows on phones, file names read from a screenshot such as Resume.docx are no longer checked as websites, and this README | 890 + 34 |
 
 <img src="docs/images/launch-report.webp" width="560" alt="The launch-day build's report for the same fake Nitro message: High risk with six exhibits and no outside checker links.">
 
-<sub>The same message scanned by the launch-day build (commit `a0f5082`). Compared with today's report above, it has
+<sub>The same message scanned by the launch-day build (commit `19f0a93`). Compared with today's report above, it has
 no "gift in the address" rule (added on 2026-10-07 after the held-out benchmark), no links to other checkers, and
 none of the Report it, share, or flag controls below the report.</sub>
 
