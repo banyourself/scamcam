@@ -3,6 +3,13 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-09: PolyForm Noncommercial license and a trademark notice
+
+- ScamCam moved from AGPL-3.0-or-later to the PolyForm Noncommercial License 1.0.0 for this and later versions: anyone
+  can read, run, study, and change it for noncommercial purposes, including schools, charities, and government bodies,
+  and commercial use needs my written permission. Earlier versions keep the license that shipped with them.
+- The README now says that ScamCam, its full name, and its logo are my trademarks and are not covered by the license.
+
 ## 2026-10-09: File names in screenshots are not checked as websites
 
 - A phone photo of an installer screen came back with "resume.docx does not exist right now", because any word with a

@@ -411,9 +411,12 @@ To report a vulnerability, follow [SECURITY.md](SECURITY.md). The machine-readab
 
 ## License and credits
 
-ScamCam's code is released under the [GNU Affero General Public License v3.0 or later](LICENSE). Anyone can use,
-study, and change it, and anyone who runs a modified version for other people has to share their changes under the
-same license.
+Copyright (C) 2026 Kevin Le. ScamCam's code is source-available under the
+[PolyForm Noncommercial License 1.0.0](LICENSE). You can read, run, study, and change it for any noncommercial
+purpose, including personal use and use by schools, charities, and government bodies. Commercial use, such as selling
+it, building it into a paid product, or running it for a business, needs my written permission. Any copy you share has
+to include the license and the line `Required Notice: Copyright (C) 2026 Kevin Le`. Earlier versions keep the license
+that shipped with them.
 
 The threat data ScamCam checks belongs to its providers and keeps their own terms, listed with each source's license
 and attribution in [docs/API_LICENSE_MATRIX.md](docs/API_LICENSE_MATRIX.md). Domain popularity comes from Cloudflare
@@ -423,6 +426,12 @@ Directory by 2factorauth (CC BY 4.0), change-password links from Apple's Passwor
 notices from the Washington State and California attorneys general. The passphrase maker uses the EFF long word list
 (CC BY), and the strength estimate uses zxcvbn-ts (MIT). Tesseract.js and jsQR are Apache 2.0, with their license
 texts served at `/ocr/7.0.0-2/licenses/`. The site credits each source wherever its data is shown.
+
+## Trademark
+
+ScamCam™, "ScamCam - Check the Scan", and the ScamCam logo are trademarks of Kevin Le. The license covers the code,
+not the name or the logo: a copy or a changed version you share has to use a different name and must not suggest that I
+made or endorse it.
 
 ## About
 
