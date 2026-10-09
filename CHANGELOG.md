@@ -3,6 +3,16 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-09: File names in screenshots are not checked as websites
+
+- A phone photo of an installer screen came back with "resume.docx does not exist right now", because any word with a
+  dot in it counted as a link, so the file name Resume.docx in the File Explorer window behind the installer was looked
+  up in DNS and Safe Browsing. A link written without `http://` or `https://` is now checked only when it ends in a real
+  domain ending from the public suffix list (or a reserved test ending such as `.example`), so file names like
+  `Resume.docx`, `setup.exe`, and `report.pdf` are skipped while typed addresses like `discord-nitro.com/claim` are
+  still checked. Links that start with `http://` or `https://` are always checked.
+- Verified: typecheck, 890 Vitest tests in 60 files (1 new, which fails without the fix), and 34 node tests.
+
 ## 2026-10-09: Risk meter fits phone screens, and a new README
 
 - On screens under 640 px the five risk meter labels ran into each other ("SUSPICIOUSHIGH RISK"), because each

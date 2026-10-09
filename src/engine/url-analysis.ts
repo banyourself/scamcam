@@ -265,6 +265,16 @@ function safeDecode(value: string): string {
   }
 }
 
+const reservedSuffixes = new Set(["example", "test", "invalid"]);
+
+export function isAddress(original: string): boolean {
+  if (schemePattern.test(original)) {
+    return true;
+  }
+  const parsed = parse(original.split(/[/?#:]/, 1)[0]!.toLowerCase());
+  return Boolean(parsed.isIp) || Boolean(parsed.isIcann) || reservedSuffixes.has(parsed.publicSuffix ?? "");
+}
+
 export function analyzeLink(original: string): AnalyzedLink {
   const result: AnalyzedLink = {
     original,

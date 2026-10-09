@@ -297,7 +297,7 @@ communities also use for their own invite pages) and heavy misspellings.
 | Check | Command | Result on 2026-10-09 |
 |---|---|---|
 | Strict type check | `npm run typecheck` | Passes |
-| Worker, engine, and client tests (Vitest, Worker tests inside workerd with a real local D1 and a fake network that records every outgoing request) | `npm run test:worker` | 889 tests in 60 files pass |
+| Worker, engine, and client tests (Vitest, Worker tests inside workerd with a real local D1 and a fake network that records every outgoing request) | `npm run test:worker` | 890 tests in 60 files pass |
 | Config and script tests (cron parity, CSP, pinned Actions, no em dashes or hidden characters, flags isolation) | `npm run test:config` | 34 pass |
 | Accessibility: axe-core WCAG 2.2 AA on every page, both themes, 1280 and 320 px, plus real scan, flag, email, and breach flows | `npm run test:a11y` | 72 checks pass |
 | Privacy and headers: a real Chrome visits 13 pages, scans, flags, shares, reads a screenshot, checks a file, a mod, an email, and a password, and fails on any outside origin, cookie, stray storage, or leaked text; plus headers on 25 static paths and 4 API answers and a secret scan of 63 built files | `npm run test:privacy` | Passes. Only ScamCam and `challenges.cloudflare.com` were contacted, no cookies, and only `scamcam-theme` stored |
@@ -319,7 +319,7 @@ of each day, run with `npm test` on 2026-10-09.
 | 2026-10-06 | 22 | Screenshot reading, expiring share links, the Scanner Durable Object, redirect decoding, file checks, ThreatFox, result flags, five more scam lists, Spamhaus over DNS over HTTPS, PhishStats, Cloudflare Radar, phone number checks, and the AGPL license | 621 + 18 |
 | 2026-10-07 | 20 | Discord and Steam checks, scam wallets, FCC numbers, email files, more file types, 25 rules for scams without links, short link expansion, Minecraft mods and modpacks, three benchmark gaps closed, the browser extension, Report it, and public totals | 800 + 19 |
 | 2026-10-08 | 10 | The breach check with k-anonymity, GitHub repository facts, the shared-host fix for code and file sharing sites, official brand domains checked against Wikidata, the site lookup, password tools, login token removal, and throwaway sender checks | 889 + 34 |
-| 2026-10-09 | 2 | The site lookup says where each breach result comes from, so a missing Have I Been Pwned entry no longer seems to contradict an official notice. The risk meter stacks into rows on phones, and this README | 889 + 34 |
+| 2026-10-09 | 3 | The site lookup says where each breach result comes from, so a missing Have I Been Pwned entry no longer seems to contradict an official notice. The risk meter stacks into rows on phones, file names read from a screenshot such as Resume.docx are no longer checked as websites, and this README | 890 + 34 |
 
 <img src="docs/images/launch-report.webp" width="560" alt="The launch-day build's report for the same fake Nitro message: High risk with six exhibits and no outside checker links.">
 

@@ -511,6 +511,15 @@ describe("disguised and hidden links", () => {
     expect(report.subject.registrableDomain).toBe("gta2026.net");
   });
 
+  it("does not treat file names read from a photo of a screen as websites", async () => {
+    const { fake, scan } = options();
+    const report = await scanContent("Completing Live Minutes Setup\nLive Minutes has been installed on your computer.\nResume.docx 10/8/2026 10:21 AM\nsetup.exe report.pdf", scan);
+    expect(report.subject.registrableDomain).toBeUndefined();
+    expect(fake.requests).toEqual([]);
+    const typed = await scanContent("claim it at discord-nitro.com/claim", options().scan);
+    expect(typed.subject.registrableDomain).toBe("discord-nitro.com");
+  });
+
   it("catches the same trick in Slack's link format", async () => {
     const report = await scanContent("check your trade <https://trade-check.example/login|steamcommunity.com/tradeoffer>", options().scan);
     expect(report.evidence.map((item) => item.title)).toContain("Shows steamcommunity.com but opens trade-check.example");

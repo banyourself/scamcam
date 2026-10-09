@@ -25,7 +25,7 @@ import { lookupSpamhaus, spamhausDblUrl, spamhausZrdUrl, type DblListing, type D
 import { bitlyHomePage, expandShortLink, isgdHomePage, maxExpandedLinks, shortLinkRef, type ShortLinkRef, type ShortLinkService } from "./short-links";
 import { lookupSteamAccounts, maxSteamAccounts, steamHomePage, type SteamAccountResult } from "./steam";
 import { githubDocs, lookupGithub, maxGithubLinks, type GithubResult } from "./github";
-import { analyzeLink, type AnalyzedLink, type GithubRef } from "./url-analysis";
+import { analyzeLink, isAddress, type AnalyzedLink, type GithubRef } from "./url-analysis";
 import { lookupThreatfoxHost, threatfoxHomePage, type ThreatfoxResult } from "./threatfox";
 import { lookupUrlhausHost, sameUrl, urlhausHomePage, type UrlhausResult } from "./urlhaus";
 import { decideVerdict } from "./verdict";
@@ -1075,7 +1075,7 @@ export async function scanContent(content: string, options: ScanOptions): Promis
   const lookups = options.lookups ?? memoryLookups();
   const checkedAt = now.toISOString();
   const extracted = extractInput(content);
-  const realLinks = linksOutsideLinkText(extracted.redactedText, extracted.links);
+  const realLinks = linksOutsideLinkText(extracted.redactedText, extracted.links).filter(isAddress);
   const wrappers = new Set<AnalyzedLink>();
   const links = withDestinations(realLinks, wrappers);
   const expansionGaps = options.extendedLookups ? await expandShortLinks(links, wrappers, options, lookups) : [];
