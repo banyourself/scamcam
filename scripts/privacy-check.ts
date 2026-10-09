@@ -696,7 +696,7 @@ async function checkBreaches(): Promise<string[]> {
       await cdp.evaluate(setInput('input[type="search"]', searchProbe));
       await waitFor(cdp, `${buttonNamed("Search")} && !${buttonNamed("Search")}.disabled`);
       await cdp.evaluate(`${buttonNamed("Search")}.click()`);
-      await waitFor(cdp, `/No known breach matches|could not be loaded/.test(${breachStatus})`);
+      await waitFor(cdp, `/has no leaked data from|breach(es)? match|could not be loaded/.test(${breachStatus})`);
       await cdp.evaluate(`${buttonNamed("Make a passphrase")}.click()`);
       await waitFor(cdp, `/bits of randomness/.test(document.body.textContent)`);
       phrase = await cdp.evaluate<string>(`document.querySelector('p[translate="no"]').textContent`);

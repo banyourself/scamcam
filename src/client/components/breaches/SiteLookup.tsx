@@ -247,35 +247,14 @@ export function SiteLookup() {
           </div>
 
           <div>
-            <h4 className="!mt-0 font-semibold text-ink">Known breaches</h4>
-            {!loaded.catalog ? (
-              <p>The breach list could not be loaded right now. Try again in a few minutes.</p>
-            ) : breaches.length === 0 ? (
-              <p>
-                No known breach matches &quot;{shown.trim()}&quot;. That does not prove the site was never breached; many breaches are never made
-                public.
-              </p>
-            ) : (
-              <>
-                <p>
-                  {breaches.length === 20 ? "The first 20" : breaches.length} known {breaches.length === 1 ? "breach matches" : "breaches match"} &quot;
-                  {shown.trim()}&quot;.
-                </p>
-                <ul className="!list-none !pl-0">
-                  {breaches.map((entry) => (
-                    <BreachItem key={entry.name} entry={entry} catalog={loaded.catalog!} />
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
-
-          <div>
             <h4 className="!mt-0 font-semibold text-ink">Breach notices filed with state attorneys general</h4>
             {!loaded.notices ? (
               <p>The breach notice list could not be loaded right now. Try again in a few minutes.</p>
             ) : notices.length === 0 ? (
-              <p>No breach notice filed in Washington or California matches &quot;{shown.trim()}&quot;.</p>
+              <p>
+                No breach notice filed in Washington or California matches &quot;{shown.trim()}&quot;. Companies file there only when a
+                breach affects people in those states.
+              </p>
             ) : (
               <>
                 <p>
@@ -285,6 +264,32 @@ export function SiteLookup() {
                 <ul className="!list-none !pl-0">
                   {notices.map((notice) => (
                     <NoticeItem key={`${notice.s}-${notice.n}-${notice.r}`} notice={notice} />
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+
+          <div>
+            <h4 className="!mt-0 font-semibold text-ink">Leaked data on Have I Been Pwned</h4>
+            {!loaded.catalog ? (
+              <p>The breach list could not be loaded right now. Try again in a few minutes.</p>
+            ) : breaches.length === 0 ? (
+              <p>
+                Have I Been Pwned has no leaked data from &quot;{shown.trim()}&quot;.{" "}
+                {notices.length > 0
+                  ? "It lists a breach only once the stolen data turns up, so a company can report a breach, as above, without appearing here."
+                  : "That does not prove the site was never breached; many breaches are never made public."}
+              </p>
+            ) : (
+              <>
+                <p>
+                  {breaches.length === 20 ? "The first 20" : breaches.length} {breaches.length === 1 ? "breach matches" : "breaches match"} &quot;
+                  {shown.trim()}&quot;.
+                </p>
+                <ul className="!list-none !pl-0">
+                  {breaches.map((entry) => (
+                    <BreachItem key={entry.name} entry={entry} catalog={loaded.catalog!} />
                   ))}
                 </ul>
               </>

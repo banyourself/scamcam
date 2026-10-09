@@ -3,6 +3,13 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-09: Site lookup says where each breach result comes from
+
+- A search for discord.com said "No known breach matches" above Discord's breach notice to the California Attorney
+  General, because Have I Been Pwned lists a breach only once the stolen data turns up. The lookup now shows the
+  attorney general notices first, calls the next section "Leaked data on Have I Been Pwned", and, when a notice exists,
+  explains why Have I Been Pwned can still have nothing.
+
 ## 2026-10-08: Breach page tools, login tokens kept out of checks, and sender checks
 
 - /breaches gained a password strength estimate (zxcvbn-ts 4, MIT, loaded only when someone types a password), a

@@ -139,7 +139,7 @@ async function auditBreachFlow(cdp: Cdp, base: string): Promise<string[]> {
         await waitFor(cdp, `/appeared in data breaches|not found in any known breach|could not be reached|a lot of passwords/.test(${statusText})`);
         await cdp.evaluate(typeInto('input[type="search"]', "adobe"));
         await cdp.evaluate(pressButton("Search"));
-        await waitFor(cdp, `/breach(es)? match|No known breach matches|could not be loaded/.test(${statusText})`);
+        await waitFor(cdp, `/breach(es)? match|has no leaked data from|could not be loaded/.test(${statusText})`);
         await cdp.evaluate(typeInto('input[type="password"]', "accessibility check password"));
         await waitFor(cdp, `/Strength:|could not load/.test(document.body.textContent)`);
         await cdp.evaluate(pressButton("Make a passphrase"));
