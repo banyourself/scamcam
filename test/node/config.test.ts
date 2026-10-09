@@ -124,12 +124,13 @@ test("the sitemap lists every public page and nothing else", () => {
 
 const emDash = String.fromCharCode(0x2014);
 const generatedFiles = new Set(["worker-configuration.d.ts", "package-lock.json"]);
+const binaryFile = /\.(png|jpe?g|gif|webp|avif|ico|bmp|woff2?|ttf|otf|eot|wasm|gz|zip|pdf|mp3|mp4|webm)$/i;
 
 function projectFiles(): string[] {
   const roots = ["src", "test", "public", "migrations", "docs", ".github", "scripts"];
   const files = roots.flatMap((root) =>
     (readdirSync(new URL(`../../${root}`, import.meta.url), { recursive: true, withFileTypes: true }) as Dirent[])
-      .filter((entry) => entry.isFile())
+      .filter((entry) => entry.isFile() && !binaryFile.test(entry.name))
       .map((entry) => join(entry.parentPath, entry.name)),
   );
   const rootFiles = readdirSync(new URL("../../", import.meta.url))

@@ -3,6 +3,17 @@
 What shipped in ScamCam and how it was verified, newest first. Dates come from the commit history. The current
 state, test totals, and open items are in [docs/STATUS.md](docs/STATUS.md).
 
+## 2026-10-09: Risk meter fits phone screens, and a new README
+
+- On screens under 640 px the five risk meter labels ran into each other ("SUSPICIOUSHIGH RISK"), because each
+  column was about 44 to 57 px wide and the longest labels need about 64 px. Below 640 px the meter is now a list of
+  five rows, each a short bar and its label; from 640 px up it is the same five-column meter as before. Checked in
+  headless Chrome at 320, 360, 390, 414, 640, 768, 1024, and 1280 px in both themes.
+- The README was rewritten with the architecture, the security and privacy controls, code excerpts, measured results,
+  a build log, and screenshots from a local build with a made-up message. The config test that looks for em dashes and
+  hidden characters now skips image and other binary files.
+- Verified: typecheck, 889 Vitest tests in 60 files, 34 node tests, and the accessibility check (72 checks).
+
 ## 2026-10-09: Site lookup says where each breach result comes from
 
 - A search for discord.com said "No known breach matches" above Discord's breach notice to the California Attorney
